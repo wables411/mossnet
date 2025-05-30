@@ -55,6 +55,92 @@ h1 {
     color: #00ff00;
     font-size: 1.2em;
     text-shadow: 1px 1px #000;
+    margin-bottom: 10px;
+}
+
+/* Connect Wallet Button */
+.connect-wallet-btn {
+    background: #228B22;
+    color: #00ff00;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 1.1em;
+    padding: 10px 20px;
+    border: 2px solid #00ff00;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.connect-wallet-btn:hover {
+    background: #006400;
+}
+
+/* Wallet Address */
+.wallet-address {
+    color: #00ff00;
+    font-size: 1em;
+    text-shadow: 1px 1px #000;
+    margin-top: 10px;
+}
+
+/* NFT Overlay */
+.nft-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 999;
+}
+
+.nft-container {
+    background: rgba(0, 0, 0, 0.7);
+    padding: 20px;
+    border: 2px solid #00ff00;
+    max-width: 90%;
+    max-height: 70%;
+    overflow-y: auto;
+}
+
+.nft-title {
+    font-size: 1.8em;
+    text-shadow: 2px 2px #000;
+    margin-bottom: 15px;
+}
+
+.nft-list {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 15px;
+}
+
+.nft-item {
+    background: rgba(0, 0, 0, 0.8);
+    padding: 10px;
+    width: 200px;
+    text-align: center;
+}
+
+.nft-item img {
+    width: 100%;
+    height: auto;
+}
+
+.nft-item p {
+    color: #00ff00;
+    font-size: 0.9em;
+    margin: 5px 0;
+}
+
+.nft-empty {
+    color: #00ff00;
+    font-size: 1em;
+    text-shadow: 1px 1px #000;
 }
 
 /* Link List */
@@ -64,7 +150,7 @@ h1 {
 
 .link-list li {
     margin: 15px 0;
-    position: relative; /* For tooltip positioning */
+    position: relative;
 }
 
 .link-list a {
@@ -106,68 +192,15 @@ h1 {
     opacity: 1;
 }
 
-/* Image Tooltip for MossNet */
-.link-list a.tooltip-mossnet {
-    position: relative;
-}
-
-.link-list a.tooltip-mossnet::after {
-    content: '';
-    position: absolute;
-    bottom: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    background: url('assets/cignet.png') no-repeat center/contain;
-    width: 200px;
-    height: 100px;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.3s;
-    z-index: 10;
-    margin-bottom: 10px;
-}
-
-.link-list a.tooltip-mossnet:hover::after {
-    opacity: 1;
-}
-
-/* Image Tooltip for MossNet: Banners */
-.link-list a.tooltip-banners {
-    position: relative;
-}
-
-.link-list a.tooltip-banners::after {
-    content: '';
-    position: absolute;
-    bottom: 100%;
-    left: 50%;
-    transform: translateX(-50%);
-    background: url('assets/banner.png') no-repeat center/contain;
-    width: 200px;
-    height: 100px;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.3s;
-    z-index: 10;
-    margin-bottom: 10px;
-}
-
-.link-list a.tooltip-banners:hover::after {
-    opacity: 1;
-}
-
-/* Image Tooltip for Mossawrettes */
-.link-list a.tooltip-mossawrettes {
-    position: relative;
-}
-
+/* Image Tooltips */
+.link-list a.tooltip-mossnet::after,
+.link-list a.tooltip-banners::after,
 .link-list a.tooltip-mossawrettes::after {
     content: '';
     position: absolute;
     bottom: 100%;
     left: 50%;
     transform: translateX(-50%);
-    background: url('assets/mossawrettes.png') no-repeat center/contain;
     width: 200px;
     height: 100px;
     opacity: 0;
@@ -177,6 +210,20 @@ h1 {
     margin-bottom: 10px;
 }
 
+.link-list a.tooltip-mossnet::after {
+    background: url('assets/cignet.png') no-repeat center/contain;
+}
+
+.link-list a.tooltip-banners::after {
+    background: url('assets/banner.png') no-repeat center/contain;
+}
+
+.link-list a.tooltip-mossawrettes::after {
+    background: url('assets/mossawrettes.png') no-repeat center/contain;
+}
+
+.link-list a.tooltip-mossnet:hover::after,
+.link-list a.tooltip-banners:hover::after,
 .link-list a.tooltip-mossawrettes:hover::after {
     opacity: 1;
 }
@@ -200,7 +247,7 @@ h1 {
 .seed-btn {
     position: fixed;
     bottom: 20px;
-    left: 20px; /* Offset from beetle button */
+    left: 20px;
     background: #228B22;
     color: #fff;
     font-size: 2em;
@@ -248,7 +295,7 @@ h1 {
 
 .iframe-overlay .iframe-content {
     width: 90%;
-    height: 600px; /* Increased height for desktop */
+    height: 600px;
     border: 2px solid #00ff00;
 }
 
@@ -294,11 +341,37 @@ h1 {
         font-size: 1.1em;
     }
 
+    .connect-wallet-btn {
+        font-size: 1em;
+        padding: 8px 16px;
+    }
+
+    .wallet-address {
+        font-size: 0.9em;
+    }
+
+    .nft-container {
+        max-width: 95%;
+        max-height: 60%;
+        padding: 15px;
+    }
+
+    .nft-title {
+        font-size: 1.5em;
+    }
+
+    .nft-item {
+        width: 150px;
+    }
+
+    .nft-item p {
+        font-size: 0.8em;
+    }
+
     .link-list a {
         font-size: 1.1em;
     }
 
-    /* Adjust tooltips for mobile */
     .link-list a[data-tooltip]::after {
         font-size: 0.8em;
         padding: 4px 8px;
@@ -320,7 +393,7 @@ h1 {
 
     .seed-btn {
         bottom: 15px;
-        left: 15px; /* Offset for mobile */
+        left: 15px;
     }
 
     .video-overlay video {
@@ -330,7 +403,7 @@ h1 {
 
     .iframe-overlay .iframe-content {
         width: 95%;
-        height: 350px; /* Increased height for mobile */
+        height: 350px;
     }
 }
 

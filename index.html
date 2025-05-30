@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MossNet</title>
     <link rel="stylesheet" href="styles.css">
+    <link rel="icon" href="assets/favicon.ico" type="image/x-icon">
 </head>
 <body>
     <!-- Beetle Button -->
@@ -33,7 +34,7 @@
                 allow="clipboard-write"
                 class="iframe-content"
             ></iframe>
-            <p class="iframe-fallback hidden">Iframe failed to load. Visit <a href="https://www.defined.fi/sanko/0x4a5ad9af56e2291f61d6c59ec098fe71b61fb2c4?quoteToken=token0" target="_blank">$MOSS on Defined.fi</a>.</p>
+            <p class="iframe-fallback hidden">Iframe failed to load due to security settings. Visit <a href="https://www.defined.fi/sanko/0x4a5ad9af56e2291f61d6c59ec098fe71b61fb2c4?quoteToken=token1" target="_blank">$MOSS on Defined.fi</a>.</p>
         </div>
         <button id="minimize-iframe-btn" class="minimize-btn">Minimize</button>
     </div>
@@ -71,8 +72,8 @@
         </ul>
     </div>
 
-    <!-- Include Web3.js and Moralis SDK -->
-    <script src="https://cdn.jsdelivr.net/npm/web3@1.8.2/dist/web3.min.js"></script>
+    <!-- Include ethers.js and Moralis SDK -->
+    <script src="https://cdn.jsdelivr.net/npm/ethers@6.7.0/dist/ethers.umd.min.js"></script>
     <script src="https://unpkg.com/moralis@2.22.4/dist/moralis.js"></script>
     <script src="script.js"></script>
 </body>

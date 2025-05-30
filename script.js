@@ -24,18 +24,25 @@ Moralis.start({
 async function connectWallet() {
     if (typeof window.ethereum !== 'undefined') {
         try {
-            const web3 = new Web3(window.ethereum);
-            const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
+            const provider = new ethers.BrowserProvider(window.ethereum);
+            const accounts = await provider.send('eth_requestAccounts', []);
             const address = accounts[0];
             walletAddressEl.textContent = `Connected: ${address.slice(0, 6)}...${address.slice(-4)}`;
             walletAddressEl.classList.remove('hidden');
             connectWalletBtn.textContent = 'Check NFTs';
             connectWalletBtn.onclick = checkNFTs;
-            await addSankoChain();
+
+            // Check current chain
+            const chainId = await provider.getNetwork().then(net => net.chainId);
+            if (Number(chainId) !== 1996) {
+                await addSankoChain();
+            }
         } catch (error) {
             console.error('Wallet connection failed:', error);
             if (error.code === 4001) {
                 walletAddressEl.textContent = 'Please accept the MetaMask prompt.';
+            } else if (error.message.includes('f is not a function')) {
+                walletAddressEl.textContent = 'MetaMask error. Try updating MetaMask or switching browsers.';
             } else {
                 walletAddressEl.textContent = 'Connection failed. Try again.';
             }
@@ -53,7 +60,7 @@ async function addSankoChain() {
         await window.ethereum.request({
             method: 'wallet_addEthereumChain',
             params: [{
-                chainId: '0x7CC', // 1996 in hex
+                chainId: '0x7CC', // 1996
                 chainName: 'Sanko Mainnet',
                 rpcUrls: ['https://mainnet.sanko.xyz'],
                 nativeCurrency: { name: 'Dream Machine Token', symbol: 'DMT', decimals: 18 },
@@ -62,7 +69,7 @@ async function addSankoChain() {
         });
     } catch (error) {
         console.error('Failed to add Sanko chain:', error);
-        walletAddressEl.textContent = 'Failed to add Sanko chain. Add manually.';
+        walletAddressEl.textContent = 'Please switch to Sanko chain (ID: 1996) manually.';
         walletAddressEl.classList.remove('hidden');
     }
 }
@@ -70,7 +77,8 @@ async function addSankoChain() {
 // Check NFTs
 async function checkNFTs() {
     try {
-        const accounts = await ethereum.request({ method: 'eth_accounts' });
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const accounts = await provider.send('eth_accounts', []);
         if (!accounts[0]) {
             walletAddressEl.textContent = 'Please reconnect wallet.';
             walletAddressEl.classList.remove('hidden');

@@ -38,6 +38,17 @@ h1 {
     margin-bottom: 20px;
 }
 
+/* Minting Placeholder */
+.mint-section {
+    margin-bottom: 20px;
+}
+
+.mint-placeholder {
+    color: #00ff00;
+    font-size: 1.2em;
+    text-shadow: 1px 1px #000;
+}
+
 /* Link List */
 .link-list {
     list-style: none;
@@ -45,6 +56,7 @@ h1 {
 
 .link-list li {
     margin: 15px 0;
+    position: relative; /* For tooltip positioning */
 }
 
 .link-list a {
@@ -56,6 +68,88 @@ h1 {
 
 .link-list a:hover {
     color: #ff00ff;
+}
+
+/* Text Tooltip */
+.link-list a[data-tooltip] {
+    position: relative;
+}
+
+.link-list a[data-tooltip]::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: #00ff00;
+    padding: 5px 10px;
+    border: 1px solid #00ff00;
+    border-radius: 5px;
+    font-size: 0.9em;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+    z-index: 10;
+}
+
+.link-list a[data-tooltip]:hover::after {
+    opacity: 1;
+}
+
+/* Image Tooltip for MossNet */
+.link-list a.tooltip-mossnet {
+    position: relative;
+}
+
+.link-list a.tooltip-mossnet::after {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: url('assets/cignet.png') no-repeat center/contain;
+    width: 200px;
+    height: 100px;
+    border: 2px solid #00ff00;
+    box-shadow: 0 0 5px #00ff00;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+    z-index: 10;
+    margin-bottom: 10px;
+}
+
+.link-list a.tooltip-mossnet:hover::after {
+    opacity: 1;
+}
+
+/* Image Tooltip for MossNet: Banners */
+.link-list a.tooltip-banners {
+    position: relative;
+}
+
+.link-list a.tooltip-banners::after {
+    content: '';
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: url('assets/banner.png') no-repeat center/contain;
+    width: 200px;
+    height: 100px;
+    border: 2px solid #00ff00;
+    box-shadow: 0 0 5px #00ff00;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s;
+    z-index: 10;
+    margin-bottom: 10px;
+}
+
+.link-list a.tooltip-banners:hover::after {
+    opacity: 1;
 }
 
 /* Beetle Button */
@@ -107,33 +201,6 @@ h1 {
     display: none;
 }
 
-/* Minting Section */
-.mint-section {
-    margin-top: 20px;
-}
-
-.mint-btn {
-    background: #228B22;
-    color: #00ff00;
-    border: 2px solid #00ff00;
-    padding: 10px 20px;
-    font-family: 'Courier New', Courier, monospace;
-    font-size: 1.1em;
-    cursor: pointer;
-    margin: 5px;
-}
-
-.mint-btn:disabled {
-    background: #555;
-    cursor: not-allowed;
-}
-
-.mint-status {
-    color: #00ff00;
-    font-size: 1em;
-    margin-top: 10px;
-}
-
 /* Mobile Styles */
 @media (max-width: 768px) {
     body {
@@ -152,17 +219,30 @@ h1 {
         font-size: 2em;
     }
 
+    .mint-placeholder {
+        font-size: 1.1em;
+    }
+
     .link-list a {
         font-size: 1.1em;
+    }
+
+    /* Adjust tooltips for mobile */
+    .link-list a[data-tooltip]::after {
+        font-size: 0.8em;
+        padding: 4px 8px;
+        white-space: normal;
+        max-width: 200px;
+    }
+
+    .link-list a.tooltip-mossnet::after,
+    .link-list a.tooltip-banners::after {
+        width: 150px;
+        height: 75px;
     }
 
     .beetle-btn {
         bottom: 15px;
         right: 15px;
-    }
-
-    .mint-btn {
-        width: 100%;
-        padding: 12px;
     }
 }

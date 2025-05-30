@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MossNet</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- Wagmi and dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/viem@2.21.35/dist/umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@wagmi/core@2.13.8/dist/umd/index.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@wagmi/connectors@5.1.13/dist/umd/index.js"></script>
+</head>
+<body>
+    <!-- Beetle Button -->
+    <button id="beetle-btn" class="beetle-btn">🪲</button>
+
+    <!-- Video Overlay -->
+    <div id="video-overlay" class="video-overlay hidden">
+        <video id="overlay-video" controls>
+            <source src="assets/mossbeetle.mp4" type="video/mp4">
+            Your browser does not support the video tag.
+        </video>
+        <button id="minimize-btn" class="minimize-btn">Minimize</button>
+    </div>
+
+    <!-- Main Content -->
+    <div class="container">
+        <h1>MossNet</h1>
+        <ul class="link-list">
+            <li><a href="https://sudoswap.xyz/#/browse/sanko/buy/0x8e718b4afe2ad12345c5a327e3c2cb7645026bb2" target="_blank">MossNet</a></li>
+            <li><a href="https://sudoswap.xyz/#/browse/sanko/buy/0x9275bf0a32ae3c9227065f998ac0b392fb9f0bfe" target="_blank">MossNet: Banners</a></li>
+            <li><a href="https://tools.sanko.xyz/address/0xea240b96a9621e67159c59941b9d588eb290ef09" target="_blank">$MOSS on Sanko</a></li>
+            <li><a href="https://opensea.io/collection/mossawrettes" target="_blank">Mossawrettes</a></li>
+            <li><a href="https://x.com/mossmossmoss420" target="_blank">Twitter</a></li>
+            <li><a href="https://sanko.tv/mossmossmoss420" target="_blank">Sanko TV</a></li>
+        </ul>
+        <!-- Minting Section -->
+        <div class="mint-section">
+            <button id="connect-wallet" class="mint-btn">Connect Wallet</button>
+            <button id="mint-nft" class="mint-btn" disabled>Mint NFT</button>
+            <p id="mint-status" class="mint-status"></p>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    <script src="mint.js"></script>
+</body>
+</html>

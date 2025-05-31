@@ -17,14 +17,93 @@ const minimizeNftBtn = document.getElementById('minimize-nft-btn');
 
 // Moralis setup
 Moralis.start({
-    apiKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6IjFhZGY2OGE4LTk1MjMtNGE3NC1iNWI1LTMzNTQ0MGZhNjE5NiIsIm9yZ0lkIjoiNDUwMTQyIiwidXNlcklkIjoiNDYzMTU1IiwidHlwZUlkIjoiNDcyYWQxZWQtMDBlMi00M2RiLWI4MjAtMTI0NGE1NzdlMjg0IiwidHlwZSI6IlBST0pFQ1QiLCJpYXQiOjE3NDg2MzgwNDgsImV4cCI6NDkwNDM5ODA0OH0.Syr_w9VIl7ozDwIOLoQFA74qlgqP4t14WBvXORwsjfY' // Replace with your Moralis API key
+    apiKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6IjFhZGY2OGE4LTk1MjMtNGE3NC1iNWI1LTMzNTQ0MGZhNjE5NiIsIm9yZ0lkIjoiNDUwMTQyIiwidXNlcklkIjoiNDYzMTU1IiwidHlwZUlkIjoiNDcyYWQxZWQtMDBlMi00M2RiLWI4MjAtMTI0NGE1NzdlMjg0IiwidHlwZSI6IlBST0pFQ1QiLCJpYXQiOjE3NDg2MzgwNDgsImV4cCI6NDkwNDM5ODA0OH0.Syr_w9VIl7ozDwIOLoQFA74qlgqP4t14WBvXORwsjfY'
 });
 
-// ERC-721 ABI (minimal)
+// ERC-721 ABI (standard JSON format with Transfer event)
 const erc721Abi = [
-    "function balanceOf(address owner) view returns (uint256)",
-    "function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)",
-    "function tokenURI(uint256 tokenId) view returns (string)"
+    {
+        "constant": true,
+        "inputs": [
+            {
+                "name": "owner",
+                "type": "address"
+            }
+        ],
+        "name": "balanceOf",
+        "outputs": [
+            {
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "type": "function"
+    },
+    {
+        "constant": true,
+        "inputs": [
+            {
+                "name": "owner",
+                "type": "address"
+            },
+            {
+                "name": "index",
+                "type": "uint256"
+            }
+        ],
+        "name": "tokenOfOwnerByIndex",
+        "outputs": [
+            {
+                "name": "",
+                "type": "uint256"
+            }
+        ],
+        "type": "function"
+    },
+    {
+        "constant": true,
+        "inputs": [
+            {
+                "name": "tokenId",
+                "type": "uint256"
+            }
+        ],
+        "name": "tokenURI",
+        "outputs": [
+            {
+                "name": "",
+                "type": "string"
+            }
+        ],
+        "type": "function"
+    },
+    {
+        "constant": true,
+        "inputs": [
+            {
+                "name": "tokenId",
+                "type": "uint256"
+            }
+        ],
+        "name": "ownerOf",
+        "outputs": [
+            {
+                "name": "",
+                "type": "address"
+            }
+        ],
+        "type": "function"
+    },
+    {
+        "anonymous": false,
+        "inputs": [
+            { "indexed": true, "name": "from", "type": "address" },
+            { "indexed": true, "name": "to", "type": "address" },
+            { "indexed": true, "name": "tokenId", "type": "uint256" }
+        ],
+        "name": "Transfer",
+        "type": "event"
+    }
 ];
 
 // Sanko chain config
@@ -32,6 +111,13 @@ const sankoRpc = 'https://mainnet.sanko.xyz';
 const sankoContracts = [
     '0x8e718b4aFe2ad12345c5a327e3c2cB7645026BB2', // MossNet
     '0x9275Bf0a32ae3c9227065f998Ac0B392FB9f0BFe'  // MossNet: Banners
+];
+
+// IPFS gateways supporting CORS
+const ipfsGateways = [
+    'https://nftstorage.link/ipfs/',
+    'https://cloudflare-ipfs.com/ipfs/',
+    'https://ipfs.io/ipfs/' // Fallback, may have CORS issues
 ];
 
 // Wallet connection
@@ -99,6 +185,26 @@ async function addSankoChain() {
     }
 }
 
+// Fetch metadata with fallback gateways
+async function fetchMetadata(fetchUrl, contractAddress, tokenId) {
+    for (const gateway of ipfsGateways) {
+        const url = fetchUrl.replace('ipfs://', gateway);
+        try {
+            const response = await fetch(url, { mode: 'cors' });
+            if (!response.ok) {
+                throw new Error(`HTTP error ${response.status}`);
+            }
+            const metadata = await response.json();
+            console.log(`Metadata for ${contractAddress}, token ${tokenId} via ${gateway}:`, metadata);
+            return metadata;
+        } catch (error) {
+            console.warn(`Failed to fetch metadata for ${contractAddress}, token ${tokenId} via ${gateway}:`, error);
+        }
+    }
+    console.error(`All gateways failed for ${contractAddress}, token ${tokenId}`);
+    return {};
+}
+
 // Check NFTs
 async function checkNFTs() {
     try {
@@ -132,26 +238,89 @@ async function checkNFTs() {
         for (const contractAddress of sankoContracts) {
             try {
                 const contract = new sankoWeb3.eth.Contract(erc721Abi, contractAddress);
-                const balance = await contract.methods.balanceOf(accounts[0]).call();
-                for (let i = 0; i < balance; i++) {
-                    const tokenId = await contract.methods.tokenOfOwnerByIndex(accounts[0], i).call();
+                let tokenIds = [];
+
+                // Standard balanceOf and tokenOfOwnerByIndex
+                try {
+                    console.log(`Fetching balance for ${contractAddress}, owner: ${accounts[0]}`);
+                    const balance = await contract.methods.balanceOf(accounts[0]).call();
+                    console.log(`Balance for ${contractAddress}: ${balance}`);
+                    if (contractAddress.toLowerCase() !== '0x9275bf0a32ae3c9227065f998ac0b392fb9f0bfe') {
+                        for (let i = 0; i < balance; i++) {
+                            try {
+                                const tokenId = await contract.methods.tokenOfOwnerByIndex(accounts[0], i).call();
+                                tokenIds.push(tokenId.toString());
+                            } catch (indexError) {
+                                console.warn(`tokenOfOwnerByIndex failed for ${contractAddress}, index ${i}:`, indexError);
+                            }
+                        }
+                    } else {
+                        // Fallback for MossNet: Banners (0x9275Bf0...)
+                        if (balance > 0) {
+                            console.log(`Attempting token ID enumeration for ${contractAddress}`);
+                            try {
+                                // Query Transfer events
+                                const events = await contract.getPastEvents('Transfer', {
+                                    filter: { to: accounts[0] },
+                                    fromBlock: 0,
+                                    toBlock: 'latest'
+                                });
+                                const tokenIdsSet = new Set();
+                                for (const event of events) {
+                                    const tokenId = event.returnValues.tokenId;
+                                    try {
+                                        const owner = await contract.methods.ownerOf(tokenId).call();
+                                        if (owner.toLowerCase() === accounts[0].toLowerCase()) {
+                                            tokenIdsSet.add(tokenId.toString());
+                                        }
+                                    } catch (ownerError) {
+                                        console.warn(`ownerOf failed for token ${tokenId}:`, ownerError);
+                                    }
+                                }
+                                tokenIds = Array.from(tokenIdsSet);
+                                console.log(`Found token IDs for ${contractAddress}:`, tokenIds);
+                            } catch (eventError) {
+                                console.error(`Event-based enumeration failed for ${contractAddress}:`, eventError);
+                            }
+                        }
+                    }
+                } catch (balanceError) {
+                    console.warn(`balanceOf failed for ${contractAddress}:`, balanceError);
+                }
+
+                // Process token IDs
+                for (const tokenId of tokenIds) {
                     let tokenURI = '';
                     try {
                         tokenURI = await contract.methods.tokenURI(tokenId).call();
+                        console.log(`TokenURI for ${contractAddress}, token ${tokenId}:`, tokenURI);
                     } catch (uriError) {
-                        console.warn('Failed to fetch tokenURI:', uriError);
+                        console.warn(`Failed to fetch tokenURI for ${contractAddress}, token ${tokenId}:`, uriError);
                     }
                     let metadata = {};
-                    if (tokenURI.startsWith('http')) {
-                        try {
-                            const response = await fetch(tokenURI);
-                            metadata = await response.json();
-                        } catch (fetchError) {
-                            console.warn('Failed to fetch metadata:', fetchError);
+                    if (tokenURI) {
+                        if (tokenURI.startsWith('ipfs://')) {
+                            metadata = await fetchMetadata(tokenURI, contractAddress, tokenId);
+                        } else if (tokenURI.startsWith('http')) {
+                            try {
+                                const response = await fetch(tokenURI, { mode: 'cors' });
+                                if (!response.ok) {
+                                    throw new Error(`HTTP error ${response.status}`);
+                                }
+                                metadata = await response.json();
+                                console.log(`Metadata for ${contractAddress}, token ${tokenId}:`, metadata);
+                            } catch (fetchError) {
+                                console.error(`Failed to fetch metadata for ${contractAddress}, token ${tokenId}:`, fetchError);
+                            }
+                        } else {
+                            console.warn(`Invalid tokenURI for ${contractAddress}, token ${tokenId}: ${tokenURI}`);
                         }
                     }
                     const name = metadata.name || `Token #${tokenId}`;
-                    const image = metadata.image || 'assets/placeholder.png';
+                    let image = metadata.image || 'assets/placeholder.png';
+                    if (image.startsWith('ipfs://')) {
+                        image = image.replace('ipfs://', ipfsGateways[0]);
+                    }
                     const collection = getCollectionName(contractAddress);
                     nfts.push({
                         token_id: tokenId,
@@ -169,13 +338,13 @@ async function checkNFTs() {
 
         if (nfts.length === 0) {
             nftEmpty.textContent = 'No NFTs found from these collections.';
-            nftEmpty.classList.remove('hidden');
+            nftEmpty.classList.add('hidden');
         } else {
             nfts.forEach(nft => {
                 const nftItem = document.createElement('div');
                 nftItem.className = 'nft-item';
                 nftItem.innerHTML = `
-                    <img src="${nft.image}" alt="${nft.name}">
+                    <img src="${nft.image}" alt="${nft.name}" onerror="this.src='assets/placeholder.png'">
                     <p>${nft.name}</p>
                     <p>ID: ${nft.token_id}</p>
                     <p>${nft.collection}</p>

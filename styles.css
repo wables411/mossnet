@@ -46,6 +46,17 @@ h1 {
     margin-bottom: 20px;
 }
 
+/* Title Description */
+.title-description {
+    color: #00ff00;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.9em;
+    text-shadow: 1px 1px #000;
+    margin-bottom: 20px;
+    text-align: center;
+    line-height: 1.4;
+}
+
 /* Minting Placeholder */
 .mint-section {
     margin-bottom: 20px;
@@ -56,6 +67,43 @@ h1 {
     font-size: 1.2em;
     text-shadow: 1px 1px #000;
     margin-bottom: 10px;
+}
+
+/* Cigsuiga Preview Image */
+.cigsuiga-preview {
+    width: 100%;
+    max-width: 300px;
+    height: auto;
+    display: block;
+    margin: 0 auto 10px auto;
+}
+
+/* Mint Description */
+.mint-description {
+    color: #00ff00;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.9em;
+    text-shadow: 1px 1px #000;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+/* StationThisBot Button */
+.stationthisbot-btn {
+    background: transparent;
+    color: #00ff00;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 0.9em;
+    border: none;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 0;
+    display: inline;
+    transition: color 0.3s;
+}
+
+.stationthisbot-btn:hover {
+    color: #ff00ff;
 }
 
 /* Connect Wallet Button */
@@ -337,8 +385,25 @@ h1 {
         font-size: 2em;
     }
 
+    .title-description {
+        font-size: 0.8em;
+        margin-bottom: 15px;
+    }
+
     .mint-placeholder {
         font-size: 1.1em;
+    }
+
+    .cigsuiga-preview {
+        max-width: 250px;
+    }
+
+    .mint-description {
+        font-size: 0.8em;
+    }
+
+    .stationthisbot-btn {
+        font-size: 0.8em;
     }
 
     .connect-wallet-btn {

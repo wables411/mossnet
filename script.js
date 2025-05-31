@@ -15,6 +15,9 @@ const nftList = document.getElementById('nft-list');
 const nftEmpty = document.getElementById('nft-empty');
 const minimizeNftBtn = document.getElementById('minimize-nft-btn');
 const stationThisBotBtn = document.getElementById('stationthisbot-btn');
+const imageModal = document.getElementById('image-modal');
+const modalImage = document.getElementById('modal-image');
+const closeModal = document.getElementById('close-modal');
 
 // Cloudflare Worker URL and fallback gateways
 const PROXY_URL = 'https://mossnet-proxy.wablesphoto.workers.dev';
@@ -182,6 +185,16 @@ async function addSankoChain() {
     }
 }
 
+// Preload image to improve loading speed
+function preloadImage(url) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.src = url;
+        img.onload = () => resolve(url);
+        img.onerror = () => reject(new Error(`Failed to preload ${url}`));
+    });
+}
+
 // Fetch metadata with fallback gateways
 async function fetchMetadata(fetchUrl, contractAddress, tokenId) {
     for (const gateway of ipfsGateways) {
@@ -195,6 +208,11 @@ async function fetchMetadata(fetchUrl, contractAddress, tokenId) {
             }
             const metadata = await response.json();
             console.log(`Metadata for ${contractAddress}, token ${tokenId} via ${gateway}:`, metadata);
+            // Preload image if present
+            if (metadata.image && metadata.image.startsWith('ipfs://')) {
+                const imageUrl = `${gateway}${metadata.image.replace('ipfs://', '')}`;
+                await preloadImage(imageUrl);
+            }
             return metadata;
         } catch (error) {
             console.warn(`Failed to fetch metadata for ${contractAddress}, token ${tokenId} via ${gateway}:`, error.message);
@@ -373,9 +391,14 @@ async function checkNFTs() {
                 const img = document.createElement('img');
                 img.src = nft.image;
                 img.alt = nft.name;
+                img.className = 'nft-image';
                 img.addEventListener('error', () => {
                     console.warn(`Image failed to load for ${nft.collection} #${nft.token_id}: ${nft.image}`);
                     img.src = 'assets/placeholder.png';
+                });
+                img.addEventListener('click', () => {
+                    modalImage.src = nft.image;
+                    imageModal.classList.remove('hidden');
                 });
                 nftItem.appendChild(img);
                 nftItem.innerHTML += `
@@ -441,5 +464,22 @@ minimizeIframeBtn.addEventListener('click', () => {
 if (stationThisBotBtn) {
     stationThisBotBtn.addEventListener('click', () => {
         window.open('https://x.com/stationthisbot', '_blank');
+    });
+}
+
+if (closeModal) {
+    closeModal.addEventListener('click', () => {
+        imageModal.classList.add('hidden');
+        modalImage.src = '';
+    });
+}
+
+// Close modal when clicking outside image
+if (imageModal) {
+    imageModal.addEventListener('click', (e) => {
+        if (e.target === imageModal) {
+            imageModal.classList.add('hidden');
+            modalImage.src = '';
+        }
     });
 }

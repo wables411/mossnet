@@ -21,7 +21,7 @@ const modalImage = document.getElementById('modal-image');
 const closeModal = document.getElementById('close-modal');
 
 // Cloudflare Worker URL and fallback gateways
-const PROXY_URL = 'https://mossnet-proxy.wablesphoto.workers.dev';
+const PROXY_URL = 'https://proxy.mossmossmoss.quest';
 const ipfsGateways = [
     'https://cloudflare-ipfs.com/ipfs/', // Prioritize faster gateway
     `${PROXY_URL}/ipfs/`,

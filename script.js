@@ -15,10 +15,8 @@ const nftList = document.getElementById('nft-list');
 const nftEmpty = document.getElementById('nft-empty');
 const minimizeNftBtn = document.getElementById('minimize-nft-btn');
 
-// Moralis setup
-Moralis.start({
-    apiKey: window.MORALIS_API_KEY // Will be injected via Worker or build
-});
+// Cloudflare Worker URL
+const PROXY_URL = 'https://mossnet-proxy.<your-subdomain>.workers.dev'; // Replace with your Worker URL
 
 // ERC-721 ABI (standard JSON format with Transfer event)
 const erc721Abi = [
@@ -113,13 +111,6 @@ const sankoContracts = [
     '0x9275Bf0a32ae3c9227065f998Ac0B392FB9f0BFe'  // MossNet: Banners
 ];
 
-// IPFS gateways supporting CORS
-const ipfsGateways = [
-    'https://nftstorage.link/ipfs/',
-    'https://cloudflare-ipfs.com/ipfs/',
-    'https://ipfs.io/ipfs/' // Fallback, may have CORS issues
-];
-
 // Wallet connection
 async function connectWallet() {
     if (typeof window.ethereum !== 'undefined') {
@@ -185,24 +176,20 @@ async function addSankoChain() {
     }
 }
 
-// Fetch metadata with fallback gateways
+// Fetch metadata via Cloudflare Worker
 async function fetchMetadata(fetchUrl, contractAddress, tokenId) {
-    for (const gateway of ipfsGateways) {
-        const url = fetchUrl.replace('ipfs://', gateway);
-        try {
-            const response = await fetch(url, { mode: 'cors' });
-            if (!response.ok) {
-                throw new Error(`HTTP error ${response.status}`);
-            }
-            const metadata = await response.json();
-            console.log(`Metadata for ${contractAddress}, token ${tokenId} via ${gateway}:`, metadata);
-            return metadata;
-        } catch (error) {
-            console.warn(`Failed to fetch metadata for ${contractAddress}, token ${tokenId} via ${gateway}:`, error);
-        }
+    const cid = fetchUrl.replace('ipfs://', '');
+    const url = `${PROXY_URL}/ipfs/${cid}`;
+    try {
+        const response = await fetch(url, { mode: 'cors' });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const metadata = await response.json();
+        console.log(`Metadata for ${contractAddress}, token ${tokenId} via proxy:`, metadata);
+        return metadata;
+    } catch (error) {
+        console.error(`Failed to fetch metadata for ${contractAddress}, token ${tokenId}:`, error);
+        return {};
     }
-    console.error(`All gateways failed for ${contractAddress}, token ${tokenId}`);
-    return {};
 }
 
 // Check NFTs
@@ -221,14 +208,14 @@ async function checkNFTs() {
         nftEmpty.classList.add('hidden');
         let nfts = [];
 
-        // Ethereum NFTs (chain ID: 1) via Moralis
+        // Ethereum NFTs via Cloudflare Worker
         try {
-            const ethNfts = await Moralis.EvmApi.nft.getWalletNFTs({
-                chain: '0x1',
-                address: accounts[0],
-                tokenAddresses: ['0x71f7bedf8572b75e446766906079dcf05a386737']
+            const response = await fetch(`${PROXY_URL}/moralis/nfts?wallet=${accounts[0]}`, {
+                method: 'GET'
             });
-            nfts = nfts.concat(ethNfts.raw.result);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const ethNfts = await response.json();
+            nfts = nfts.concat(ethNfts.result || []);
         } catch (ethError) {
             console.error('Ethereum NFT fetch failed:', ethError);
         }
@@ -304,9 +291,7 @@ async function checkNFTs() {
                         } else if (tokenURI.startsWith('http')) {
                             try {
                                 const response = await fetch(tokenURI, { mode: 'cors' });
-                                if (!response.ok) {
-                                    throw new Error(`HTTP error ${response.status}`);
-                                }
+                                if (!response.ok) throw new Error(`HTTP ${response.status}`);
                                 metadata = await response.json();
                                 console.log(`Metadata for ${contractAddress}, token ${tokenId}:`, metadata);
                             } catch (fetchError) {
@@ -319,7 +304,7 @@ async function checkNFTs() {
                     const name = metadata.name || `Token #${tokenId}`;
                     let image = metadata.image || 'assets/placeholder.png';
                     if (image.startsWith('ipfs://')) {
-                        image = image.replace('ipfs://', ipfsGateways[0]);
+                        image = `${PROXY_URL}/ipfs/${image.replace('ipfs://', '')}`;
                     }
                     const collection = getCollectionName(contractAddress);
                     nfts.push({

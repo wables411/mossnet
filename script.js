@@ -182,12 +182,15 @@ async function fetchMetadata(fetchUrl, contractAddress, tokenId) {
     const url = `${PROXY_URL}/ipfs/${cid}`;
     try {
         const response = await fetch(url, { mode: 'cors' });
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP ${response.status}: ${errorText}`);
+        }
         const metadata = await response.json();
         console.log(`Metadata for ${contractAddress}, token ${tokenId} via proxy:`, metadata);
         return metadata;
     } catch (error) {
-        console.error(`Failed to fetch metadata for ${contractAddress}, token ${tokenId}:`, error);
+        console.error(`Failed to fetch metadata for ${contractAddress}, token ${tokenId}:`, error.message);
         return {};
     }
 }
@@ -208,16 +211,41 @@ async function checkNFTs() {
         nftEmpty.classList.add('hidden');
         let nfts = [];
 
-        // Ethereum NFTs via Cloudflare Worker
+        // Ethereum NFTs via Cloudflare Worker (Moralis)
         try {
             const response = await fetch(`${PROXY_URL}/moralis/nfts?wallet=${accounts[0]}`, {
                 method: 'GET'
             });
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
             const ethNfts = await response.json();
-            nfts = nfts.concat(ethNfts.result || []);
+            console.log('Ethereum NFTs:', ethNfts);
+            for (const nft of ethNfts.result || []) {
+                let metadata = {};
+                try {
+                    metadata = JSON.parse(nft.metadata || '{}');
+                } catch (parseError) {
+                    console.warn(`Failed to parse metadata for Ethereum NFT ${nft.token_id}:`, parseError);
+                }
+                const name = metadata.name || nft.name || `Token #${nft.token_id}`;
+                let image = metadata.image || 'assets/placeholder.png';
+                if (image && image.startsWith('ipfs://')) {
+                    image = `${PROXY_URL}/ipfs/${image.replace('ipfs://', '')}`;
+                }
+                const collection = getCollectionName(nft.token_address);
+                nfts.push({
+                    token_id: nft.token_id,
+                    token_address: nft.token_address,
+                    metadata: JSON.stringify(metadata),
+                    name,
+                    image,
+                    collection
+                });
+            }
         } catch (ethError) {
-            console.error('Ethereum NFT fetch failed:', ethError);
+            console.error('Ethereum NFT fetch failed:', ethError.message);
         }
 
         // Sanko NFTs via Custom RPC
@@ -291,11 +319,14 @@ async function checkNFTs() {
                         } else if (tokenURI.startsWith('http')) {
                             try {
                                 const response = await fetch(tokenURI, { mode: 'cors' });
-                                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                                if (!response.ok) {
+                                    const errorText = await response.text();
+                                    throw new Error(`HTTP ${response.status}: ${errorText}`);
+                                }
                                 metadata = await response.json();
                                 console.log(`Metadata for ${contractAddress}, token ${tokenId}:`, metadata);
                             } catch (fetchError) {
-                                console.error(`Failed to fetch metadata for ${contractAddress}, token ${tokenId}:`, fetchError);
+                                console.error(`Failed to fetch metadata for ${contractAddress}, token ${tokenId}:`, fetchError.message);
                             }
                         } else {
                             console.warn(`Invalid tokenURI for ${contractAddress}, token ${tokenId}: ${tokenURI}`);
@@ -303,7 +334,7 @@ async function checkNFTs() {
                     }
                     const name = metadata.name || `Token #${tokenId}`;
                     let image = metadata.image || 'assets/placeholder.png';
-                    if (image.startsWith('ipfs://')) {
+                    if (image && image.startsWith('ipfs://')) {
                         image = `${PROXY_URL}/ipfs/${image.replace('ipfs://', '')}`;
                     }
                     const collection = getCollectionName(contractAddress);

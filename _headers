@@ -1,0 +1,2 @@
+/*
+  Content-Security-Policy: img-src 'self' data: https://*.ipfs.dweb.link https://cloudflare-ipfs.com https://gateway.pinata.cloud https://ipfs.io https://mossnet-proxy.wablesphoto.workers.dev; frame-ancestors 'self' https://www.defined.fi https://auth.privy.io; script-src 'self' https://cdn.jsdelivr.net https://unpkg.com https://www.defined.fi

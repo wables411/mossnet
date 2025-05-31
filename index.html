@@ -3,15 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="
-        default-src 'self';
-        script-src 'self' https://cdn.jsdelivr.net https://unpkg.com https://www.defined.fi;
-        connect-src 'self' https://mainnet.sanko.xyz https://deep-index.moralis.io https://mossnet-proxy.wablesphoto.workers.dev wss://*.sanko.xyz;
-        frame-src 'self' https://www.defined.fi https://auth.privy.io;
-        img-src 'self' data: https://*.ipfs.dweb.link https://cloudflare-ipfs.com https://gateway.pinata.cloud https://ipfs.io;
-        style-src 'self' 'unsafe-inline';
-        media-src 'self';
-    ">
     <title>MossNet</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="icon" href="assets/favicon.ico" type="image/x-icon">
@@ -35,7 +26,6 @@
     <!-- Iframe Embed Overlay -->
     <div id="iframe-overlay" class="iframe-overlay hidden">
         <div class="iframe-container">
-            <!--
             <iframe 
                 id="iframe-embed"
                 title="Defined Embed"
@@ -44,8 +34,7 @@
                 allow="clipboard-write"
                 class="iframe-content"
             ></iframe>
-            -->
-            <p class="iframe-fallback">Unable to load $MOSS data due to security restrictions. Visit <a href="https://www.defined.fi/sanko/0x4a5ad9af56e2291f61d6c59ec098fe71b61fb2c4?quoteToken=token1" target="_blank">$MOSS on Defined.fi</a>.</p>
+            <p class="iframe-fallback hidden">Unable to load $MOSS data due to security restrictions. Visit <a href="https://www.defined.fi/sanko/0x4a5ad9af56e2291f61d6c59ec098fe71b61fb2c4?quoteToken=token1" target="_blank">$MOSS on Defined.fi</a>.</p>
         </div>
         <button id="minimize-iframe-btn" class="minimize-btn">Minimize</button>
     </div>
@@ -69,7 +58,7 @@
         <div class="mint-section">
             <img src="assets/cigsuiga.png" alt="Cigsuiga Preview" class="cigsuiga-preview">
             <p class="mint-placeholder">cigsuiga minting soon.</p>
-            <p class="mint-description">100 paintings of 100 memories of adventures with friends. created with the help of <button class="stationthisbot-btn" onclick="window.open('https://x.com/stationthisbot', '_blank')">@stationthisbot</button> and <a href="https://cigbot.meme" target="_blank">cigbot.meme</a></p>
+            <p class="mint-description">100 paintings of 100 memories of adventures with friends. created with the help of <button id="stationthisbot-btn" class="stationthisbot-btn">@stationthisbot</button> and <a href="https://cigbot.meme" target="_blank">cigbot.meme</a></p>
             <button id="connect-wallet-btn" class="connect-wallet-btn">Connect Wallet</button>
             <p id="wallet-address" class="wallet-address hidden"></p>
         </div>

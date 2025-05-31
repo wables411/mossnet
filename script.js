@@ -16,7 +16,7 @@ const nftEmpty = document.getElementById('nft-empty');
 const minimizeNftBtn = document.getElementById('minimize-nft-btn');
 
 // Cloudflare Worker URL
-const PROXY_URL = 'https://mossnet-proxy.<your-subdomain>.workers.dev'; // Replace with your Worker URL
+const PROXY_URL = 'https://mossnet-proxy.wablesphoto.workers.dev';
 
 // ERC-721 ABI (standard JSON format with Transfer event)
 const erc721Abi = [
@@ -323,7 +323,7 @@ async function checkNFTs() {
 
         if (nfts.length === 0) {
             nftEmpty.textContent = 'No NFTs found from these collections.';
-            nftEmpty.classList.add('hidden');
+            nftEmpty.classList.remove('hidden');
         } else {
             nfts.forEach(nft => {
                 const nftItem = document.createElement('div');

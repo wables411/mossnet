@@ -13,6 +13,7 @@ const walletAddressEl = document.getElementById('wallet-address');
 const nftOverlay = document.getElementById('nft-overlay');
 const nftList = document.getElementById('nft-list');
 const nftEmpty = document.getElementById('nft-empty');
+const nftLoading = document.getElementById('nft-loading');
 const minimizeNftBtn = document.getElementById('minimize-nft-btn');
 const stationThisBotBtn = document.getElementById('stationthisbot-btn');
 const imageModal = document.getElementById('image-modal');
@@ -22,9 +23,9 @@ const closeModal = document.getElementById('close-modal');
 // Cloudflare Worker URL and fallback gateways
 const PROXY_URL = 'https://mossnet-proxy.wablesphoto.workers.dev';
 const ipfsGateways = [
+    'https://cloudflare-ipfs.com/ipfs/', // Prioritize faster gateway
     `${PROXY_URL}/ipfs/`,
-    'https://cloudflare-ipfs.com/ipfs/',
-    'https://ipfs.io/ipfs/' // Fallback, may have CORS issues
+    'https://ipfs.io/ipfs/'
 ];
 
 // ERC-721 ABI (standard JSON format with Transfer event)
@@ -236,46 +237,8 @@ async function checkNFTs() {
         }
         nftList.innerHTML = '';
         nftEmpty.classList.add('hidden');
+        nftLoading.classList.remove('hidden');
         let nfts = [];
-
-        // Ethereum NFTs disabled due to 500 error
-        /*
-        try {
-            const response = await fetch(`${PROXY_URL}/moralis/nfts?wallet=${accounts[0]}`, {
-                method: 'GET'
-            });
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`HTTP ${response.status}: ${errorText}`);
-            }
-            const ethNfts = await response.json();
-            console.log('Ethereum NFTs:', ethNfts);
-            for (const nft of ethNfts.result || []) {
-                let metadata = {};
-                try {
-                    metadata = JSON.parse(nft.metadata || '{}');
-                } catch (parseError) {
-                    console.warn(`Failed to parse metadata for Ethereum NFT ${nft.token_id}:`, parseError);
-                }
-                const name = metadata.name || nft.name || `Token #${nft.token_id}`;
-                let image = metadata.image || 'assets/placeholder.png';
-                if (image && image.startsWith('ipfs://')) {
-                    image = `${PROXY_URL}/ipfs/${image.replace('ipfs://', '')}`;
-                }
-                const collection = getCollectionName(nft.token_address);
-                nfts.push({
-                    token_id: nft.token_id,
-                    token_address: nft.token_address,
-                    metadata: JSON.stringify(metadata),
-                    name,
-                    image,
-                    collection
-                });
-            }
-        } catch (ethError) {
-            console.error('Ethereum NFT fetch failed:', ethError.message);
-        }
-        */
 
         // Sanko NFTs via Custom RPC
         const sankoWeb3 = new Web3(sankoRpc);
@@ -381,6 +344,7 @@ async function checkNFTs() {
             }
         }
 
+        nftLoading.classList.add('hidden');
         if (nfts.length === 0) {
             nftEmpty.textContent = 'No NFTs found from these collections.';
             nftEmpty.classList.remove('hidden');
@@ -397,6 +361,7 @@ async function checkNFTs() {
                     img.src = 'assets/placeholder.png';
                 });
                 img.addEventListener('click', () => {
+                    console.log(`Clicked NFT image: ${nft.image}`);
                     modalImage.src = nft.image;
                     imageModal.classList.remove('hidden');
                 });
@@ -412,6 +377,7 @@ async function checkNFTs() {
         nftOverlay.classList.remove('hidden');
     } catch (error) {
         console.error('NFT fetch failed:', error);
+        nftLoading.classList.add('hidden');
         nftEmpty.textContent = 'Failed to load NFTs. Try again.';
         nftEmpty.classList.remove('hidden');
         nftOverlay.classList.remove('hidden');
@@ -474,7 +440,6 @@ if (closeModal) {
     });
 }
 
-// Close modal when clicking outside image
 if (imageModal) {
     imageModal.addEventListener('click', (e) => {
         if (e.target === imageModal) {

@@ -15,9 +15,9 @@ const nftList = document.getElementById('nft-list');
 const nftEmpty = document.getElementById('nft-empty');
 const minimizeNftBtn = document.getElementById('minimize-nft-btn');
 
-// Moralis setup (replace with your API key)
+// Moralis setup
 Moralis.start({
-    apiKey: 'YOUR_MORALIS_API_KEY' // Get from Moralis dashboard
+    apiKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJub25jZSI6IjFhZGY2OGE4LTk1MjMtNGE3NC1iNWI1LTMzNTQ0MGZhNjE5NiIsIm9yZ0lkIjoiNDUwMTQyIiwidXNlcklkIjoiNDYzMTU1IiwidHlwZUlkIjoiNDcyYWQxZWQtMDBlMi00M2RiLWI4MjAtMTI0NGE1NzdlMjg0IiwidHlwZSI6IlBST0pFQ1QiLCJpYXQiOjE3NDg2MzgwNDgsImV4cCI6NDkwNDM5ODA0OH0.Syr_w9VIl7ozDwIOLoQFA74qlgqP4t14WBvXORwsjfY' // Replace with your Moralis API key
 });
 
 // Wallet connection
@@ -41,8 +41,6 @@ async function connectWallet() {
             console.error('Wallet connection failed:', error);
             if (error.code === 4001) {
                 walletAddressEl.textContent = 'Please accept the MetaMask prompt.';
-            } else if (error.message.includes('f is not a function')) {
-                walletAddressEl.textContent = 'MetaMask error. Try updating MetaMask or switching browsers.';
             } else {
                 walletAddressEl.textContent = 'Connection failed. Try again.';
             }
@@ -131,7 +129,11 @@ async function checkNFTs() {
         nftOverlay.classList.remove('hidden');
     } catch (error) {
         console.error('NFT fetch failed:', error);
-        nftEmpty.textContent = 'Failed to load NFTs. Try again.';
+        if (error.message.includes('Token is invalid format')) {
+            nftEmpty.textContent = 'Invalid Moralis API key. Please contact support.';
+        } else {
+            nftEmpty.textContent = 'Failed to load NFTs. Try again.';
+        }
         nftEmpty.classList.remove('hidden');
         nftOverlay.classList.remove('hidden');
     }

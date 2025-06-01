@@ -30,7 +30,7 @@ const ipfsGateways = [
 ];
 
 // Scatter API config
-const SCATTER_API = 'https://api.scatter.art/v1';
+const SCATTER_API = 'https://api.scatter.art/';
 const COLLECTION_SLUGS = ['mossnet', 'mossnet-banners'];
 const SCATTER_API_KEY = ''; // Empty unless required
 

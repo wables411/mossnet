@@ -14,7 +14,7 @@ const nftOverlay = document.getElementById('nft-overlay');
 const nftList = document.getElementById('nft-list');
 const nftEmpty = document.getElementById('nft-empty');
 const nftLoading = document.getElementById('nft-loading');
-const minimizeNftBtn = document.getElementById('minimize-nft-btn');
+const minimizeNFTBtn = document.getElementById('minimize-nft-btn');
 const stationThisBotBtn = document.getElementById('stationthisbot-btn');
 const imageModal = document.getElementById('image-modal');
 const modalImage = document.getElementById('modal-image');
@@ -23,123 +23,43 @@ const closeModal = document.getElementById('close-modal');
 // Cloudflare Worker URL and fallback gateways
 const PROXY_URL = 'https://mossnet-proxy.wablesphoto.workers.dev';
 const ipfsGateways = [
-    `${PROXY_URL}/ipfs/`, // Prioritize worker
-    'https://dweb.link/ipfs/', // Reliable backup
+    `${PROXY_URL}/ipfs/`,
+    'https://dweb.link/ipfs/',
     'https://cloudflare-ipfs.com/ipfs/',
     'https://ipfs.io/ipfs/'
 ];
 
-// ERC-721 ABI (standard JSON format)
-const erc721Abi = [
-    {
-        "constant": true,
-        "inputs": [
-            {
-                "name": "owner",
-                "type": "address"
-            }
-        ],
-        "name": "balanceOf",
-        "outputs": [
-            {
-                "name": "",
-                "type": "uint256"
-            }
-        ],
-        "type": "function"
-    },
-    {
-        "constant": true,
-        "inputs": [
-            {
-                "name": "owner",
-                "type": "address"
-            },
-            {
-                "name": "index",
-                "type": "uint256"
-            }
-        ],
-        "name": "tokenOfOwnerByIndex",
-        "outputs": [
-            {
-                "name": "",
-                "type": "uint256"
-            }
-        ],
-        "type": "function"
-    },
-    {
-        "constant": true,
-        "inputs": [
-            {
-                "name": "tokenId",
-                "type": "uint256"
-            }
-        ],
-        "name": "tokenURI",
-        "outputs": [
-            {
-                "name": "",
-                "type": "string"
-            }
-        ],
-        "type": "function"
-    },
-    {
-        "constant": true,
-        "inputs": [
-            {
-                "name": "tokenId",
-                "type": "uint256"
-            }
-        ],
-        "name": "ownerOf",
-        "outputs": [
-            {
-                "name": "",
-                "type": "address"
-            }
-        ],
-        "type": "function"
-    }
-];
-
-// Sanko chain config
-const sankoRpc = 'https://mainnet.sanko.xyz';
-const sankoContracts = [
-    '0x8e718b4aFe2ad12345c5a327e3c2cB7645026BB2', // MossNet
-    '0x9275Bf0a32ae3c9227065f998Ac0B392FB9f0BFe'  // MossNet: Banners
-];
+// Scatter API config
+const SCATTER_API = 'https://api.scatter.art/v1';
+const COLLECTION_SLUGS = ['mossnet', 'mossnet-banners'];
+const SCATTER_API_KEY = '';
 
 // Wallet connection
 async function connectWallet() {
     if (typeof window.ethereum !== 'undefined') {
         try {
             const web3 = new Web3(window.ethereum);
-            const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
-            const address = accounts[0];
-            walletAddressEl.textContent = `Connected: ${address.slice(0, 6)}...${address.slice(-4)}`;
+            const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+            const walletAddress = accounts[0];
+            console.log(`Connected to wallet: ${walletAddress}`);
+            walletAddressEl.textContent = `Connected: ${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`;
             walletAddressEl.classList.remove('hidden');
             connectWalletBtn.textContent = 'Check NFTs';
             connectWalletBtn.onclick = checkNFTs;
 
-            // Check current chain
+            // Check Sanko chain
             const chainId = await web3.eth.getChainId();
             if (chainId !== 1996) {
                 await addSankoChain();
             }
         } catch (error) {
-            console.error('Wallet connection failed:', error);
-            if (error.code === 4001) {
-                walletAddressEl.textContent = 'Please accept the MetaMask prompt.';
-            } else {
-                walletAddressEl.textContent = 'Connection failed. Try again.';
-            }
+            console.error('Wallet connection error:', error);
+            walletAddressEl.textContent = error.code === 4001 ? 'Please accept the wallet prompt.' : 'Connection failed. Try again.';
             walletAddressEl.classList.remove('hidden');
         }
     } else {
-        walletAddressEl.textContent = 'Please install MetaMask.';
+        console.warn('No wallet detected');
+        walletAddressEl.textContent = 'Please install a MetaMask wallet.';
         walletAddressEl.classList.remove('hidden');
     }
 }
@@ -157,27 +77,27 @@ async function addSankoChain() {
                 await window.ethereum.request({
                     method: 'wallet_addEthereumChain',
                     params: [{
-                        chainId: '0x7CC', // 1996
+                        chainId: '0x7CC',
                         chainName: 'Sanko Mainnet',
-                        rpcUrls: [sankoRpc],
-                        nativeCurrency: { name: 'Dream Machine Token', symbol: 'DMT', decimals: 18 },
+                        rpcUrls: ['https://mainnet.sanko.xyz'],
+                        nativeCurrency: { name: 'Ether', symbol: 'DMT', decimals: 18 },
                         blockExplorerUrls: ['https://explorer.sanko.xyz']
                     }]
                 });
-            } catch (addError) {
-                console.error('Failed to add Sanko chain:', addError);
-                walletAddressEl.textContent = 'Please switch to Sanko chain (ID: 1996) manually.';
+            } catch (error) {
+                console.error('Failed to add Sanko chain:', error);
+                walletAddressEl.textContent = 'Please switch to Sanko chain (ID: 1996).';
                 walletAddressEl.classList.remove('hidden');
             }
         } else {
             console.error('Failed to switch to Sanko chain:', switchError);
-            walletAddressEl.textContent = 'Please switch to Sanko chain (ID: 1996) manually.';
+            walletAddressEl.textContent = 'Please switch to Sanko chain (ID: 1996).';
             walletAddressEl.classList.remove('hidden');
         }
     }
 }
 
-// Preload image to improve loading speed
+// Preload image
 function preloadImage(url) {
     return new Promise((resolve, reject) => {
         const img = new Image();
@@ -187,43 +107,76 @@ function preloadImage(url) {
     });
 }
 
-// Fetch metadata with fallback gateways
-async function fetchMetadata(fetchUrl, contractAddress, tokenId) {
-    const cid = fetchUrl.replace('ipfs://', '');
-    const urls = ipfsGateways.map(gateway => `${gateway}${cid}`);
-
-    for (const url of urls) {
+// Fetch image with fallback gateways
+async function fetchImage(imageUrl, ipfsImage, tokenId, slug) {
+    // Try image_url first
+    if (imageUrl) {
         try {
-            const response = await fetch(url, {
-                mode: 'cors',
-                headers: {
-                    'Accept': 'application/json'
-                }
-            });
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status} for ${url}`);
-            }
-            const metadata = await response.json();
-            console.log(`Metadata for ${contractAddress}, token ${tokenId} via ${url}:`, metadata);
-            if (metadata.image && metadata.image.startsWith('ipfs://')) {
-                const imageUrl = url.replace(/\/ipfs\/.*/, '') + `/ipfs/${metadata.image.replace('ipfs://', '')}`;
-                await preloadImage(imageUrl);
-                metadata.image = imageUrl;
-            }
-            return metadata;
+            await preloadImage(imageUrl);
+            console.log(`Image loaded for ${slug}, token ${tokenId}: ${imageUrl}`);
+            return imageUrl;
         } catch (error) {
-            console.warn(`Failed to fetch metadata for ${contractAddress}, token ${tokenId} via ${url}:`, error.message);
+            console.warn(`Failed to load image_url for ${slug}, token ${tokenId}: ${imageUrl}`, error.message);
         }
     }
-    console.error(`All gateways failed for ${contractAddress}, token ${tokenId}`);
-    return { image: 'assets/placeholder.png', name: `Token #${tokenId}` };
+    // Fallback to ipfs image
+    if (ipfsImage && ipfsImage.startsWith('ipfs://')) {
+        const cid = ipfsImage.replace('ipfs://', '');
+        const urls = ipfsGateways.map(gateway => `${gateway}${cid}`);
+        for (const url of urls) {
+            try {
+                await preloadImage(url);
+                console.log(`Image loaded for ${slug}, token ${tokenId}: ${url}`);
+                return url;
+            } catch (error) {
+                console.warn(`Failed to load image for ${slug}, token ${tokenId} via ${url}:`, error.message);
+            }
+        }
+        console.error(`All gateways failed for ${slug}, token ${tokenId}`);
+    }
+    return 'assets/placeholder.png';
 }
 
-// Check NFTs
+// Fetch all pages of Scatter API
+async function fetchAllNfts(slug) {
+    let allNfts = [];
+    let page = 1;
+    let totalPages = 1;
+
+    while (page <= totalPages) {
+        try {
+            const headers = { 'Content-Type': 'application/json' };
+            if (SCATTER_API_KEY) headers['Authorization'] = `Bearer ${SCATTER_API_KEY}`;
+            const response = await fetch(`${SCATTER_API}/collection/${slug}/nfts?page=${page}&pageSize=50`, {
+                method: 'GET',
+                headers
+            });
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status} for ${slug}: ${response.statusText}`);
+            }
+            const data = await response.json();
+            console.log(`NFTs for ${slug}, page ${page}:`, data);
+
+            if (data.data && Array.isArray(data.data)) {
+                allNfts = allNfts.concat(data.data);
+                totalPages = data.totalPages || 1;
+                page++;
+            } else {
+                console.warn(`No data array for ${slug}, page ${page}`);
+                break;
+            }
+        } catch (error) {
+            console.error(`Failed to fetch NFTs for ${slug}, page ${page}:`, error.message);
+            break;
+        }
+    }
+    return allNfts;
+}
+
+// Check NFTs via Scatter API
 async function checkNFTs() {
     try {
-        const web3 = new Web3(window.ethereum);
-        const accounts = await web3.eth.getAccounts();
+        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
         if (!accounts[0]) {
             walletAddressEl.textContent = 'Please reconnect wallet.';
             walletAddressEl.classList.remove('hidden');
@@ -231,83 +184,40 @@ async function checkNFTs() {
             connectWalletBtn.onclick = connectWallet;
             return;
         }
+        const owner = accounts[0].toLowerCase();
         nftList.innerHTML = '';
         nftEmpty.classList.add('hidden');
         nftLoading.classList.remove('hidden');
         let nfts = [];
 
-        // Sanko NFTs via Custom RPC
-        const sankoWeb3 = new Web3(sankoRpc);
-        for (const contractAddress of sankoContracts) {
-            try {
-                const contract = new sankoWeb3.eth.Contract(erc721Abi, contractAddress);
-                let tokenIds = [];
+        for (const slug of COLLECTION_SLUGS) {
+            const allNfts = await fetchAllNfts(slug);
+            console.log(`All NFTs for ${slug}:`, allNfts);
 
-                // Use tokenOfOwnerByIndex for all contracts to avoid slow event queries
-                console.log(`Fetching balance for ${contractAddress}, owner: ${accounts[0]}`);
-                const balance = await contract.methods.balanceOf(accounts[0]).call();
-                console.log(`Balance for ${contractAddress}: ${balance}`);
-                for (let i = 0; i < balance; i++) {
-                    try {
-                        const tokenId = await contract.methods.tokenOfOwnerByIndex(accounts[0], i).call();
-                        tokenIds.push(tokenId.toString());
-                    } catch (indexError) {
-                        console.warn(`tokenOfOwnerByIndex failed for ${contractAddress}, index ${i}:`, indexError);
-                    }
-                }
+            // Filter NFTs owned by the wallet
+            const ownedNfts = allNfts.filter(nft => nft.owner && nft.owner.toLowerCase() === owner);
+            console.log(`Owned NFTs for ${slug}:`, ownedNfts);
 
-                // Process token IDs
-                for (const tokenId of tokenIds) {
-                    let tokenURI = '';
-                    try {
-                        tokenURI = await contract.methods.tokenURI(tokenId).call();
-                        console.log(`TokenURI for ${contractAddress}, token ${tokenId}:`, tokenURI);
-                    } catch (uriError) {
-                        console.warn(`Failed to fetch tokenURI for ${contractAddress}, token ${tokenId}:`, uriError);
-                    }
-                    let metadata = {};
-                    if (tokenURI) {
-                        if (tokenURI.startsWith('ipfs://')) {
-                            metadata = await fetchMetadata(tokenURI, contractAddress, tokenId);
-                        } else if (tokenURI.startsWith('http')) {
-                            try {
-                                const response = await fetch(tokenURI, { mode: 'cors' });
-                                if (!response.ok) {
-                                    const errorText = await response.text();
-                                    throw new Error(`HTTP ${response.status}: ${errorText}`);
-                                }
-                                metadata = await response.json();
-                                console.log(`Metadata for ${contractAddress}, token ${tokenId}:`, metadata);
-                            } catch (fetchError) {
-                                console.error(`Failed to fetch metadata for ${contractAddress}, token ${tokenId}:`, fetchError.message);
-                            }
-                        } else {
-                            console.warn(`Invalid tokenURI for ${contractAddress}, token ${tokenId}: ${tokenURI}`);
-                        }
-                    }
-                    const name = metadata.name || `Token #${tokenId}`;
-                    let image = metadata.image || 'assets/placeholder.png';
-                    if (image && image.startsWith('ipfs://')) {
-                        image = `${ipfsGateways[0]}${image.replace('ipfs://', '')}`;
-                    }
-                    const collection = getCollectionName(contractAddress);
-                    nfts.push({
-                        token_id: tokenId,
-                        token_address: contractAddress,
-                        metadata: JSON.stringify(metadata),
-                        name,
-                        image,
-                        collection
-                    });
-                }
-            } catch (contractError) {
-                console.error(`Failed to fetch NFTs for contract ${contractAddress}:`, contractError);
+            for (const nft of ownedNfts) {
+                const tokenId = nft.token_id || nft.id || 'Unknown';
+                const metadata = nft.metadata ? (typeof nft.metadata === 'string' ? JSON.parse(nft.metadata) : nft.metadata) : {};
+                const name = metadata.name || nft.name || `Token #${tokenId}`;
+                const image = await fetchImage(nft.image_url, nft.image, tokenId, slug);
+                const collection = slug === 'mossnet' ? 'MossNet' : 'MossNet: Banners';
+                nfts.push({
+                    token_id: tokenId,
+                    token_address: nft.address || slug,
+                    metadata: JSON.stringify(metadata),
+                    name,
+                    image,
+                    collection
+                });
             }
         }
 
         nftLoading.classList.add('hidden');
         if (nfts.length === 0) {
-            nftEmpty.textContent = 'No NFTs found from these collections.';
+            nftEmpty.textContent = 'No NFTs found from these collections. Verify wallet or API data.';
             nftEmpty.classList.remove('hidden');
         } else {
             nfts.forEach(nft => {
@@ -318,7 +228,7 @@ async function checkNFTs() {
                 img.alt = nft.name;
                 img.className = 'nft-image';
                 img.addEventListener('error', () => {
-                    console.warn(`Image failed to load for ${nft.collection} #${nft.token_id}: ${nft.image}`);
+                    console.warn(`Image failed for ${nft.collection} #${nft.token_id}: ${nft.image}`);
                     img.src = 'assets/placeholder.png';
                 });
                 img.addEventListener('click', () => {
@@ -345,19 +255,9 @@ async function checkNFTs() {
     }
 }
 
-// Map contract to collection name
-function getCollectionName(address) {
-    const collections = {
-        '0x8e718b4afe2ad12345c5a327e3c2cb7645026bb2': 'MossNet',
-        '0x9275bf0a32ae3c9227065f998ac0b392fb9f0bfe': 'MossNet: Banners',
-        '0x71f7bedf8572b75e446766906079dcf05a386737': 'Mossawrettes'
-    };
-    return collections[address.toLowerCase()] || 'Unknown';
-}
-
 // Event listeners
 connectWalletBtn.addEventListener('click', connectWallet);
-minimizeNftBtn.addEventListener('click', () => {
+minimizeNFTBtn.addEventListener('click', () => {
     nftOverlay.classList.add('hidden');
 });
 
@@ -398,6 +298,12 @@ if (closeModal) {
     closeModal.addEventListener('click', () => {
         imageModal.classList.add('hidden');
         modalImage.src = '';
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && !imageModal.classList.contains('hidden')) {
+            imageModal.classList.add('hidden');
+            modalImage.src = '';
+        }
     });
 }
 

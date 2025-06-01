@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
-        script-src 'self' https://cdn.jsdelivr.net https://unpkg.com https://www.defined.fi;
-        connect-src 'self' https://mainnet.sanko.xyz https://deep-index.moralis.io https://mossnet-proxy.wablesphoto.workers.dev wss://*.sanko.xyz https://cloudflare-ipfs.com https://ipfs.io https://dweb.link;
-        frame-src 'self' https://www.defined.fi https://auth.privy.io;
-        img-src 'self' data: https://*.ipfs.dweb.link https://cloudflare-ipfs.com https://gateway.pinata.cloud https://ipfs.io https://mossnet-proxy.wablesphoto.workers.dev;
+        script-src 'self' https://cdn.jsdelivr.net https://www.defined.fi;
+        connect-src 'self' https://mainnet.sanko.xyz https://mossnet-proxy.wablesphoto.workers.dev wss://*.sanko.xyz https://cloudflare-ipfs.com https://ipfs.io https://dweb.link https://api.scatter.art;
+        frame-src 'self' https://www.defined.fi;
+        img-src 'self' data: https://*.ipfs.dweb.link https://cloudflare-ipfs.com https://gateway.pinata.cloud https://ipfs.io https://mossnet-proxy.wablesphoto.workers.dev https://d1kgk9u8ytew77.cloudfront.net;
         style-src 'self' 'unsafe-inline';
         media-src 'self';
     ">
@@ -91,9 +91,8 @@
         </ul>
     </div>
 
-    <!-- Include Web3.js and Moralis SDK -->
+    <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/web3@1.8.2/dist/web3.min.js"></script>
-    <script src="https://unpkg.com/moralis@2.22.4/dist/moralis.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

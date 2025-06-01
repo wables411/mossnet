@@ -14,7 +14,7 @@ const nftOverlay = document.getElementById('nft-overlay');
 const nftList = document.getElementById('nft-list');
 const nftEmpty = document.getElementById('nft-empty');
 const nftLoading = document.getElementById('nft-loading');
-const minimizeNftBtn = document.getElementById('minimize-nft-btn');
+const minimizeNFTBtn = document.getElementById('minimize-nft-btn');
 const stationThisBotBtn = document.getElementById('stationthisbot-btn');
 const imageModal = document.getElementById('image-modal');
 const modalImage = document.getElementById('modal-image');
@@ -258,7 +258,7 @@ async function checkNFTs() {
 
 // Event listeners
 connectWalletBtn.addEventListener('click', connectWallet);
-minimizeNftBtn.addEventListener('click', () => {
+minimizeNFTBtn.addEventListener('click', () => {
     nftOverlay.classList.add('hidden');
 });
 

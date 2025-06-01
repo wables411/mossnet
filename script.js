@@ -21,14 +21,15 @@ const modalImage = document.getElementById('modal-image');
 const closeModal = document.getElementById('close-modal');
 
 // Cloudflare Worker URL and fallback gateways
-const PROXY_URL = 'https://proxy.mossmossmoss.quest';
+const PROXY_URL = 'https://mossnet-proxy.wablesphoto.workers.dev';
 const ipfsGateways = [
-    'https://cloudflare-ipfs.com/ipfs/', // Prioritize faster gateway
-    `${PROXY_URL}/ipfs/`,
+    `${PROXY_URL}/ipfs/`, // Prioritize worker
+    'https://dweb.link/ipfs/', // Reliable backup
+    'https://cloudflare-ipfs.com/ipfs/',
     'https://ipfs.io/ipfs/'
 ];
 
-// ERC-721 ABI (standard JSON format with Transfer event)
+// ERC-721 ABI (standard JSON format)
 const erc721Abi = [
     {
         "constant": true,
@@ -101,16 +102,6 @@ const erc721Abi = [
             }
         ],
         "type": "function"
-    },
-    {
-        "anonymous": false,
-        "inputs": [
-            { "indexed": true, "name": "from", "type": "address" },
-            { "indexed": true, "name": "to", "type": "address" },
-            { "indexed": true, "name": "tokenId", "type": "uint256" }
-        ],
-        "name": "Transfer",
-        "type": "event"
     }
 ];
 
@@ -199,11 +190,7 @@ function preloadImage(url) {
 // Fetch metadata with fallback gateways
 async function fetchMetadata(fetchUrl, contractAddress, tokenId) {
     const cid = fetchUrl.replace('ipfs://', '');
-    const urls = [
-        `${PROXY_URL}/ipfs/${cid}`, // Prioritize proxy
-        `https://cloudflare-ipfs.com/ipfs/${cid}`,
-        `https://ipfs.io/ipfs/${cid}`
-    ];
+    const urls = ipfsGateways.map(gateway => `${gateway}${cid}`);
 
     for (const url of urls) {
         try {
@@ -221,7 +208,7 @@ async function fetchMetadata(fetchUrl, contractAddress, tokenId) {
             if (metadata.image && metadata.image.startsWith('ipfs://')) {
                 const imageUrl = url.replace(/\/ipfs\/.*/, '') + `/ipfs/${metadata.image.replace('ipfs://', '')}`;
                 await preloadImage(imageUrl);
-                metadata.image = imageUrl; // Update metadata with resolved image URL
+                metadata.image = imageUrl;
             }
             return metadata;
         } catch (error) {
@@ -256,52 +243,17 @@ async function checkNFTs() {
                 const contract = new sankoWeb3.eth.Contract(erc721Abi, contractAddress);
                 let tokenIds = [];
 
-                // Standard balanceOf and tokenOfOwnerByIndex
-                try {
-                    console.log(`Fetching balance for ${contractAddress}, owner: ${accounts[0]}`);
-                    const balance = await contract.methods.balanceOf(accounts[0]).call();
-                    console.log(`Balance for ${contractAddress}: ${balance}`);
-                    if (contractAddress.toLowerCase() !== '0x9275bf0a32ae3c9227065f998ac0b392fb9f0bfe') {
-                        for (let i = 0; i < balance; i++) {
-                            try {
-                                const tokenId = await contract.methods.tokenOfOwnerByIndex(accounts[0], i).call();
-                                tokenIds.push(tokenId.toString());
-                            } catch (indexError) {
-                                console.warn(`tokenOfOwnerByIndex failed for ${contractAddress}, index ${i}:`, indexError);
-                            }
-                        }
-                    } else {
-                        // Fallback for MossNet: Banners (0x9275Bf0...)
-                        if (balance > 0) {
-                            console.log(`Attempting token ID enumeration for ${contractAddress}`);
-                            try {
-                                // Query Transfer events
-                                const events = await contract.getPastEvents('Transfer', {
-                                    filter: { to: accounts[0] },
-                                    fromBlock: 0,
-                                    toBlock: 'latest'
-                                });
-                                const tokenIdsSet = new Set();
-                                for (const event of events) {
-                                    const tokenId = event.returnValues.tokenId;
-                                    try {
-                                        const owner = await contract.methods.ownerOf(tokenId).call();
-                                        if (owner.toLowerCase() === accounts[0].toLowerCase()) {
-                                            tokenIdsSet.add(tokenId.toString());
-                                        }
-                                    } catch (ownerError) {
-                                        console.warn(`ownerOf failed for token ${tokenId}:`, ownerError);
-                                    }
-                                }
-                                tokenIds = Array.from(tokenIdsSet);
-                                console.log(`Found token IDs for ${contractAddress}:`, tokenIds);
-                            } catch (eventError) {
-                                console.error(`Event-based enumeration failed for ${contractAddress}:`, eventError);
-                            }
-                        }
+                // Use tokenOfOwnerByIndex for all contracts to avoid slow event queries
+                console.log(`Fetching balance for ${contractAddress}, owner: ${accounts[0]}`);
+                const balance = await contract.methods.balanceOf(accounts[0]).call();
+                console.log(`Balance for ${contractAddress}: ${balance}`);
+                for (let i = 0; i < balance; i++) {
+                    try {
+                        const tokenId = await contract.methods.tokenOfOwnerByIndex(accounts[0], i).call();
+                        tokenIds.push(tokenId.toString());
+                    } catch (indexError) {
+                        console.warn(`tokenOfOwnerByIndex failed for ${contractAddress}, index ${i}:`, indexError);
                     }
-                } catch (balanceError) {
-                    console.warn(`balanceOf failed for ${contractAddress}:`, balanceError);
                 }
 
                 // Process token IDs

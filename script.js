@@ -198,29 +198,38 @@ function preloadImage(url) {
 
 // Fetch metadata with fallback gateways
 async function fetchMetadata(fetchUrl, contractAddress, tokenId) {
-    for (const gateway of ipfsGateways) {
-        const cid = fetchUrl.replace('ipfs://', '');
-        const url = `${gateway}${cid}`;
+    const cid = fetchUrl.replace('ipfs://', '');
+    const urls = [
+        `${PROXY_URL}/ipfs/${cid}`, // Prioritize proxy
+        `https://cloudflare-ipfs.com/ipfs/${cid}`,
+        `https://ipfs.io/ipfs/${cid}`
+    ];
+
+    for (const url of urls) {
         try {
-            const response = await fetch(url, { mode: 'cors' });
+            const response = await fetch(url, {
+                mode: 'cors',
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
             if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`HTTP ${response.status}: ${errorText}`);
+                throw new Error(`HTTP ${response.status} for ${url}`);
             }
             const metadata = await response.json();
-            console.log(`Metadata for ${contractAddress}, token ${tokenId} via ${gateway}:`, metadata);
-            // Preload image if present
+            console.log(`Metadata for ${contractAddress}, token ${tokenId} via ${url}:`, metadata);
             if (metadata.image && metadata.image.startsWith('ipfs://')) {
-                const imageUrl = `${gateway}${metadata.image.replace('ipfs://', '')}`;
+                const imageUrl = url.replace(/\/ipfs\/.*/, '') + `/ipfs/${metadata.image.replace('ipfs://', '')}`;
                 await preloadImage(imageUrl);
+                metadata.image = imageUrl; // Update metadata with resolved image URL
             }
             return metadata;
         } catch (error) {
-            console.warn(`Failed to fetch metadata for ${contractAddress}, token ${tokenId} via ${gateway}:`, error.message);
+            console.warn(`Failed to fetch metadata for ${contractAddress}, token ${tokenId} via ${url}:`, error.message);
         }
     }
     console.error(`All gateways failed for ${contractAddress}, token ${tokenId}`);
-    return {};
+    return { image: 'assets/placeholder.png', name: `Token #${tokenId}` };
 }
 
 // Check NFTs

@@ -1,0 +1,13 @@
+# Worker configuration
+name = "mossnet-proxy"
+main = "worker.js"
+compatibility_date = "2025-05-31"
+
+[[routes]]
+pattern = "proxy.mossmossmoss.quest/*"
+zone_name = "mossmossmoss.quest"
+
+# Pages configuration
+[pages]
+name = "mossnet"
+pages_build_output_dir = "."

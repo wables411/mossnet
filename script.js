@@ -14,7 +14,7 @@ const nftOverlay = document.getElementById('nft-overlay');
 const nftList = document.getElementById('nft-list');
 const nftEmpty = document.getElementById('nft-empty');
 const nftLoading = document.getElementById('nft-loading');
-const minimizeNFTBtn = document.getElementById('minimize-nft-btn');
+const minimizeNftBtn = document.getElementById('minimize-nft-btn');
 const stationThisBotBtn = document.getElementById('stationthisbot-btn');
 const imageModal = document.getElementById('image-modal');
 const modalImage = document.getElementById('modal-image');
@@ -32,7 +32,7 @@ const ipfsGateways = [
 // Scatter API config
 const SCATTER_API = 'https://api.scatter.art/v1';
 const COLLECTION_SLUGS = ['mossnet', 'mossnet-banners'];
-const SCATTER_API_KEY = '';
+const SCATTER_API_KEY = ''; // Empty unless required
 
 // Wallet connection
 async function connectWallet() {
@@ -80,7 +80,7 @@ async function addSankoChain() {
                         chainId: '0x7CC',
                         chainName: 'Sanko Mainnet',
                         rpcUrls: ['https://mainnet.sanko.xyz'],
-                        nativeCurrency: { name: 'Ether', symbol: 'DMT', decimals: 18 },
+                        nativeCurrency: { name: 'Dream Machine Token', symbol: 'DMT', decimals: 18 },
                         blockExplorerUrls: ['https://explorer.sanko.xyz']
                     }]
                 });
@@ -185,6 +185,7 @@ async function checkNFTs() {
             return;
         }
         const owner = accounts[0].toLowerCase();
+        console.log(`Checking NFTs for owner: ${owner}`);
         nftList.innerHTML = '';
         nftEmpty.classList.add('hidden');
         nftLoading.classList.remove('hidden');
@@ -257,7 +258,7 @@ async function checkNFTs() {
 
 // Event listeners
 connectWalletBtn.addEventListener('click', connectWallet);
-minimizeNFTBtn.addEventListener('click', () => {
+minimizeNftBtn.addEventListener('click', () => {
     nftOverlay.classList.add('hidden');
 });
 

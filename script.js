@@ -175,85 +175,70 @@ async function fetchAllNfts(slug) {
 
 // Check NFTs via Scatter API
 async function checkNFTs() {
-    try {
-        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-        if (!accounts[0]) {
-            walletAddressEl.textContent = 'Please reconnect wallet.';
-            walletAddressEl.classList.remove('hidden');
-            connectWalletBtn.textContent = 'Connect Wallet';
-            connectWalletBtn.onclick = connectWallet;
-            return;
+    const owner = window.ethereum.selectedAddress;
+    const collections = [
+        { slug: "mossnet", address: "0x8e718b4aFe2ad12345c5a327e3c2cB7645026BB2" },
+        { slug: "mossnet-banners", address: "0x9275Bf0a32ae3c9227065f998Ac0B392FB9f0BFe" }
+    ];
+    let nfts = [];
+    for (const collection of collections) {
+        try {
+            const response = await fetch(
+                `https://api.scatter.art/v1/collection/${collection.slug}/nfts?ownerAddress=${owner}&pageSize=100`,
+                {
+                    headers: {
+                        "Authorization": "Bearer YOUR_SCATTER_API_KEY"
+                    }
+                }
+            );
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+            const collectionNfts = data.data.map(nft => ({
+                contractAddress: collection.address,
+                tokenId: nft.token_id.toString(),
+                imageUrl: nft.image_url // Use Scatter's image_url directly
+            }));
+            nfts.push(...collectionNfts);
+            console.log(`Fetched ${collectionNfts.length} NFTs for ${collection.slug}`);
+        } catch (error) {
+            console.log(`Error fetching NFTs for ${collection.slug}: ${error}`);
         }
-        const owner = accounts[0].toLowerCase();
-        console.log(`Checking NFTs for owner: ${owner}`);
-        nftList.innerHTML = '';
-        nftEmpty.classList.add('hidden');
-        nftLoading.classList.remove('hidden');
-        let nfts = [];
-
-        for (const slug of COLLECTION_SLUGS) {
-            const allNfts = await fetchAllNfts(slug);
-            console.log(`All NFTs for ${slug}:`, allNfts);
-
-            // Filter NFTs owned by the wallet
-            const ownedNfts = allNfts.filter(nft => nft.owner && nft.owner.toLowerCase() === owner);
-            console.log(`Owned NFTs for ${slug}:`, ownedNfts);
-
-            for (const nft of ownedNfts) {
-                const tokenId = nft.token_id || nft.id || 'Unknown';
-                const metadata = nft.metadata ? (typeof nft.metadata === 'string' ? JSON.parse(nft.metadata) : nft.metadata) : {};
-                const name = metadata.name || nft.name || `Token #${tokenId}`;
-                const image = await fetchImage(nft.image_url, nft.image, tokenId, slug);
-                const collection = slug === 'mossnet' ? 'MossNet' : 'MossNet: Banners';
-                nfts.push({
-                    token_id: tokenId,
-                    token_address: nft.address || slug,
-                    metadata: JSON.stringify(metadata),
-                    name,
-                    image,
-                    collection
-                });
-            }
-        }
-
-        nftLoading.classList.add('hidden');
-        if (nfts.length === 0) {
-            nftEmpty.textContent = 'No NFTs found from these collections. Verify wallet or API data.';
-            nftEmpty.classList.remove('hidden');
-        } else {
-            nfts.forEach(nft => {
-                const nftItem = document.createElement('div');
-                nftItem.className = 'nft-item';
-                const img = document.createElement('img');
-                img.src = nft.image;
-                img.alt = nft.name;
-                img.className = 'nft-image';
-                img.addEventListener('error', () => {
-                    console.warn(`Image failed for ${nft.collection} #${nft.token_id}: ${nft.image}`);
-                    img.src = 'assets/placeholder.png';
-                });
-                img.addEventListener('click', () => {
-                    console.log(`Clicked NFT image: ${nft.image}`);
-                    modalImage.src = nft.image;
-                    imageModal.classList.remove('hidden');
-                });
-                nftItem.appendChild(img);
-                nftItem.innerHTML += `
-                    <p>${nft.name}</p>
-                    <p>ID: ${nft.token_id}</p>
-                    <p>${nft.collection}</p>
-                `;
-                nftList.appendChild(nftItem);
-            });
-        }
-        nftOverlay.classList.remove('hidden');
-    } catch (error) {
-        console.error('NFT fetch failed:', error);
-        nftLoading.classList.add('hidden');
-        nftEmpty.textContent = 'Failed to load NFTs. Try again.';
-        nftEmpty.classList.remove('hidden');
-        nftOverlay.classList.remove('hidden');
     }
+    async function displayNFTs(nfts) {
+    const nftList = document.getElementById("nft-list");
+    const nftLoading = document.getElementById("nft-loading");
+    const nftEmpty = document.getElementById("nft-empty");
+    nftList.innerHTML = "";
+    nftLoading.classList.remove("hidden");
+    nftEmpty.classList.add("hidden");
+    if (nfts.length === 0) {
+        nftLoading.classList.add("hidden");
+        nftEmpty.classList.remove("hidden");
+        return;
+    }
+    for (const nft of nfts) {
+        try {
+            const img = document.createElement("img");
+            img.src = nft.imageUrl;
+            img.alt = `NFT ${nft.tokenId}`;
+            img.classList.add("nft-image");
+            img.addEventListener("click", () => {
+                const modal = document.getElementById("image-modal");
+                const modalImage = document.getElementById("modal-image");
+                modalImage.src = nft.imageUrl;
+                modal.classList.remove("hidden");
+            });
+            nftList.appendChild(img);
+            console.log(`Added NFT ${nft.tokenId} from ${nft.contractAddress}`);
+        } catch (error) {
+            console.log(`Error displaying NFT ${nft.tokenId}: ${error}`);
+        }
+    }
+    nftLoading.classList.add("hidden");
+    if (nftList.innerHTML === "") {
+        nftEmpty.classList.remove("hidden");
+    }
+}
 }
 
 // Event listeners

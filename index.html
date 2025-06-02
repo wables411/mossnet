@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="
     default-src 'self';
-    script-src 'self' https://cdn.jsdelivr.net https://www.defined.fi;
+    script-src 'self' https://cdn.jsdelivr.net https://www.defined.fi https://unpkg.com;
     connect-src 'self' https://mainnet.sanko.xyz https://mossnet-proxy.wablesphoto.workers.dev wss://*.sanko.xyz https://cloudflare-ipfs.com https://ipfs.io https://dweb.link https://api.scatter.art;
     frame-src 'self' https://www.defined.fi https://auth.privy.io;
     img-src 'self' data: https://*.ipfs.dweb.link https://cloudflare-ipfs.com https://gateway.pinata.cloud https://ipfs.io https://mossnet-proxy.wablesphoto.workers.dev https://d1kgk9u8ytew77.cloudfront.net;
@@ -70,18 +70,20 @@
         <img src="assets/pagebanner.png" alt="MossNet Banner" class="page-banner">
         <h1>MossNet</h1>
         <p class="title-description">Comprehensive Field Research Journal Entries by MossHunter420 of Winnsboro Feint Garden Bold division. Artifacts collected during the great Moss Expeditions from August 2023</p>
-        <!-- Minting Placeholder -->
+        <!-- Minting Section -->
         <div class="mint-section">
             <img src="assets/cigsuiga.png" alt="Cigsuiga Preview" class="cigsuiga-preview">
-            <p class="mint-placeholder">cigsuiga minting soon.</p>
+            <p class="mint-placeholder">Sancigawa minting soon ..</p>
             <p class="mint-description">100 paintings of 100 memories of adventures with friends. created with the help of <button id="stationthisbot-btn" class="stationthisbot-btn">@stationthisbot</button> and <a href="https://cigbot.meme" target="_blank">cigbot.meme</a></p>
             <button id="connect-wallet-btn" class="connect-wallet-btn">Connect Wallet</button>
+            <button id="mint-nft-btn" class="mint-nft-btn" disabled>Mint NFT</button>
+            <div id="invite-lists" class="invite-lists"></div>
             <p id="wallet-address" class="wallet-address hidden"></p>
         </div>
         <!-- Links with Tooltips -->
         <ul class="link-list">
-            <li><a href="https://sudoswap.xyz/#/browse/sanko/buy/0x8e718b4afe2ad12345c5a327e3c2cb7645026bb2" target="_blank" class="tooltip-mossnet" title="MossNet: Comprehensive Field Research Journal Entries by MossHunter420 of Winnsboro Feint Garden Bold division. Artifacts and memories we made along the way collected during the great Moss Expedition of May 2024. Rip Pappachaga. Post Moss.">MossNet</a></li>
-            <li><a href="https://sudoswap.xyz/#/browse/sanko/buy/0x9275bf0a32ae3c9227065f998ac0b392fb9f0bfe" target="_blank" class="tooltip-banners" title="Comprehensive Field Research Journal Entries by MossHunter420 of Winnsboro Feint Garden Bold division. Artifacts collected during the great Moss Expedition of June 2024.">MossNet: Banners</a></li>
+            <li><a href="https://sudoswap.xyz/#/browse/sanko/buy/0x8e718b4aFe2ad12345c5a327e3c2cB7645026BB2" target="_blank" class="tooltip-mossnet" title="MossNet: Comprehensive Field Research Journal Entries by MossHunter420 of Winnsboro Feint Garden Bold division. Artifacts and memories we made along the way collected during the great Moss Expedition of May 2024. Rip Pappachaga. Post Moss.">MossNet</a></li>
+            <li><a href="https://sudoswap.xyz/#/browse/sanko/buy/0x9275Bf0a32ae3c9227065f998Ac0B392FB9f0BFe" target="_blank" class="tooltip-banners" title="Comprehensive Field Research Journal Entries by MossHunter420 of Winnsboro Feint Garden Bold division. Artifacts collected during the great Moss Expedition of June 2024.">MossNet: Banners</a></li>
             <li><a href="https://www.defined.fi/sanko/0x4a5ad9af56e2291f61d6c59ec098fe71b61fb2c4?quoteToken=token1" target="_blank" data-tooltip="13.33M $MOSS tokens growing on $DMT" title="13.33M $MOSS tokens growing on $DMT">$MOSS on Sanko</a></li>
             <li><a href="https://opensea.io/collection/mossawrettes" target="_blank" class="tooltip-mossawrettes" title="recent studies indicate that micro exposure to moss, ie apple moss, carpet moss, sheet moss, cord moss, cushion moss, elf-cap moss, extinguisher moss, feather moss, fern moss, fringe moss, granite moss, hair-cap moss, horn-tooth moss, luminous moss, peat moss, rose moss, screw moss, tree moss, urn moss, top moss, water moss, wind-blown moss, broom moss, can increase endorphin levels in the brain. due to the release of phytoncides and negative ions that have been shown to have a positive impact on mood and mental health. 25+ cigawrettes that are simply lost in the moss.">Mossawrettes</a></li>
             <li><a href="https://x.com/mossmossmoss420" target="_blank" data-tooltip="follow along for more adventures." title="follow along for more adventures.">Twitter</a></li>
@@ -93,6 +95,8 @@
 
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/web3@1.8.2/dist/web3.min.js"></script>
-    <script src="script.js"></script>
+    <script src="https://unpkg.com/@wagmi/core@2.2.0/dist/index.js"></script>
+    <script src="https://unpkg.com/viem@1.0.0/dist/index.js"></script>
+    <script src="script.js" type="module"></script>
 </body>
 </html>

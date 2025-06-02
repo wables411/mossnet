@@ -533,3 +533,37 @@ h1 {
 .iframe-fallback a:hover {
     text-decoration: underline;
 }
+
+.mint-nft-btn, .invite-list-btn {
+    background: #228B22;
+    color: #00ff00;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 1.1em;
+    padding: 10px 20px;
+    border: 2px solid #00ff00;
+    cursor: pointer;
+    margin: 5px;
+    transition: background 0.3s;
+}
+.mint-nft-btn:hover, .invite-list-btn:hover {
+    background: #006400;
+}
+.mint-nft-btn:disabled {
+    background: #333333;
+    color: #666666;
+    cursor: not-allowed;
+    border: 2px solid #666666;
+}
+.invite-lists {
+    margin-top: 10px;
+}
+.invite-lists h3 {
+    font-size: 1.2em;
+    text-shadow: 1px 1px #000;
+    margin-bottom: 10px;
+}
+.invite-lists p {
+    color: #ff00ff;
+    font-size: 0.9em;
+    text-shadow: 1px 1px #000;
+}

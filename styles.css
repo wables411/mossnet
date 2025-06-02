@@ -57,7 +57,7 @@ h1 {
     line-height: 1.4;
 }
 
-/* Minting Placeholder */
+/* Minting Section */
 .mint-section {
     margin-bottom: 20px;
 }
@@ -122,12 +122,74 @@ h1 {
     background: #006400;
 }
 
-/* Wallet Address */
-.wallet-address {
+/* Wallet Status */
+.wallet-status {
     color: #00ff00;
     font-size: 1em;
     text-shadow: 1px 1px #000;
     margin-top: 10px;
+    text-align: center;
+}
+
+.wallet-status.success {
+    color: #00ff00;
+}
+
+.wallet-status.error {
+    color: #ff00ff;
+}
+
+/* Invite Lists */
+.invite-lists {
+    margin-top: 10px;
+}
+
+.invite-lists h3 {
+    font-size: 1.2em;
+    text-shadow: 1px 1px #000;
+    margin-bottom: 10px;
+}
+
+.invite-lists p {
+    color: #00ff00; /* Changed from #ff00ff to match aesthetic */
+    font-size: 0.9em;
+    text-shadow: 1px 1px #000;
+}
+
+/* Card for Invite Lists */
+.card {
+    background: rgba(0, 0, 0, 0.8);
+    border: 2px solid #00ff00;
+    border-radius: 8px;
+    padding: 15px;
+    margin: 10px auto;
+    max-width: 400px;
+    box-shadow: 0 0 5px #00ff00;
+    text-align: center;
+}
+
+/* Mint Button */
+.mint-button {
+    background: #228B22;
+    color: #00ff00;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 1.1em;
+    padding: 10px 20px;
+    border: 2px solid #00ff00;
+    cursor: pointer;
+    margin: 10px 0;
+    transition: background 0.3s;
+}
+
+.mint-button:hover {
+    background: #006400;
+}
+
+.mint-button:disabled {
+    background: #333333;
+    color: #666666;
+    cursor: not-allowed;
+    border: 2px solid #666666;
 }
 
 /* NFT Overlay */
@@ -448,8 +510,18 @@ h1 {
         padding: 8px 16px;
     }
 
-    .wallet-address {
+    .wallet-status {
         font-size: 0.9em;
+    }
+
+    .card {
+        max-width: 95%;
+        padding: 10px;
+    }
+
+    .mint-button {
+        font-size: 1em;
+        padding: 8px 16px;
     }
 
     .nft-container {
@@ -534,6 +606,7 @@ h1 {
     text-decoration: underline;
 }
 
+/* Legacy Buttons (for compatibility) */
 .mint-nft-btn, .invite-list-btn {
     background: #228B22;
     color: #00ff00;
@@ -545,25 +618,14 @@ h1 {
     margin: 5px;
     transition: background 0.3s;
 }
+
 .mint-nft-btn:hover, .invite-list-btn:hover {
     background: #006400;
 }
+
 .mint-nft-btn:disabled {
     background: #333333;
     color: #666666;
     cursor: not-allowed;
     border: 2px solid #666666;
-}
-.invite-lists {
-    margin-top: 10px;
-}
-.invite-lists h3 {
-    font-size: 1.2em;
-    text-shadow: 1px 1px #000;
-    margin-bottom: 10px;
-}
-.invite-lists p {
-    color: #ff00ff;
-    font-size: 0.9em;
-    text-shadow: 1px 1px #000;
 }

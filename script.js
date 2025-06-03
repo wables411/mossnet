@@ -11,11 +11,6 @@ const minimizeIframeBtn = document.getElementById('minimize-iframe-btn');
 const connectWalletBtn = document.getElementById('connect-wallet-btn');
 const walletStatus = document.getElementById('wallet-status');
 const inviteListsEl = document.getElementById('invite-lists');
-const nftOverlay = document.getElementById('nft-overlay');
-const nftList = document.getElementById('nft-list');
-const nftEmpty = document.getElementById('nft-empty');
-const nftLoading = document.getElementById('nft-loading');
-const minimizeNFTBtn = document.getElementById('minimize-nft-btn');
 const stationThisBotBtn = document.getElementById('stationthisbot-btn');
 const imageModal = document.getElementById('image-modal');
 const modalImage = document.getElementById('modal-image');
@@ -73,8 +68,8 @@ async function connectWallet() {
     console.log(`Connected to wallet: ${walletAddress}`);
     walletStatus.textContent = `Connected: ${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`;
     walletStatus.classList.remove('hidden');
-    connectWalletBtn.textContent = 'Check NFTs';
-    connectWalletBtn.onclick = checkNFTs;
+    connectWalletBtn.textContent = 'Disconnect Wallet';
+    connectWalletBtn.onclick = disconnectWallet; // Switch to disconnect function
     await fetchInviteLists(walletAddress);
   } catch (error) {
     if (error.code === 4902) {
@@ -94,8 +89,8 @@ async function connectWallet() {
         console.log(`Connected to wallet: ${walletAddress}`);
         walletStatus.textContent = `Connected: ${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`;
         walletStatus.classList.remove('hidden');
-        connectWalletBtn.textContent = 'Check NFTs';
-        connectWalletBtn.onclick = checkNFTs;
+        connectWalletBtn.textContent = 'Disconnect Wallet';
+        connectWalletBtn.onclick = disconnectWallet; // Switch to disconnect function
         await fetchInviteLists(walletAddress);
       } catch (addError) {
         console.error('Failed to add Sanko chain:', addError);
@@ -108,6 +103,19 @@ async function connectWallet() {
       walletStatus.classList.remove('hidden');
     }
   }
+}
+
+// Disconnect wallet
+function disconnectWallet() {
+  console.log('Disconnecting wallet');
+  walletStatus.textContent = 'Wallet disconnected';
+  walletStatus.classList.remove('hidden');
+  connectWalletBtn.textContent = 'Connect Wallet';
+  connectWalletBtn.onclick = connectWallet; // Reset to connect function
+  if (inviteListsEl) {
+    inviteListsEl.innerHTML = ''; // Clear invite lists
+  }
+  // Note: MetaMask doesn't provide a direct disconnect API; UI is reset above
 }
 
 // Fetch invite lists
@@ -266,75 +274,8 @@ async function fetchImage(imageUrl, ipfsImage, tokenId, slug) {
   return 'assets/placeholder.png';
 }
 
-// Check NFTs via Scatter API
-async function checkNFTs() {
-  const owner = window.ethereum.selectedAddress;
-  const collections = [
-    { slug: 'mossnet', address: '0x8e718b4aFe2ad12345c5a327e3c2cB7645026BB2' },
-    { slug: 'mossnet-banners', address: '0x9275Bf0a32ae3c9227065f998Ac0B392FB9f0BFe' },
-  ];
-  let nfts = [];
-  for (const collection of collections) {
-    try {
-      const response = await fetch(
-        `${SCATTER_API_URL}/collection/${encodeURIComponent(collection.slug)}/nfts?ownerAddress=${encodeURIComponent(owner)}&pageSize=100`
-      );
-      if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      const data = await response.json();
-      const collectionNfts = data.nfts.map(nft => ({
-        contractAddress: collection.address,
-        tokenId: nft.token_id.toString(),
-        imageUrl: nft.image,
-      }));
-      nfts.push(...collectionNfts);
-      console.log(`Fetched ${collectionNfts.length} NFTs for ${collection.slug}`);
-    } catch (error) {
-      console.error(`Error fetching NFTs for ${collection.slug}:`, error);
-    }
-  }
-  await displayNFTs(nfts);
-}
-
-// Display NFTs
-async function displayNFTs(nfts) {
-  if (!nftList || !nftLoading || !nftEmpty) {
-    console.error('NFT display elements not found.');
-    return;
-  }
-  nftList.innerHTML = '';
-  nftLoading.classList.remove('hidden');
-  nftEmpty.classList.add('hidden');
-  if (nfts.length === 0) {
-    nftLoading.classList.add('hidden');
-    nftEmpty.classList.remove('hidden');
-    return;
-  }
-  for (const nft of nfts) {
-    try {
-      const img = document.createElement('img');
-      img.src = await fetchImage(nft.imageUrl, null, nft.tokenId, 'mossnet');
-      img.alt = `NFT ${nft.tokenId}`;
-      img.classList.add('nft-image');
-      img.addEventListener('click', () => {
-        modalImage.src = img.src;
-        imageModal.classList.remove('hidden');
-      });
-      nftList.appendChild(img);
-      console.log(`Added NFT ${nft.tokenId} from ${nft.contractAddress}`);
-    } catch (error) {
-      console.error(`Error displaying NFT ${nft.tokenId}:`, error);
-    }
-  }
-  nftLoading.classList.add('hidden');
-  if (nftList.innerHTML === '') {
-    nftEmpty.classList.remove('hidden');
-  }
-  nftOverlay.classList.remove('hidden');
-}
-
 // Event listeners
 connectWalletBtn.addEventListener('click', connectWallet);
-minimizeNFTBtn.addEventListener('click', () => nftOverlay.classList.add('hidden'));
 beetleBtn.addEventListener('click', () => {
   videoOverlay.classList.remove('hidden');
   overlayVideo.play();

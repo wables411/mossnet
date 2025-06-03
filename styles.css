@@ -629,3 +629,60 @@ h1 {
     cursor: not-allowed;
     border: 2px solid #666666;
 }
+
+/* Mint Schedule Section */
+.mint-schedule {
+    margin-top: 15px;
+    padding: 15px;
+    background: rgba(0, 0, 0, 0.8);
+    border: 2px solid #00ff00;
+    border-radius: 4px;
+    text-align: center;
+    font-family: 'Courier New', Courier, monospace;
+    color: #00ff00;
+}
+
+.mint-schedule p {
+    font-size: 1em;
+    text-shadow: 1px 1px #000;
+    margin-bottom: 10px;
+}
+
+.mint-schedule ul {
+    list-style-type: disc;
+    padding-left: 20px;
+    margin: 0 0 10px;
+    text-align: left;
+}
+
+.mint-schedule li {
+    font-size: 0.9em;
+    text-shadow: 1px 1px #000;
+    margin-bottom: 5px;
+}
+
+.mint-schedule a {
+    color: #00ff00;
+    text-decoration: none;
+    transition: color 0.3s;
+}
+
+.mint-schedule a:hover {
+    color: #ff00ff;
+}
+
+/* Mobile Styles for Mint Schedule */
+@media (max-width: 768px) {
+    .mint-schedule {
+        padding: 10px;
+        margin-bottom: 10px;
+    }
+
+    .mint-schedule p {
+        font-size: 0.9em;
+    }
+
+    .mint-schedule li {
+        font-size: 0.8em;
+    }
+}

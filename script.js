@@ -16,15 +16,6 @@ const imageModal = document.getElementById('image-modal');
 const modalImage = document.getElementById('modal-image');
 const closeModal = document.getElementById('close-modal');
 
-// Cloudflare Worker URL and fallback gateways
-const PROXY_URL = 'https://mossnet-proxy.wablesphoto.workers.dev';
-const ipfsGateways = [
-  `${PROXY_URL}/ipfs/`,
-  'https://dweb.link/ipfs/',
-  'https://cloudflare-ipfs.com/ipfs/',
-  'https://ipfs.io/ipfs/'
-];
-
 // Scatter API config
 const SCATTER_API_URL = 'https://api.scatter.art/v1';
 const COLLECTION_SLUG = 'sancigawa';
@@ -56,6 +47,7 @@ async function connectWallet() {
     console.warn('No wallet detected');
     walletStatus.textContent = 'Please install MetaMask';
     walletStatus.classList.remove('hidden');
+    walletStatus.classList.add('error');
     return;
   }
   try {
@@ -67,9 +59,21 @@ async function connectWallet() {
     const walletAddress = accounts[0];
     console.log(`Connected to wallet: ${walletAddress}`);
     walletStatus.textContent = `Connected: ${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`;
-    walletStatus.classList.remove('hidden');
+    walletStatus.classList.remove('hidden', 'error');
+    walletStatus.classList.add('success');
     connectWalletBtn.textContent = 'Disconnect Wallet';
-    connectWalletBtn.onclick = disconnectWallet; // Switch to disconnect function
+    // Remove existing listeners to prevent duplicates
+    connectWalletBtn.removeEventListener('click', connectWallet);
+    connectWalletBtn.addEventListener('click', disconnectWallet);
+    // Listen for account changes
+    window.ethereum.on('accountsChanged', (newAccounts) => {
+      if (newAccounts.length === 0) {
+        disconnectWallet();
+      } else {
+        walletStatus.textContent = `Connected: ${newAccounts[0].slice(0, 6)}...${newAccounts[0].slice(-4)}`;
+        fetchInviteLists(newAccounts[0]);
+      }
+    });
     await fetchInviteLists(walletAddress);
   } catch (error) {
     if (error.code === 4902) {
@@ -88,19 +92,31 @@ async function connectWallet() {
         const walletAddress = accounts[0];
         console.log(`Connected to wallet: ${walletAddress}`);
         walletStatus.textContent = `Connected: ${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}`;
-        walletStatus.classList.remove('hidden');
+        walletStatus.classList.remove('hidden', 'error');
+        walletStatus.classList.add('success');
         connectWalletBtn.textContent = 'Disconnect Wallet';
-        connectWalletBtn.onclick = disconnectWallet; // Switch to disconnect function
+        connectWalletBtn.removeEventListener('click', connectWallet);
+        connectWalletBtn.addEventListener('click', disconnectWallet);
+        window.ethereum.on('accountsChanged', (newAccounts) => {
+          if (newAccounts.length === 0) {
+            disconnectWallet();
+          } else {
+            walletStatus.textContent = `Connected: ${newAccounts[0].slice(0, 6)}...${newAccounts[0].slice(-4)}`;
+            fetchInviteLists(newAccounts[0]);
+          }
+        });
         await fetchInviteLists(walletAddress);
       } catch (addError) {
         console.error('Failed to add Sanko chain:', addError);
         walletStatus.textContent = `Error: ${addError.message}`;
         walletStatus.classList.remove('hidden');
+        walletStatus.classList.add('error');
       }
     } else {
       console.error('Connection failed:', error);
       walletStatus.textContent = `Error: ${error.message}`;
       walletStatus.classList.remove('hidden');
+      walletStatus.classList.add('error');
     }
   }
 }
@@ -108,14 +124,27 @@ async function connectWallet() {
 // Disconnect wallet
 function disconnectWallet() {
   console.log('Disconnecting wallet');
-  walletStatus.textContent = 'Wallet disconnected';
-  walletStatus.classList.remove('hidden');
-  connectWalletBtn.textContent = 'Connect Wallet';
-  connectWalletBtn.onclick = connectWallet; // Reset to connect function
-  if (inviteListsEl) {
-    inviteListsEl.innerHTML = ''; // Clear invite lists
+  try {
+    // Clear MetaMask listeners
+    if (window.ethereum) {
+      window.ethereum.removeAllListeners('accountsChanged');
+      window.ethereum.removeAllListeners('chainChanged');
+    }
+    // Reset UI
+    walletStatus.textContent = 'Wallet disconnected. Please disconnect in MetaMask if needed.';
+    walletStatus.classList.remove('hidden', 'success', 'error');
+    connectWalletBtn.textContent = 'Connect Wallet';
+    connectWalletBtn.removeEventListener('click', disconnectWallet);
+    connectWalletBtn.addEventListener('click', connectWallet);
+    if (inviteListsEl) {
+      inviteListsEl.innerHTML = ''; // Clear invite lists
+    }
+  } catch (error) {
+    console.error('Disconnect failed:', error);
+    walletStatus.textContent = `Disconnect error: ${error.message}`;
+    walletStatus.classList.remove('hidden');
+    walletStatus.classList.add('error');
   }
-  // Note: MetaMask doesn't provide a direct disconnect API; UI is reset above
 }
 
 // Fetch invite lists
@@ -169,6 +198,7 @@ async function fetchInviteLists(walletAddress) {
     console.error('Fetch invite lists failed:', error);
     walletStatus.textContent = `Error: ${error.message}`;
     walletStatus.classList.remove('hidden');
+    walletStatus.classList.add('error');
     inviteListsEl.innerHTML = '';
   }
 }
@@ -176,11 +206,14 @@ async function fetchInviteLists(walletAddress) {
 // Mint NFT
 async function mintNFT(listId) {
   try {
-    const mintButton = document.querySelector('.mint-button');
-    mintButton.disabled = true;
-    mintButton.textContent = 'Minting...';
+    const mintButton = document.querySelector(`.mint-button:not(:disabled)`);
+    if (mintButton) {
+      mintButton.disabled = true;
+      mintButton.textContent = 'Minting...';
+    }
     walletStatus.textContent = 'Minting in progress...';
-    walletStatus.classList.remove('hidden');
+    walletStatus.classList.remove('hidden', 'error');
+    walletStatus.classList.add('success');
 
     const address = window.ethereum?.selectedAddress;
     if (!address) throw new Error('Please connect your wallet');
@@ -225,53 +258,19 @@ async function mintNFT(listId) {
     console.log('Minted:', tx);
     walletStatus.textContent = `NFT minted successfully! Tx: ${tx.slice(0, 6)}...${tx.slice(-4)}`;
     walletStatus.classList.remove('hidden');
+    walletStatus.classList.add('success');
   } catch (error) {
-    console.error('Minting failed:', error);
-    walletStatus.textContent = `Minting failed: ${error.message}`;
+    console.error('Minting failed:', JSON.stringify(error, null, 2));
+    walletStatus.textContent = `Minting failed: ${error.message || 'Unknown error'}`;
     walletStatus.classList.remove('hidden');
+    walletStatus.classList.add('error');
   } finally {
-    const mintButton = document.querySelector('.mint-button');
-    mintButton.disabled = false;
-    mintButton.textContent = 'Mint';
-  }
-}
-
-// Preload image
-function preloadImage(url) {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    img.src = url;
-    img.onload = () => resolve(url);
-    img.onerror = () => reject(new Error(`Failed to preload ${url}`));
-  });
-}
-
-// Fetch image with fallback gateways
-async function fetchImage(imageUrl, ipfsImage, tokenId, slug) {
-  if (imageUrl) {
-    try {
-      await preloadImage(imageUrl);
-      console.log(`Image loaded for ${slug}, token ${tokenId}: ${imageUrl}`);
-      return imageUrl;
-    } catch (error) {
-      console.warn(`Failed to load image_url for ${slug}, token ${tokenId}: ${imageUrl}`, error.message);
+    const mintButton = document.querySelector(`.mint-button:disabled`);
+    if (mintButton) {
+      mintButton.disabled = false;
+      mintButton.textContent = 'Mint';
     }
   }
-  if (ipfsImage && ipfsImage.startsWith('ipfs://')) {
-    const cid = ipfsImage.replace('ipfs://', '');
-    const urls = ipfsGateways.map(gateway => `${gateway}${cid}`);
-    for (const url of urls) {
-      try {
-        await preloadImage(url);
-        console.log(`Image loaded for ${slug}, token ${tokenId}: ${url}`);
-        return url;
-      } catch (error) {
-        console.warn(`Failed to load image for ${slug}, token ${tokenId} via ${url}:`, error.message);
-      }
-    }
-    console.error(`All gateways failed for ${slug}, token ${tokenId}`);
-  }
-  return 'assets/placeholder.png';
 }
 
 // Event listeners

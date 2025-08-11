@@ -41,21 +41,21 @@ const COLLECTIONS = {
     slug: 'sancigawa',
     address: '0xDf821CDa5B4c6143a77c69Fc1d8b270ec37eDAC8',
     description: '100 paintings of 100 memories of adventures with friends',
-    baseUri: 'ipfs://QmXoHYTW1VgkxvWRyFgZktgCZ4todpB8uConufy6nuyDAi/'
+    baseUri: 'ipfs://QmcwcnXngcMxKnkPu1pAacFVsVCYBvatBdPLP9w2FtR4Wa/'
   },
   'mossnet': {
     name: 'MossNet',
     slug: 'mossnet',
     address: '0x8e718b4aFe2ad12345c5a327e3c2cB7645026BB2',
     description: 'Comprehensive Field Research Journal Entries by MossHunter420',
-    baseUri: 'ipfs://bafybeifuszptldvf5uyu5yffo24az6glc3qos7ro7kfo6rzuvdx72sqwpu/'
+    baseUri: 'ipfs://bafybeidcz4ltsvtecxy2w4fgcctxvtfcojkyii22ca53d2jbveulvjnzqu/'
   },
   'mossnet-banners': {
     name: 'MossNet: Banners',
     slug: 'mossnet-banners',
     address: '0x9275Bf0a32ae3c9227065f998Ac0B392FB9f0BFe',
     description: 'Comprehensive Field Research Journal Entries by MossHunter420',
-    baseUri: 'ipfs://bafybeihgajntmgo2ecenh3uehl2gqwqjuo7ti5a7emdpqrkwtzbchosama/'
+    baseUri: 'ipfs://bafybeietaqbcyxojgghl66ixbhmlekitu35fcjh3wmmpo7wasqu76cqvyq/'
   }
 };
 
@@ -391,7 +391,7 @@ async function showCollectionNfts(collectionKey) {
             image_url: nft.image_url,
             image_url_shrunk: nft.image_url_shrunk
           });
-          console.log('Full NFT object:', nft);
+          console.log('Full NFT object:', JSON.stringify(nft, null, 2));
           
           // Construct correct image URL using base URI and token ID
           const collection = COLLECTIONS[collectionKey];
@@ -415,6 +415,13 @@ async function showCollectionNfts(collectionKey) {
           imgElement.alt = nftName;
           imgElement.className = 'nft-image';
           imgElement.loading = 'lazy';
+          imgElement.onerror = function() {
+            console.error('Image failed to load:', this.src);
+            console.error('Current src attribute:', this.getAttribute('src'));
+          };
+          imgElement.onload = function() {
+            console.log('Image loaded successfully:', this.src);
+          };
           
           const infoDiv = document.createElement('div');
           infoDiv.className = 'nft-info';

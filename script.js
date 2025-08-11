@@ -378,30 +378,29 @@ async function showCollectionNfts(collectionKey) {
           const nftCard = document.createElement('div');
           nftCard.className = 'nft-card';
           
-          // Try to use IPFS gateway if CloudFront fails due to CSP
-          let imageUrl = nft.image_url || nft.image || 'assets/placeholder.png';
+          // Use the IPFS URI from the API response and convert to working gateway
+          let imageUrl = 'assets/placeholder.png';
           
-          // Debug: log the original image URL
-          console.log('Original image URL:', imageUrl);
+          // Debug: log all image fields
+          console.log('NFT image fields:', {
+            image: nft.image,
+            image_url: nft.image_url,
+            image_url_shrunk: nft.image_url_shrunk
+          });
           
-          // Handle relative URLs or malformed URLs
-          if (imageUrl && !imageUrl.startsWith('http') && !imageUrl.startsWith('ipfs://')) {
-            console.log('Malformed URL detected, using placeholder');
-            imageUrl = 'assets/placeholder.png';
-          }
-          
-          if (imageUrl.includes('d1kgk9u8ytew77.cloudfront.net') && imageUrl.includes('ipfs/')) {
-            // Convert CloudFront IPFS URL to public IPFS gateway
-            const ipfsHash = imageUrl.split('ipfs/')[1];
+          // Priority: 1. IPFS URI (image field), 2. CloudFront URL, 3. Placeholder
+          if (nft.image && nft.image.startsWith('ipfs://')) {
+            // Convert IPFS URI to Cloudflare gateway
+            const ipfsHash = nft.image.replace('ipfs://', '');
+            imageUrl = `https://cloudflare-ipfs.com/ipfs/${ipfsHash}`;
+            console.log('Using IPFS gateway:', imageUrl);
+          } else if (nft.image_url && nft.image_url.includes('d1kgk9u8ytew77.cloudfront.net')) {
+            // Extract IPFS hash from CloudFront URL and convert to gateway
+            const ipfsHash = nft.image_url.split('ipfs/')[1];
             if (ipfsHash) {
               imageUrl = `https://cloudflare-ipfs.com/ipfs/${ipfsHash}`;
+              console.log('Converted CloudFront to IPFS gateway:', imageUrl);
             }
-          }
-          
-          // Handle IPFS URLs
-          if (imageUrl.startsWith('ipfs://')) {
-            const ipfsHash = imageUrl.replace('ipfs://', '');
-            imageUrl = `https://cloudflare-ipfs.com/ipfs/${ipfsHash}`;
           }
           const tokenId = nft.token_id || nft.tokenId;
           const nftName = nft.name || `#${tokenId}`;

@@ -405,13 +405,24 @@ async function showCollectionNfts(collectionKey) {
           const tokenId = nft.token_id || nft.tokenId;
           const nftName = nft.name || `#${tokenId}`;
           
-          nftCard.innerHTML = `
-            <img src="${imageUrl}" alt="${nftName}" class="nft-image" loading="lazy">
-            <div class="nft-info">
-              <h3>${nftName}</h3>
-              <p>Token ID: ${tokenId}</p>
-            </div>
+          // Create the image element properly
+          const imgElement = document.createElement('img');
+          imgElement.src = imageUrl;
+          imgElement.alt = nftName;
+          imgElement.className = 'nft-image';
+          imgElement.loading = 'lazy';
+          
+          const infoDiv = document.createElement('div');
+          infoDiv.className = 'nft-info';
+          infoDiv.innerHTML = `
+            <h3>${nftName}</h3>
+            <p>Token ID: ${tokenId}</p>
           `;
+          
+          nftCard.appendChild(imgElement);
+          nftCard.appendChild(infoDiv);
+          
+          console.log('Final image URL being set:', imageUrl);
           
           // Add click handler to enlarge image
           const nftImage = nftCard.querySelector('.nft-image');

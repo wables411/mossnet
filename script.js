@@ -326,7 +326,25 @@ async function fetchCollectionNfts(collectionSlug, walletAddress) {
       const errorData = await response.json();
       throw new Error(errorData.message || 'Failed to fetch collection NFTs');
     }
-    return await response.json();
+    const data = await response.json();
+    
+    // Handle different response formats
+    if (Array.isArray(data)) {
+      return data;
+    } else if (data && Array.isArray(data.nfts)) {
+      return data.nfts;
+    } else if (data && Array.isArray(data.data)) {
+      return data.data;
+    } else if (data && typeof data === 'object') {
+      // If it's an object, try to find any array property
+      const arrayProps = Object.values(data).filter(val => Array.isArray(val));
+      if (arrayProps.length > 0) {
+        return arrayProps[0];
+      }
+    }
+    
+    console.log('API Response:', data);
+    return [];
   } catch (error) {
     console.error('Fetch collection NFTs failed:', error);
     throw error;
@@ -360,7 +378,9 @@ async function showCollectionNfts(collectionKey) {
     
     collectionNftLoading.classList.add('hidden');
     
-    if (!nfts || nfts.length === 0) {
+    console.log('NFTs received:', nfts);
+    
+    if (!nfts || !Array.isArray(nfts) || nfts.length === 0) {
       collectionNftEmpty.classList.remove('hidden');
     } else {
       // Display NFTs

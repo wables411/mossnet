@@ -393,19 +393,18 @@ async function showCollectionNfts(collectionKey) {
           });
           console.log('Full NFT object:', JSON.stringify(nft, null, 2));
           
-          // Construct correct image URL using base URI and token ID
-          const collection = COLLECTIONS[collectionKey];
-          if (collection && collection.baseUri) {
-            const baseUri = collection.baseUri.replace('ipfs://', '');
-            imageUrl = `https://cloudflare-ipfs.com/ipfs/${baseUri}${tokenId}.png`;
-            console.log('Constructed image URL:', imageUrl);
-          } else {
-            // Fallback to API response
-            if (nft.image_url_shrunk) {
-              imageUrl = nft.image_url_shrunk;
-            } else if (nft.image_url) {
-              imageUrl = nft.image_url;
-            }
+          // Use the image URL directly from the Scatter API response
+          if (nft.image_url) {
+            imageUrl = nft.image_url;
+            console.log('Using API image_url:', imageUrl);
+          } else if (nft.image_url_shrunk) {
+            imageUrl = nft.image_url_shrunk;
+            console.log('Using API image_url_shrunk:', imageUrl);
+          } else if (nft.image && nft.image.startsWith('ipfs://')) {
+            // Convert IPFS URI to gateway
+            const ipfsHash = nft.image.replace('ipfs://', '');
+            imageUrl = `https://cloudflare-ipfs.com/ipfs/${ipfsHash}`;
+            console.log('Converted IPFS URI:', imageUrl);
           }
           const nftName = nft.name || `#${tokenId}`;
           

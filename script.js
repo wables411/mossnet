@@ -381,6 +381,8 @@ async function showCollectionNfts(collectionKey) {
   }
 
   const collection = COLLECTIONS[collectionKey];
+  console.log('Looking for collection:', collectionKey);
+  console.log('Available collections:', Object.keys(COLLECTIONS));
   if (!collection) {
     console.error('Collection not found:', collectionKey);
     return;

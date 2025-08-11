@@ -380,12 +380,28 @@ async function showCollectionNfts(collectionKey) {
           
           // Try to use IPFS gateway if CloudFront fails due to CSP
           let imageUrl = nft.image_url || nft.image || 'assets/placeholder.png';
+          
+          // Debug: log the original image URL
+          console.log('Original image URL:', imageUrl);
+          
+          // Handle relative URLs or malformed URLs
+          if (imageUrl && !imageUrl.startsWith('http') && !imageUrl.startsWith('ipfs://')) {
+            console.log('Malformed URL detected, using placeholder');
+            imageUrl = 'assets/placeholder.png';
+          }
+          
           if (imageUrl.includes('d1kgk9u8ytew77.cloudfront.net') && imageUrl.includes('ipfs/')) {
             // Convert CloudFront IPFS URL to public IPFS gateway
             const ipfsHash = imageUrl.split('ipfs/')[1];
             if (ipfsHash) {
               imageUrl = `https://cloudflare-ipfs.com/ipfs/${ipfsHash}`;
             }
+          }
+          
+          // Handle IPFS URLs
+          if (imageUrl.startsWith('ipfs://')) {
+            const ipfsHash = imageUrl.replace('ipfs://', '');
+            imageUrl = `https://cloudflare-ipfs.com/ipfs/${ipfsHash}`;
           }
           const tokenId = nft.token_id || nft.tokenId;
           const nftName = nft.name || `#${tokenId}`;

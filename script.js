@@ -41,21 +41,31 @@ const COLLECTIONS = {
     slug: 'sancigawa',
     address: '0xDf821CDa5B4c6143a77c69Fc1d8b270ec37eDAC8',
     description: '100 paintings of 100 memories of adventures with friends',
-    baseUri: 'ipfs://QmcwcnXngcMxKnkPu1pAacFVsVCYBvatBdPLP9w2FtR4Wa/'
+    baseUri: 'ipfs://QmcwcnXngcMxKnkPu1pAacFVsVCYBvatBdPLP9w2FtR4Wa/',
+    type: 'scatter'
   },
   'mossnet': {
     name: 'MossNet',
     slug: 'mossnet',
     address: '0x8e718b4aFe2ad12345c5a327e3c2cB7645026BB2',
     description: 'Comprehensive Field Research Journal Entries by MossHunter420',
-    baseUri: 'ipfs://bafybeidcz4ltsvtecxy2w4fgcctxvtfcojkyii22ca53d2jbveulvjnzqu/'
+    baseUri: 'ipfs://bafybeidcz4ltsvtecxy2w4fgcctxvtfcojkyii22ca53d2jbveulvjnzqu/',
+    type: 'scatter'
   },
   'mossnet-banners': {
     name: 'MossNet: Banners',
     slug: 'mossnet-banners',
     address: '0x9275Bf0a32ae3c9227065f998Ac0B392FB9f0BFe',
     description: 'Comprehensive Field Research Journal Entries by MossHunter420',
-    baseUri: 'ipfs://bafybeietaqbcyxojgghl66ixbhmlekitu35fcjh3wmmpo7wasqu76cqvyq/'
+    baseUri: 'ipfs://bafybeietaqbcyxojgghl66ixbhmlekitu35fcjh3wmmpo7wasqu76cqvyq/',
+    type: 'scatter'
+  },
+  'mossawrettes': {
+    name: 'Mossawrettes',
+    slug: 'mossawrettes',
+    address: '0x71f7bedf8572b75e446766906079dcf05a386737',
+    description: '25+ cigawrettes that are simply lost in the moss',
+    type: 'opensea'
   }
 };
 
@@ -344,6 +354,24 @@ async function fetchCollectionNfts(collectionSlug, walletAddress) {
   }
 }
 
+// Fetch NFTs from OpenSea API
+async function fetchOpenSeaNfts(contractAddress, walletAddress) {
+  try {
+    // Use OpenSea API to fetch NFTs owned by the wallet
+    const response = await fetch(`https://api.opensea.io/api/v1/assets?owner=${walletAddress}&asset_contract_address=${contractAddress}&order_direction=desc&offset=0&limit=50`);
+    
+    if (!response.ok) {
+      throw new Error(`OpenSea API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return data.assets || [];
+  } catch (error) {
+    console.error('Fetch OpenSea NFTs failed:', error);
+    throw error;
+  }
+}
+
 // Display NFTs from a specific collection
 async function showCollectionNfts(collectionKey) {
   const address = window.ethereum?.selectedAddress;
@@ -367,7 +395,15 @@ async function showCollectionNfts(collectionKey) {
   collectionSecondaryLink.classList.add('hidden');
 
   try {
-    const nfts = await fetchCollectionNfts(collection.slug, address);
+    let nfts = [];
+    
+    if (collection.type === 'opensea') {
+      // Fetch from OpenSea API
+      nfts = await fetchOpenSeaNfts(collection.address, address);
+    } else {
+      // Fetch from Scatter API
+      nfts = await fetchCollectionNfts(collection.slug, address);
+    }
     
     collectionNftLoading.classList.add('hidden');
     
@@ -381,32 +417,47 @@ async function showCollectionNfts(collectionKey) {
           const nftCard = document.createElement('div');
           nftCard.className = 'nft-card';
           
-          // Use the IPFS URI from the API response and convert to working gateway
-          let imageUrl = 'assets/placeholder.png';
-          const tokenId = nft.token_id || nft.tokenId;
+          let tokenId, imageUrl, nftName;
           
-          // Debug: log all image fields
-          console.log('NFT image fields:', {
-            image: nft.image,
-            image_url: nft.image_url,
-            image_url_shrunk: nft.image_url_shrunk
-          });
-          console.log('Full NFT object:', JSON.stringify(nft, null, 2));
-          
-          // Use the image URL directly from the Scatter API response
-          if (nft.image_url) {
-            imageUrl = nft.image_url;
-            console.log('Using API image_url:', imageUrl);
-          } else if (nft.image_url_shrunk) {
-            imageUrl = nft.image_url_shrunk;
-            console.log('Using API image_url_shrunk:', imageUrl);
-          } else if (nft.image && nft.image.startsWith('ipfs://')) {
-            // Convert IPFS URI to gateway
-            const ipfsHash = nft.image.replace('ipfs://', '');
-            imageUrl = `https://cloudflare-ipfs.com/ipfs/${ipfsHash}`;
-            console.log('Converted IPFS URI:', imageUrl);
+          if (collection.type === 'opensea') {
+            // OpenSea data structure
+            tokenId = nft.token_id;
+            imageUrl = nft.image_url || nft.image_thumbnail_url || 'assets/placeholder.png';
+            nftName = nft.name || `#${tokenId}`;
+            
+            console.log('OpenSea NFT:', {
+              token_id: tokenId,
+              name: nftName,
+              image_url: imageUrl
+            });
+          } else {
+            // Scatter data structure
+            tokenId = nft.token_id || nft.tokenId;
+            
+            // Debug: log all image fields
+            console.log('NFT image fields:', {
+              image: nft.image,
+              image_url: nft.image_url,
+              image_url_shrunk: nft.image_url_shrunk
+            });
+            console.log('Full NFT object:', JSON.stringify(nft, null, 2));
+            
+            // Use the image URL directly from the Scatter API response
+            imageUrl = 'assets/placeholder.png';
+            if (nft.image_url) {
+              imageUrl = nft.image_url;
+              console.log('Using API image_url:', imageUrl);
+            } else if (nft.image_url_shrunk) {
+              imageUrl = nft.image_url_shrunk;
+              console.log('Using API image_url_shrunk:', imageUrl);
+            } else if (nft.image && nft.image.startsWith('ipfs://')) {
+              // Convert IPFS URI to gateway
+              const ipfsHash = nft.image.replace('ipfs://', '');
+              imageUrl = `https://cloudflare-ipfs.com/ipfs/${ipfsHash}`;
+              console.log('Converted IPFS URI:', imageUrl);
+            }
+            nftName = nft.name || `#${tokenId}`;
           }
-          const nftName = nft.name || `#${tokenId}`;
           
           // Create the image element properly
           const imgElement = document.createElement('img');

@@ -40,19 +40,22 @@ const COLLECTIONS = {
     name: 'Sancigawa',
     slug: 'sancigawa',
     address: '0xDf821CDa5B4c6143a77c69Fc1d8b270ec37eDAC8',
-    description: '100 paintings of 100 memories of adventures with friends'
+    description: '100 paintings of 100 memories of adventures with friends',
+    baseUri: 'ipfs://QmXoHYTW1VgkxvWRyFgZktgCZ4todpB8uConufy6nuyDAi/'
   },
   'mossnet': {
     name: 'MossNet',
     slug: 'mossnet',
     address: '0x8e718b4aFe2ad12345c5a327e3c2cB7645026BB2',
-    description: 'Comprehensive Field Research Journal Entries by MossHunter420'
+    description: 'Comprehensive Field Research Journal Entries by MossHunter420',
+    baseUri: 'ipfs://bafybeifuszptldvf5uyu5yffo24az6glc3qos7ro7kfo6rzuvdx72sqwpu/'
   },
   'mossnet-banners': {
     name: 'MossNet: Banners',
     slug: 'mossnet-banners',
     address: '0x9275Bf0a32ae3c9227065f998Ac0B392FB9f0BFe',
-    description: 'Comprehensive Field Research Journal Entries by MossHunter420'
+    description: 'Comprehensive Field Research Journal Entries by MossHunter420',
+    baseUri: 'ipfs://bafybeihgajntmgo2ecenh3uehl2gqwqjuo7ti5a7emdpqrkwtzbchosama/'
   }
 };
 
@@ -380,6 +383,7 @@ async function showCollectionNfts(collectionKey) {
           
           // Use the IPFS URI from the API response and convert to working gateway
           let imageUrl = 'assets/placeholder.png';
+          const tokenId = nft.token_id || nft.tokenId;
           
           // Debug: log all image fields
           console.log('NFT image fields:', {
@@ -387,22 +391,22 @@ async function showCollectionNfts(collectionKey) {
             image_url: nft.image_url,
             image_url_shrunk: nft.image_url_shrunk
           });
+          console.log('Full NFT object:', nft);
           
-          // Priority: 1. IPFS URI (image field), 2. CloudFront URL, 3. Placeholder
-          if (nft.image && nft.image.startsWith('ipfs://')) {
-            // Convert IPFS URI to Cloudflare gateway
-            const ipfsHash = nft.image.replace('ipfs://', '');
-            imageUrl = `https://cloudflare-ipfs.com/ipfs/${ipfsHash}`;
-            console.log('Using IPFS gateway:', imageUrl);
-          } else if (nft.image_url && nft.image_url.includes('d1kgk9u8ytew77.cloudfront.net')) {
-            // Extract IPFS hash from CloudFront URL and convert to gateway
-            const ipfsHash = nft.image_url.split('ipfs/')[1];
-            if (ipfsHash) {
-              imageUrl = `https://cloudflare-ipfs.com/ipfs/${ipfsHash}`;
-              console.log('Converted CloudFront to IPFS gateway:', imageUrl);
+          // Construct correct image URL using base URI and token ID
+          const collection = COLLECTIONS[collectionKey];
+          if (collection && collection.baseUri) {
+            const baseUri = collection.baseUri.replace('ipfs://', '');
+            imageUrl = `https://cloudflare-ipfs.com/ipfs/${baseUri}${tokenId}.png`;
+            console.log('Constructed image URL:', imageUrl);
+          } else {
+            // Fallback to API response
+            if (nft.image_url_shrunk) {
+              imageUrl = nft.image_url_shrunk;
+            } else if (nft.image_url) {
+              imageUrl = nft.image_url;
             }
           }
-          const tokenId = nft.token_id || nft.tokenId;
           const nftName = nft.name || `#${tokenId}`;
           
           // Create the image element properly

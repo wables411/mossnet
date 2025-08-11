@@ -321,26 +321,16 @@ async function mintNFT(listId) {
 // Fetch NFTs from a specific collection for the connected wallet
 async function fetchCollectionNfts(collectionSlug, walletAddress) {
   try {
-    const response = await fetch(`${SCATTER_API_URL}/collection/${collectionSlug}/nfts?owner=${walletAddress}`);
+    const response = await fetch(`${SCATTER_API_URL}/collection/${collectionSlug}/nfts?ownerAddress=${walletAddress}`);
     if (!response.ok) {
       const errorData = await response.json();
       throw new Error(errorData.message || 'Failed to fetch collection NFTs');
     }
     const data = await response.json();
     
-    // Handle different response formats
-    if (Array.isArray(data)) {
-      return data;
-    } else if (data && Array.isArray(data.nfts)) {
-      return data.nfts;
-    } else if (data && Array.isArray(data.data)) {
+    // According to Scatter API docs, NFTs are in the 'data' array
+    if (data && Array.isArray(data.data)) {
       return data.data;
-    } else if (data && typeof data === 'object') {
-      // If it's an object, try to find any array property
-      const arrayProps = Object.values(data).filter(val => Array.isArray(val));
-      if (arrayProps.length > 0) {
-        return arrayProps[0];
-      }
     }
     
     console.log('API Response:', data);
@@ -384,30 +374,32 @@ async function showCollectionNfts(collectionKey) {
       collectionNftEmpty.classList.remove('hidden');
     } else {
       // Display NFTs
-      nfts.forEach(nft => {
-        const nftCard = document.createElement('div');
-        nftCard.className = 'nft-card';
-        
-        const imageUrl = nft.image_url || nft.metadata?.image || 'assets/placeholder.png';
-        
-        nftCard.innerHTML = `
-          <img src="${imageUrl}" alt="${nft.name || `NFT #${nft.token_id}`}" class="nft-image" loading="lazy">
-          <div class="nft-info">
-            <h3>${nft.name || `#${nft.token_id}`}</h3>
-            <p>Token ID: ${nft.token_id}</p>
-          </div>
-        `;
-        
-        // Add click handler to enlarge image
-        const nftImage = nftCard.querySelector('.nft-image');
-        nftImage.addEventListener('click', () => {
-          modalImage.src = imageUrl;
-          modalImage.alt = nft.name || `NFT #${nft.token_id}`;
-          imageModal.classList.remove('hidden');
+              nfts.forEach(nft => {
+          const nftCard = document.createElement('div');
+          nftCard.className = 'nft-card';
+          
+          const imageUrl = nft.image_url || nft.image || 'assets/placeholder.png';
+          const tokenId = nft.token_id || nft.tokenId;
+          const nftName = nft.name || `#${tokenId}`;
+          
+          nftCard.innerHTML = `
+            <img src="${imageUrl}" alt="${nftName}" class="nft-image" loading="lazy">
+            <div class="nft-info">
+              <h3>${nftName}</h3>
+              <p>Token ID: ${tokenId}</p>
+            </div>
+          `;
+          
+          // Add click handler to enlarge image
+          const nftImage = nftCard.querySelector('.nft-image');
+          nftImage.addEventListener('click', () => {
+            modalImage.src = imageUrl;
+            modalImage.alt = nftName;
+            imageModal.classList.remove('hidden');
+          });
+          
+          collectionNftList.appendChild(nftCard);
         });
-        
-        collectionNftList.appendChild(nftCard);
-      });
     }
 
     // Show secondary market link

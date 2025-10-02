@@ -357,17 +357,32 @@ async function fetchCollectionNfts(collectionSlug, walletAddress) {
 // Fetch NFTs from OpenSea API using CORS proxy
 async function fetchOpenSeaNfts(contractAddress, walletAddress) {
   try {
-    // Use CORS proxy to bypass OpenSea's CORS restrictions
-    const proxyUrl = 'https://api.allorigins.win/raw?url=';
-    const openSeaUrl = `https://api.opensea.io/api/v1/assets?owner=${walletAddress}&asset_contract_address=${contractAddress}&order_direction=desc&offset=0&limit=50`;
-    const response = await fetch(proxyUrl + encodeURIComponent(openSeaUrl));
+    // Try multiple CORS proxies in case one fails
+    const proxies = [
+      'https://api.allorigins.win/raw?url=',
+      'https://cors-anywhere.herokuapp.com/',
+      'https://thingproxy.freeboard.io/fetch/'
+    ];
     
-    if (!response.ok) {
-      throw new Error(`OpenSea API error: ${response.status}`);
+    const openSeaUrl = `https://api.opensea.io/api/v1/assets?owner=${walletAddress}&asset_contract_address=${contractAddress}&order_direction=desc&offset=0&limit=50`;
+    
+    for (const proxy of proxies) {
+      try {
+        console.log('Trying proxy:', proxy);
+        const response = await fetch(proxy + encodeURIComponent(openSeaUrl));
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log('OpenSea API success with proxy:', proxy);
+          return data.assets || [];
+        }
+      } catch (proxyError) {
+        console.log('Proxy failed:', proxy, proxyError);
+        continue;
+      }
     }
     
-    const data = await response.json();
-    return data.assets || [];
+    throw new Error('All CORS proxies failed');
   } catch (error) {
     console.error('Fetch OpenSea NFTs failed:', error);
     throw error;

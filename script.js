@@ -354,11 +354,13 @@ async function fetchCollectionNfts(collectionSlug, walletAddress) {
   }
 }
 
-// Fetch NFTs from OpenSea API
+// Fetch NFTs from OpenSea API using CORS proxy
 async function fetchOpenSeaNfts(contractAddress, walletAddress) {
   try {
-    // Use OpenSea API to fetch NFTs owned by the wallet
-    const response = await fetch(`https://api.opensea.io/api/v1/assets?owner=${walletAddress}&asset_contract_address=${contractAddress}&order_direction=desc&offset=0&limit=50`);
+    // Use CORS proxy to bypass OpenSea's CORS restrictions
+    const proxyUrl = 'https://api.allorigins.win/raw?url=';
+    const openSeaUrl = `https://api.opensea.io/api/v1/assets?owner=${walletAddress}&asset_contract_address=${contractAddress}&order_direction=desc&offset=0&limit=50`;
+    const response = await fetch(proxyUrl + encodeURIComponent(openSeaUrl));
     
     if (!response.ok) {
       throw new Error(`OpenSea API error: ${response.status}`);

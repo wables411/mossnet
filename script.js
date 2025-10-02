@@ -369,7 +369,14 @@ async function fetchOpenSeaNfts(contractAddress, walletAddress) {
     for (const proxy of proxies) {
       try {
         console.log('Trying proxy:', proxy);
-        const response = await fetch(proxy + encodeURIComponent(openSeaUrl));
+        let proxyUrl;
+        if (proxy.includes('allorigins.win')) {
+          proxyUrl = proxy + encodeURIComponent(openSeaUrl);
+        } else {
+          proxyUrl = proxy + openSeaUrl;
+        }
+        console.log('Full proxy URL:', proxyUrl);
+        const response = await fetch(proxyUrl);
         
         if (response.ok) {
           const data = await response.json();

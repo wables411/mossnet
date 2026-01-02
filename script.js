@@ -483,11 +483,14 @@ async function fetchOpenSeaNfts(contractAddress, walletAddress) {
 
 // Display NFTs from a specific collection
 async function showCollectionNfts(collectionKey) {
-  const collection = COLLECTIONS[collectionKey];
   console.log('Looking for collection:', collectionKey);
   console.log('Available collections:', Object.keys(COLLECTIONS));
+  console.log('COLLECTIONS object:', COLLECTIONS);
+  const collection = COLLECTIONS[collectionKey];
+  console.log('Found collection:', collection);
   if (!collection) {
     console.error('Collection not found:', collectionKey);
+    console.error('Available keys:', Object.keys(COLLECTIONS));
     return;
   }
 

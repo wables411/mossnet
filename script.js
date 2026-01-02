@@ -66,6 +66,15 @@ const COLLECTIONS = {
     address: '0x71f7bedf8572b75e446766906079dcf05a386737',
     description: '25+ cigawrettes that are simply lost in the moss',
     type: 'opensea'
+  },
+  'hashstanza': {
+    name: 'Hashstanza',
+    slug: 'hashstanza',
+    address: '',
+    description: 'Hashstanza NFT collection on Solana',
+    baseUri: 'https://lime-given-booby-462.mypinata.cloud/ipfs/bafybeieog6jbxpuvialukevjpd3mxc64v7nbdft3k4hhespxarcgsxrasm/',
+    type: 'solana',
+    totalSupply: 100
   }
 };
 
@@ -166,6 +175,82 @@ async function connectWallet() {
       walletStatus.classList.remove('hidden');
       walletStatus.classList.add('error');
     }
+  }
+}
+
+// Solana wallet connection (separate from EVM)
+let solanaWalletAddress = null;
+
+async function connectSolanaWallet() {
+  if (typeof window.solana === 'undefined') {
+    alert('Please install Phantom wallet or another Solana wallet extension');
+    return null;
+  }
+  
+  try {
+    const resp = await window.solana.connect();
+    solanaWalletAddress = resp.publicKey.toString();
+    console.log(`Connected to Solana wallet: ${solanaWalletAddress}`);
+    return solanaWalletAddress;
+  } catch (err) {
+    console.error('Solana wallet connection failed:', err);
+    alert(`Failed to connect Solana wallet: ${err.message}`);
+    return null;
+  }
+}
+
+// Fetch hashstanza NFTs from IPFS metadata
+async function fetchHashstanzaNfts() {
+  const collection = COLLECTIONS['hashstanza'];
+  const nfts = [];
+  
+  try {
+    // Fetch all NFTs from IPFS (0-99 based on the directory listing)
+    for (let i = 0; i < collection.totalSupply; i++) {
+      try {
+        const metadataUrl = `${collection.baseUri}${i}`;
+        const response = await fetch(metadataUrl);
+        
+        if (response.ok) {
+          const metadata = await response.json();
+          
+          // Handle image URL - could be in metadata.image or construct from baseUri
+          let imageUrl = metadata.image;
+          if (!imageUrl) {
+            // Try constructing from baseUri + tokenId
+            imageUrl = `${collection.baseUri}${i}.png`;
+          } else if (imageUrl.startsWith('ipfs://')) {
+            // Convert IPFS URI to gateway URL
+            const ipfsHash = imageUrl.replace('ipfs://', '');
+            imageUrl = `https://cloudflare-ipfs.com/ipfs/${ipfsHash}`;
+          } else if (!imageUrl.startsWith('http')) {
+            // Relative path, prepend baseUri
+            imageUrl = `${collection.baseUri}${imageUrl}`;
+          }
+          
+          const nft = {
+            tokenId: i,
+            name: metadata.name || `Hashstanza #${i}`,
+            description: metadata.description || '',
+            image: imageUrl,
+            attributes: metadata.attributes || metadata.properties?.attributes || [],
+            metadata: metadata
+          };
+          nfts.push(nft);
+        } else {
+          console.warn(`Failed to fetch NFT ${i} metadata: ${response.status}`);
+        }
+      } catch (error) {
+        console.warn(`Failed to fetch NFT ${i}:`, error);
+        // Continue with other NFTs even if one fails
+      }
+    }
+    
+    console.log(`Fetched ${nfts.length} hashstanza NFTs`);
+    return nfts;
+  } catch (error) {
+    console.error('Error fetching hashstanza NFTs:', error);
+    throw error;
   }
 }
 
@@ -398,17 +483,53 @@ async function fetchOpenSeaNfts(contractAddress, walletAddress) {
 
 // Display NFTs from a specific collection
 async function showCollectionNfts(collectionKey) {
-  const address = window.ethereum?.selectedAddress;
-  if (!address) {
-    alert('Please connect your wallet first');
-    return;
-  }
-
   const collection = COLLECTIONS[collectionKey];
   console.log('Looking for collection:', collectionKey);
   console.log('Available collections:', Object.keys(COLLECTIONS));
   if (!collection) {
     console.error('Collection not found:', collectionKey);
+    return;
+  }
+
+  // Handle Solana collections differently
+  if (collection.type === 'solana') {
+    // For hashstanza, show all NFTs (full gallery, not wallet-specific)
+    collectionNftOverlay.classList.remove('hidden');
+    collectionNftTitle.textContent = `${collection.name} Gallery`;
+    collectionNftLoading.classList.remove('hidden');
+    collectionNftEmpty.classList.add('hidden');
+    collectionNftList.innerHTML = '';
+    collectionSecondaryLink.classList.add('hidden');
+
+    try {
+      const nfts = await fetchHashstanzaNfts();
+      collectionNftLoading.classList.add('hidden');
+      
+      if (!nfts || nfts.length === 0) {
+        collectionNftEmpty.classList.remove('hidden');
+      } else {
+        displayNftCards(nfts, collection);
+      }
+
+      // Show secondary market link
+      const secondaryUrl = document.querySelector(`[data-collection="${collectionKey}"]`)?.dataset.secondaryUrl;
+      if (secondaryUrl) {
+        secondaryMarketLink.href = secondaryUrl;
+        collectionSecondaryLink.classList.remove('hidden');
+      }
+    } catch (error) {
+      console.error('Error showing hashstanza NFTs:', error);
+      collectionNftLoading.classList.add('hidden');
+      collectionNftEmpty.textContent = `Error loading NFTs: ${error.message}`;
+      collectionNftEmpty.classList.remove('hidden');
+    }
+    return;
+  }
+
+  // For EVM collections, require wallet connection
+  const address = window.ethereum?.selectedAddress;
+  if (!address) {
+    alert('Please connect your wallet first');
     return;
   }
 
@@ -438,14 +559,38 @@ async function showCollectionNfts(collectionKey) {
     if (!nfts || !Array.isArray(nfts) || nfts.length === 0) {
       collectionNftEmpty.classList.remove('hidden');
     } else {
-      // Display NFTs
-              nfts.forEach(nft => {
+      displayNftCards(nfts, collection);
+    }
+
+    // Show secondary market link
+    const secondaryUrl = document.querySelector(`[data-collection="${collectionKey}"]`)?.dataset.secondaryUrl;
+    if (secondaryUrl) {
+      secondaryMarketLink.href = secondaryUrl;
+      collectionSecondaryLink.classList.remove('hidden');
+    }
+
+  } catch (error) {
+    console.error('Error showing collection NFTs:', error);
+    collectionNftLoading.classList.add('hidden');
+    collectionNftEmpty.textContent = `Error loading NFTs: ${error.message}`;
+    collectionNftEmpty.classList.remove('hidden');
+  }
+}
+
+// Helper function to display NFT cards
+function displayNftCards(nfts, collection) {
+  nfts.forEach(nft => {
           const nftCard = document.createElement('div');
           nftCard.className = 'nft-card';
           
           let tokenId, imageUrl, nftName;
           
-          if (collection.type === 'opensea') {
+          if (collection.type === 'solana') {
+            // Hashstanza/Solana data structure
+            tokenId = nft.tokenId;
+            imageUrl = nft.image || 'assets/placeholder.png';
+            nftName = nft.name || `Hashstanza #${tokenId}`;
+          } else if (collection.type === 'opensea') {
             // OpenSea data structure
             tokenId = nft.token_id;
             imageUrl = nft.image_url || nft.image_thumbnail_url || 'assets/placeholder.png';
@@ -521,21 +666,6 @@ async function showCollectionNfts(collectionKey) {
           
           collectionNftList.appendChild(nftCard);
         });
-    }
-
-    // Show secondary market link
-    const secondaryUrl = document.querySelector(`[data-collection="${collectionKey}"]`)?.dataset.secondaryUrl;
-    if (secondaryUrl) {
-      secondaryMarketLink.href = secondaryUrl;
-      collectionSecondaryLink.classList.remove('hidden');
-    }
-
-  } catch (error) {
-    console.error('Error showing collection NFTs:', error);
-    collectionNftLoading.classList.add('hidden');
-    collectionNftEmpty.textContent = `Error loading NFTs: ${error.message}`;
-    collectionNftEmpty.classList.remove('hidden');
-  }
 }
 
 // Event listeners
@@ -571,11 +701,21 @@ viewSancigawaNftsBtn.addEventListener('click', () => {
 });
 
 // Collection link event listeners
-document.addEventListener('click', (e) => {
+document.addEventListener('click', async (e) => {
   if (e.target.classList.contains('collection-link')) {
     e.preventDefault();
     const collectionKey = e.target.dataset.collection;
     if (collectionKey) {
+      // For hashstanza, connect Solana wallet if needed (but show gallery regardless)
+      if (collectionKey === 'hashstanza') {
+        // Try to connect Solana wallet, but don't block if it fails
+        // The gallery will show all NFTs regardless
+        try {
+          await connectSolanaWallet();
+        } catch (error) {
+          console.log('Solana wallet connection optional, showing gallery anyway');
+        }
+      }
       showCollectionNfts(collectionKey);
     }
   }

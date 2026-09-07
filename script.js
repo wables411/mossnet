@@ -12,6 +12,7 @@ const views = {
   home: document.getElementById('view-home'),
   gallery: document.getElementById('view-gallery'),
   item: document.getElementById('view-item'),
+  info: document.getElementById('view-info'),
   video: document.getElementById('view-video'),
   chart: document.getElementById('view-chart')
 };
@@ -26,13 +27,13 @@ const itemLinks = document.getElementById('item-links');
 const itemCount = document.getElementById('item-count');
 const itemStage = document.getElementById('item-stage');
 const itemGreen = document.getElementById('item-green');
-const itemInfo = document.getElementById('item-info');
 const infoTitle = document.getElementById('info-title');
 const infoDesc = document.getElementById('info-desc');
 const infoFields = document.getElementById('info-fields');
 const beetleVideo = document.getElementById('beetle-video');
 const chartFrame = document.getElementById('chart-frame');
-const soundToggle = document.getElementById('btn-x');
+const soundToggle = document.getElementById('btn-y');
+const guts = document.querySelector('.guts');
 const ETHERSCAN = 'https://etherscan.io';
 
 const MOSSAWRETTES = {
@@ -292,12 +293,19 @@ const leds = {
     el.classList.remove('flash');
     void el.offsetWidth; // restart the animation
     el.classList.add('flash');
+  },
+  // a button press: the board brightens for a moment and the LEDs ripple across it
+  pulse() {
+    guts.classList.remove('pulse');
+    void guts.offsetWidth;
+    guts.classList.add('pulse');
+    ['mem', 'net', 'audio', 'wallet', 'bg'].forEach((name, i) => setTimeout(() => this.flash(name), i * 40));
   }
 };
 
 // ---------- focus cursor ----------
 let activeView = 'title';
-const focusIndex = { title: 0, home: 0, gallery: 0, item: 0, help: 0 };
+const focusIndex = { title: 0, home: 0, gallery: 0, item: 0, info: 0, help: 0 };
 let lastView = 'title';
 
 function shortAddress(address) {
@@ -330,16 +338,6 @@ function focusedElement() {
 
 // up/down step by a row inside the tile grid, by one item elsewhere
 function move(dir) {
-  // with the info card open, the d-pad scrolls the card instead of moving the cursor
-  if (activeView === 'item' && !itemInfo.classList.contains('hidden')) {
-    const step = itemInfo.clientHeight * 0.6;
-    if (dir === 'up' || dir === 'down') {
-      const before = itemInfo.scrollTop;
-      itemInfo.scrollTop = before + (dir === 'down' ? step : -step);
-      if (itemInfo.scrollTop !== before) sound.tick();
-    }
-    return;
-  }
   const els = focusables();
   if (!els.length) return;
   const i = Math.min(focusIndex[activeView] || 0, els.length - 1);
@@ -363,7 +361,7 @@ function move(dir) {
 
 function showView(name, { focus = 0, scroll = true } = {}) {
   if (activeView === 'video') beetleVideo.pause();
-  if (activeView === 'item' && name !== 'item') { views.item.classList.remove('showcase'); itemInfo.classList.add('hidden'); }
+  if (activeView === 'item' && name !== 'item') views.item.classList.remove('showcase');
   lastView = activeView;
   Object.values(views).forEach(v => v.classList.add('hidden'));
   views[name].classList.remove('hidden');
@@ -571,7 +569,6 @@ function openItem(token) {
   const mine = isOwnedBy(token, walletAddress);
   currentToken = token;
   itemIndex = visibleTokens.indexOf(token);
-  itemInfo.classList.add('hidden');
   fillInfo(token);
   applyGreen();
   itemImage.src = token.large || token.thumbnail || 'assets/placeholder.png';
@@ -582,6 +579,16 @@ function openItem(token) {
   itemLinks.appendChild(linkItem('OpenSea', `https://opensea.io/assets/ethereum/${MOSSAWRETTES.address}/${token.tokenId}`, 'listing on OpenSea'));
   itemLinks.appendChild(linkItem('Etherscan', `${ETHERSCAN}/nft/${MOSSAWRETTES.address}/${token.tokenId}`, 'token on Etherscan'));
   if (token.image) itemLinks.appendChild(linkItem('IPFS', ipfsToHttp(token.image, IPFS_GATEWAYS.length - 1), 'full-size original, 9-12MB'));
+  const dmg = document.createElement('li');
+  const dmgBtn = document.createElement('button');
+  dmgBtn.type = 'button';
+  dmgBtn.className = 'menu-item focusable';
+  dmgBtn.textContent = 'DMG';
+  dmgBtn.dataset.note = 'DMG palette: the picture in the four Game Boy shades';
+  dmgBtn.setAttribute('aria-pressed', String(greenMode));
+  dmgBtn.addEventListener('click', toggleGreen);
+  dmg.appendChild(dmgBtn);
+  itemLinks.appendChild(dmg);
   const back = document.createElement('li');
   const backBtn = document.createElement('button');
   backBtn.type = 'button';
@@ -607,10 +614,16 @@ function setShowcase(on) {
   setNote(on ? 'A or B: leave showcase' : views.item.dataset.note);
 }
 
-function setInfo(on) {
-  itemInfo.classList.toggle('hidden', !on);
-  if (on) itemInfo.scrollTop = 0;
-  setNote(on ? 'X or B: close info' : views.item.dataset.note);
+// the details page fills the screen; X or B returns to the picture
+function openInfo() {
+  if (!currentToken) return;
+  sound.tick();
+  fillInfo(currentToken);
+  showView('info');
+}
+function closeInfo() {
+  sound.close();
+  showView('item', { focus: 0, scroll: false });
 }
 
 // 4-shade Game Boy rendering of the picture: Floyd-Steinberg dithered to the LCD palette
@@ -675,7 +688,8 @@ function toggleGreen() {
   greenMode = !greenMode;
   sound.tick();
   applyGreen();
-  setNote(greenMode ? 'Y: colour · A: showcase · X: info · L/R: prev/next · B: back' : views.item.dataset.note);
+  itemLinks.querySelectorAll('[aria-pressed]').forEach(b => b.setAttribute('aria-pressed', String(greenMode)));
+  setNote(greenMode ? 'DMG palette on' : 'DMG palette off');
 }
 
 function fillInfo(token) {
@@ -706,11 +720,19 @@ function fillInfo(token) {
 
 // shoulder buttons: previous / next Mossawrette while looking at one, otherwise cursor left / right
 function stepItem(direction) {
-  if (activeView !== 'item' || itemIndex < 0 || !visibleTokens.length) return false;
+  if ((activeView !== 'item' && activeView !== 'info') || itemIndex < 0 || !visibleTokens.length) return false;
   const next = (itemIndex + direction + visibleTokens.length) % visibleTokens.length;
+  const onInfo = activeView === 'info';
   sound.tick();
   openItem(visibleTokens[next]);
+  if (onInfo) { fillInfo(currentToken); showView('info'); }
   return true;
+}
+
+// L and R flip between the gallery's ALL and YOURS lists
+function flipGallery() {
+  sound.tick();
+  openGallery(galleryMode === 'all' ? 'mine' : 'all');
 }
 
 
@@ -773,37 +795,42 @@ views.video.addEventListener('click', () => press('any'));
 views.title.addEventListener('click', () => press('tap'));
 
 let helpReturn = 'title';
-function openHelp() { helpReturn = activeView; sound.tick(); showView('help'); }
+function openHelp() { helpReturn = activeView; sound.tick(); showView('help', { focus: 0, scroll: false }); }
 function closeHelp() { sound.close(); showView(helpReturn === 'help' ? 'title' : helpReturn, { focus: null }); }
 
 function itemA() {
   if (views.item.classList.contains('showcase')) { sound.tick(); setShowcase(false); return; }
-  if (!itemInfo.classList.contains('hidden')) return;
   activate();
 }
 function itemB() {
-  if (!itemInfo.classList.contains('hidden')) { setInfo(false); return; }
   if (views.item.classList.contains('showcase')) { setShowcase(false); return; }
   sound.close();
   showView('gallery', { focus: null });
   const tile = itemIndex >= 0 ? galleryGrid.querySelector(`.tile[data-token-id="${visibleTokens[itemIndex]?.tokenId}"]`) : null;
   if (tile) { const i = focusables().indexOf(tile); if (i >= 0) setFocus(i); }
 }
-function itemX() { sound.tick(); setInfo(itemInfo.classList.contains('hidden')); }
 
+// L and R on the menu step through the backgrounds
+function stepBackground(direction) { sound.tick(); background.set(background.index + direction); }
+
+// One meaning per button, on every screen:
+//   d-pad move · A ok · B back · X info · Y sound · L/R prev/next · START menu · SELECT this key
 const dirs = { up: () => move('up'), down: () => move('down'), left: () => move('left'), right: () => move('right') };
+const always = { y: toggleSound, start: toHome, select: openHelp };
 const ACTIONS = {
-  title:   { a: startFromTitle, tap: startFromTitle, select: openHelp, x: toggleSound },
+  title:   { a: startFromTitle, tap: startFromTitle, start: startFromTitle, y: toggleSound, select: openHelp },
   video:   { any: skipIntro },
-  home:    { ...dirs, a: activate, b: toTitle, x: toggleSound, start: toTitle, select: openHelp },
-  gallery: { ...dirs, a: activate, b: toHome, l: dirs.left, r: dirs.right, x: toggleSound, start: toTitle, select: openHelp },
-  item:    { ...dirs, a: itemA, b: itemB, x: itemX, y: toggleGreen, l: () => stepItem(-1), r: () => stepItem(1), start: toTitle, select: openHelp },
-  chart:   { b: toHome, x: toggleSound, start: toTitle, select: openHelp },
-  help:    { up: () => scrollLcd('up'), down: () => scrollLcd('down'), b: closeHelp, select: closeHelp, start: toTitle }
+  home:    { ...dirs, ...always, a: activate, b: toTitle, l: () => stepBackground(-1), r: () => stepBackground(1), start: null },
+  gallery: { ...dirs, ...always, a: activate, b: toHome, l: flipGallery, r: flipGallery },
+  item:    { ...dirs, ...always, a: itemA, b: itemB, x: openInfo, l: () => stepItem(-1), r: () => stepItem(1) },
+  info:    { ...always, up: () => scrollLcd('up'), down: () => scrollLcd('down'), b: closeInfo, x: closeInfo, l: () => stepItem(-1), r: () => stepItem(1) },
+  chart:   { ...always, b: toHome },
+  help:    { ...dirs, ...always, a: activate, b: closeHelp, select: closeHelp }
 };
 
-// every press makes a sound: the action's own blip if it has one, otherwise a plain key click
+// every press lights the board and makes a sound: the action's own blip if it has one, otherwise a plain key click
 function press(button) {
+  leds.pulse();
   sound.armed = true;
   const map = ACTIONS[activeView] || {};
   const fn = map.any || map[button];
@@ -818,12 +845,11 @@ document.getElementById('dpad').addEventListener('click', (e) => {
 [['btn-a', 'a'], ['btn-b', 'b'], ['btn-x', 'x'], ['btn-y', 'y'], ['btn-l', 'l'], ['btn-r', 'r'], ['btn-start', 'start'], ['btn-select', 'select']]
   .forEach(([id, button]) => document.getElementById(id).addEventListener('click', () => press(button)));
 walletPill.addEventListener('click', async () => {
+  leds.pulse();
   sound.tick();
   if (getConnectedAddress()) { disconnectWallet(); return; }
   if (await connectWallet()) setNote(`connected ${walletLabel.textContent}`);
 });
-// every physical press registers on the board
-document.querySelectorAll('.device button:not(.focusable)').forEach(btn => btn.addEventListener('pointerdown', () => leds.flash('mem'), { passive: true }));
 
 // mouse hover moves the cursor too, so the status line always describes what is under the pointer
 lcd.addEventListener('mouseover', (e) => {

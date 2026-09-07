@@ -51,19 +51,20 @@
                 <div class="lcd" id="lcd">
 
                     <!-- Title screen -->
-                    <section id="view-title" class="view" data-note="A or tap: start · SELECT: controls and credits" tabindex="0">
+                    <section id="view-title" class="view" data-note="A or START: begin · SELECT: controls" tabindex="0">
                         <img class="title-art" src="assets/mossawrettes-large/18.webp" alt="Mossawrettes #18" width="1400" height="1400">
                         <h1 class="title">welcome to moss quest</h1>
                         <p class="press-start">PRESS START</p>
                     </section>
 
                     <!-- Menu -->
-                    <section id="view-home" class="view hidden" data-note="A: select · B: title · X: sound · SELECT: controls">
+                    <section id="view-home" class="view hidden" data-note="A: ok · L/R: background · B: title">
                         <ul class="menu">
                             <li class="menu-heading">Collect</li>
                             <li><button type="button" class="menu-item focusable" data-action="gallery" data-note="25 cigawrettes lost in the moss · Ethereum">Mossawrettes</button></li>
                             <li><button type="button" class="menu-item focusable" id="moss-item" data-action="moss" data-expands="moss-sub" data-note="$MOSS RH token deployed live on Retake.TV · A: open" aria-expanded="false">$MOSS</button></li>
-                            <li class="moss-sub hidden"><button type="button" class="menu-item focusable sub" data-action="chart" data-note="live $MOSS chart on this screen">chart</button></li>
+                            <li class="moss-sub hidden"><p class="menu-note">moss growing on robinhood chain deployed on retake.tv</p></li>
+                            <li class="moss-sub hidden"><button type="button" class="menu-item focusable sub address" data-action="chart" data-note="$MOSS contract · A: live chart on this screen">0x81da740ffe60241ff526833bce21c5560fe9abc9</button></li>
                             <li class="moss-sub hidden"><a class="menu-item focusable sub" href="https://app.uniswap.org/swap?chain=robinhood&amp;inputCurrency=ETH&amp;outputCurrency=0x81da740ffe60241ff526833bce21c5560fe9abc9" target="_blank" rel="noopener" data-note="swap ETH for $MOSS on Uniswap, Robinhood Chain">uniswap</a></li>
                             <li><button type="button" class="menu-item focusable" id="hashstanza-item" data-action="hashstanza" data-expands="hashstanza-sub" data-note="poems by twinstar, on solana · A: open" aria-expanded="false">Hashstanza</button></li>
                             <li class="hashstanza-sub hidden"><a class="menu-item focusable sub" href="https://x.com/mossmossmoss420/status/2005739979251802376?s=20" target="_blank" rel="noopener" data-note="about hashstanza, on X">info</a></li>
@@ -73,7 +74,7 @@
                             <li><a class="menu-item focusable" href="https://retake.tv/mossmossmoss420" target="_blank" rel="noopener" data-note="live on Retake.TV">Moss TV</a></li>
                             <li><a class="menu-item focusable" href="https://remilia.net/~moss" target="_blank" rel="noopener" data-note="moss on remilia.net">remilia.net</a></li>
                             <li class="menu-heading">RIP</li>
-                            <li><a class="menu-item focusable" href="https://www.cigawrettepacks.shop/" target="_blank" rel="noopener" data-note="cigawrette packs">Pappachaga</a></li>
+                            <li><a class="menu-item focusable" href="https://paragraph.com/@shoqanaw/deleted-posts-pappachaga-2" target="_blank" rel="noopener" data-note="deleted posts: pappachaga">Pappachaga</a></li>
                             <li><a class="menu-item focusable" href="https://x.com/LosAngelEyes" target="_blank" rel="noopener" data-note="angeleyes">Angeleyes</a></li>
                             <li><button type="button" class="menu-item focusable" id="sanko-item" data-action="sanko" data-expands="sanko-sub" data-note="Sanko Chain, Sanko TV, $DMT · A: open" aria-expanded="false">Sanko L3</button></li>
                             <li class="sanko-sub hidden"><p class="menu-note">Thank you everyone who participated in the Moss Adventures on Sanko L3. I love you and regret to inform you that Sanko Chain L3 has sunset due to unfortunate unexpected terrorish attacks. The Quest to find all the Moss continues.</p></li>
@@ -84,9 +85,9 @@
                     </section>
 
                     <!-- Mossawrettes gallery -->
-                    <section id="view-gallery" class="view hidden" data-note="←→ move · A: view · B: back">
+                    <section id="view-gallery" class="view hidden" data-note="A: open · L/R: all / yours · B: back">
                         <header class="lcd-header">
-                            <span class="lcd-header-title">MOSSAWRETTES</span>
+                            <a class="lcd-header-title focusable" href="https://www.scatter.art/c/mossawrettes" target="_blank" rel="noopener" data-note="Mossawrettes on scatter.art">MOSSAWRETTES</a>
                             <nav class="tabs" aria-label="Which Mossawrettes to show">
                                 <button type="button" class="tab focusable active" data-mode="all" data-note="every Mossawrette, read from Ethereum">ALL</button>
                                 <button type="button" class="tab focusable" data-mode="mine" data-note="the ones in your wallet">YOURS</button>
@@ -101,88 +102,53 @@
                     </section>
 
                     <!-- Single Mossawrette -->
-                    <section id="view-item" class="view hidden" data-note="A: showcase · X: info · Y: green · L/R: prev/next · B: back">
+                    <section id="view-item" class="view hidden" data-note="A: showcase · X: info · L/R: prev / next · B: back">
                         <div id="item-stage" class="item-stage focusable" data-action="showcase" tabindex="0">
                             <img id="item-image" class="item-image" src="" alt="">
                             <canvas id="item-green" class="item-image item-green hidden" aria-hidden="true"></canvas>
                         </div>
                         <h2 class="item-name"><span id="item-name"></span><span id="item-count" class="item-meta"></span></h2>
                         <ul id="item-links" class="item-links"></ul>
-                        <div id="item-info" class="item-info hidden" aria-live="polite">
-                            <h3 id="info-title"></h3>
-                            <p id="info-desc"></p>
-                            <dl id="info-fields"></dl>
-                            <p class="lcd-note">X or B: close</p>
-                        </div>
+                    </section>
+
+                    <!-- Piece details: a full page, X from the piece -->
+                    <section id="view-info" class="view info hidden" data-note="✚: scroll · L/R: prev / next · X or B: back">
+                        <h2 id="info-title"></h2>
+                        <p id="info-desc"></p>
+                        <dl id="info-fields"></dl>
                     </section>
 
                     <!-- Controls + credits (SELECT) -->
-                    <section id="view-help" class="view help hidden" data-note="D-pad: scroll · B or SELECT: close">
+                    <section id="view-help" class="view help hidden" data-note="A: open · B or SELECT: close">
                         <h2>CONTROLS</h2>
-                        <div class="keymap">
-                            <div class="keygroup">
-                                <h3>Title</h3>
-                                <div class="keyrow"><span class="keys"><span class="k">A</span></span><span>start · or tap</span></div>
-                                <div class="keyrow"><span class="keys"><span class="k any">any</span></span><span>skip the beetle</span></div>
-                            </div>
-                            <div class="keygroup">
-                                <h3>Menu</h3>
-                                <div class="keyrow"><span class="keys"><span class="k cross" aria-label="d-pad"></span></span><span>move</span></div>
-                                <div class="keyrow"><span class="keys"><span class="k">A</span></span><span>open</span></div>
-                                <div class="keyrow"><span class="keys"><span class="k">B</span></span><span>title</span></div>
-                            </div>
-                            <div class="keygroup">
-                                <h3>Gallery</h3>
-                                <div class="keyrow"><span class="keys"><span class="k cross" aria-label="d-pad"></span><span class="k tab-k">L</span><span class="k tab-k">R</span></span><span>move</span></div>
-                                <div class="keyrow"><span class="keys"><span class="k">A</span></span><span>view</span></div>
-                                <div class="keyrow"><span class="keys"><span class="k">B</span></span><span>menu</span></div>
-                            </div>
-                            <div class="keygroup">
-                                <h3>Piece</h3>
-                                <div class="keyrow"><span class="keys"><span class="k">A</span></span><span>showcase</span></div>
-                                <div class="keyrow"><span class="keys"><span class="k">X</span></span><span>info</span></div>
-                                <div class="keyrow"><span class="keys"><span class="k">Y</span></span><span>green mode</span></div>
-                                <div class="keyrow"><span class="keys"><span class="k tab-k">L</span><span class="k tab-k">R</span></span><span>prev · next</span></div>
-                                <div class="keyrow"><span class="keys"><span class="k">B</span></span><span>back</span></div>
-                            </div>
-                            <div class="keygroup">
-                                <h3>Anywhere</h3>
-                                <div class="keyrow"><span class="keys"><span class="k pill-k">start</span></span><span>title</span></div>
-                                <div class="keyrow"><span class="keys"><span class="k pill-k">select</span></span><span>this key</span></div>
-                                <div class="keyrow"><span class="keys"><span class="k pill-k wide">wallet</span></span><span>connect</span></div>
-                                <div class="keyrow"><span class="keys"><span class="k">X</span></span><span>sound on · off</span></div>
-                            </div>
-                            <div class="keygroup">
-                                <h3>Chart</h3>
-                                <div class="keyrow"><span class="keys"><span class="k">B</span></span><span>menu</span></div>
-                            </div>
-                            <div class="keygroup keyboard">
-                                <h3>Keyboard</h3>
-                                <div class="kbmap">
-                                    <span class="keys"><span class="k cap">arrows</span><span class="eq">=</span><span class="k cross" aria-label="d-pad"></span></span>
-                                    <span class="keys"><span class="k cap">enter</span><span class="eq">=</span><span class="k">A</span></span>
-                                    <span class="keys"><span class="k cap">esc</span><span class="eq">=</span><span class="k">B</span></span>
-                                    <span class="keys"><span class="k cap">X</span><span class="eq">=</span><span class="k">X</span></span>
-                                    <span class="keys"><span class="k cap">Y</span><span class="eq">=</span><span class="k">Y</span></span>
-                                    <span class="keys"><span class="k cap">Q</span><span class="eq">=</span><span class="k tab-k">L</span></span>
-                                    <span class="keys"><span class="k cap">E</span><span class="eq">=</span><span class="k tab-k">R</span></span>
-                                    <span class="keys"><span class="k cap">S</span><span class="eq">=</span><span class="k pill-k">start</span></span>
-                                    <span class="keys"><span class="k cap">C</span><span class="eq">=</span><span class="k pill-k">select</span></span>
-                                </div>
-                            </div>
+                        <div class="keylist">
+                            <div class="keyrow"><span class="keys"><span class="k cross" aria-label="d-pad"></span></span><span>move</span></div>
+                            <div class="keyrow"><span class="keys"><span class="k">A</span></span><span>ok</span></div>
+                            <div class="keyrow"><span class="keys"><span class="k">B</span></span><span>back</span></div>
+                            <div class="keyrow"><span class="keys"><span class="k">X</span></span><span>info · a piece's details</span></div>
+                            <div class="keyrow"><span class="keys"><span class="k">Y</span></span><span>sound on · off</span></div>
+                            <div class="keyrow"><span class="keys"><span class="k tab-k">L</span><span class="k tab-k">R</span></span><span>prev · next</span></div>
+                            <div class="keyrow"><span class="keys"><span class="k pill-k">start</span></span><span>menu</span></div>
+                            <div class="keyrow"><span class="keys"><span class="k pill-k">select</span></span><span>this key</span></div>
+                            <div class="keyrow"><span class="keys"><span class="k pill-k wide">wallet</span></span><span>connect · disconnect</span></div>
+                        </div>
+                        <h3 class="help-sub">Keyboard</h3>
+                        <div class="kbmap">
+                            <span class="keys"><span class="k cap">arrows</span><span class="eq">=</span><span class="k cross" aria-label="d-pad"></span></span>
+                            <span class="keys"><span class="k cap">enter</span><span class="eq">=</span><span class="k">A</span></span>
+                            <span class="keys"><span class="k cap">esc</span><span class="eq">=</span><span class="k">B</span></span>
+                            <span class="keys"><span class="k cap">X</span><span class="eq">=</span><span class="k">X</span></span>
+                            <span class="keys"><span class="k cap">Y</span><span class="eq">=</span><span class="k">Y</span></span>
+                            <span class="keys"><span class="k cap">Q</span><span class="eq">=</span><span class="k tab-k">L</span></span>
+                            <span class="keys"><span class="k cap">E</span><span class="eq">=</span><span class="k tab-k">R</span></span>
+                            <span class="keys"><span class="k cap">S</span><span class="eq">=</span><span class="k pill-k">start</span></span>
+                            <span class="keys"><span class="k cap">C</span><span class="eq">=</span><span class="k pill-k">select</span></span>
                         </div>
                         <h2>CREDITS</h2>
-                        <dl>
-                            <dt>Mossawrettes</dt><dd>25 pieces on Ethereum, contract 0x71f7bedf8572b75e446766906079dcf05a386737. Ownership is read from the chain each visit; metadata and originals live on IPFS.</dd>
-                            <dt>MossNet</dt><dd>The backgrounds are MossNet #1, 20, 30, 40, 50, 60, 70, 80, 90 and 100: field research journal entries by MossHunter420 of the Winnsboro Feint Garden Bold division, from the Moss Expedition of May 2024, served from IPFS.</dd>
-                            <dt>Hashstanza</dt><dd>Poems written by twinstar, compiled and presented by mossmossmoss420, on Solana.</dd>
-                            <dt>$MOSS</dt><dd>On Robinhood Chain, 0x81da740ffe60241ff526833bce21c5560fe9abc9. Chart by DexScreener, swaps on Uniswap.</dd>
-                            <dt>Beetle</dt><dd>mossbeetle.mp4, from the MossNet archive.</dd>
-                            <dt>Font</dt><dd>Jersey 10 by The Soft Type Project Authors, SIL Open Font License 1.1.</dd>
-                            <dt>Background motion</dt><dd>A halftone shader after the one on remilia.net, rewritten in plain WebGL. The plus tile is drawn here.</dd>
-                            <dt>Sound</dt><dd>Generated in the browser on a pentatonic scale. No audio files.</dd>
-                            <dt>Site</dt><dd>Plain HTML, CSS and JavaScript, no frameworks. Built by mossmossmoss420 with Claude Code.</dd>
-                        </dl>
+                        <ul class="menu credits">
+                            <li><a class="menu-item focusable" href="https://opensea.io/collection/cigawrettepacks" target="_blank" rel="noopener" data-note="cigawrette packs on OpenSea">thank you pappachaga</a></li>
+                            <li><a class="menu-item focusable" href="https://wiki.remilia.org/Remilia_Corporation" target="_blank" rel="noopener" data-note="Remilia Corporation on the wiki">thank you remilia</a></li>
+                        </ul>
                     </section>
 
                     <!-- iPhones mute Web Audio under the ring/silent switch until a media element has played once -->
@@ -194,12 +160,12 @@
                     </section>
 
                     <!-- $MOSS chart (SELECT) -->
-                    <section id="view-chart" class="view view-full hidden" data-note="B: menu">
+                    <section id="view-chart" class="view view-full hidden" data-note="B: back">
                         <iframe id="chart-frame" title="$MOSS chart" data-src="https://dexscreener.com/robinhood/0x2dc2647127120911e3d356465a07ffd08c84f026?embed=1&amp;theme=dark&amp;trades=0&amp;info=0" allow="clipboard-write"></iframe>
                     </section>
 
                 </div>
-                <div class="lcd-status" id="lcd-status">A: select · START: beetle · SELECT: $MOSS chart</div>
+                <div class="lcd-status" id="lcd-status">A or START: begin · SELECT: controls</div>
             </div>
         </div>
 
@@ -212,8 +178,8 @@
         </div>
 
         <div class="abxy">
-            <button type="button" id="btn-x" class="round" aria-label="X, sound on or off">X</button>
-            <button type="button" id="btn-y" class="round" aria-label="Y, home">Y</button>
+            <button type="button" id="btn-x" class="round" aria-label="X, info">X</button>
+            <button type="button" id="btn-y" class="round" aria-label="Y, sound on or off">Y</button>
             <button type="button" id="btn-a" class="round" aria-label="A, select">A</button>
             <button type="button" id="btn-b" class="round" aria-label="B, back">B</button>
         </div>
@@ -221,8 +187,8 @@
         <div class="mid">
             <div class="grille" aria-hidden="true"></div>
             <div class="ss">
-                <div><button type="button" id="btn-select" class="pill" aria-label="Select, controls and credits"></button><span>SELECT</span></div>
-                <div><button type="button" id="btn-start" class="pill" aria-label="Start, title screen"></button><span>START</span></div>
+                <div><button type="button" id="btn-select" class="pill" aria-label="Select, controls"></button><span>SELECT</span></div>
+                <div><button type="button" id="btn-start" class="pill" aria-label="Start, menu"></button><span>START</span></div>
             </div>
             <div class="wallet"><button type="button" id="btn-wallet" class="pill wallet-pill" aria-label="connect or disconnect wallet"></button><span id="wallet-label">CONNECT</span></div>
         </div>

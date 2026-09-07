@@ -18,6 +18,8 @@ const views = {
 const galleryGrid = document.getElementById('gallery-grid');
 const galleryMsg = document.getElementById('gallery-msg');
 const galleryConnect = document.getElementById('gallery-connect');
+const galleryConnectBtn = document.getElementById('gallery-connect-btn');
+const galleryWalletLink = document.getElementById('gallery-wallet-link');
 const itemImage = document.getElementById('item-image');
 const itemName = document.getElementById('item-name');
 const itemLinks = document.getElementById('item-links');
@@ -219,10 +221,12 @@ const sound = {
   ctx: null,
   scale: [0, 2, 4, 7, 9],
   enabled: (() => { try { return localStorage.getItem('nft-sound') !== 'off'; } catch (_) { return true; } })(),
+  armed: false, // set by press() and by clicks on the LCD; cleared by any blip, so a silent action still gets a key click
   note(degree, octave = 0) {
     return 220 * Math.pow(2, octave + this.scale[((degree % 5) + 5) % 5] / 12);
   },
   play(freq, { duration = 0.18, gain = 0.05, delay = 0, type = 'triangle' } = {}) {
+    this.armed = false;
     if (!this.enabled) return;
     if (!delay) leds.flash('audio');
     try {
@@ -247,6 +251,7 @@ const sound = {
     this.play(this.note(id + 2, 2), { gain: 0.035, delay: 0.07 });
   },
   tick() { this.play(this.note(4, 1), { gain: 0.035, duration: 0.09 }); },
+  key() { this.play(this.note(2, 0), { gain: 0.03, duration: 0.06, type: 'square' }); }, // a plain click for presses that do nothing else
   close() {
     this.play(this.note(2, 1), { gain: 0.035, duration: 0.12 });
     this.play(this.note(0, 0), { gain: 0.03, delay: 0.08, duration: 0.18 });
@@ -261,6 +266,15 @@ const sound = {
     soundToggle.setAttribute('aria-pressed', String(this.enabled));
   }
 };
+
+// iPhones keep Web Audio silent under the ring/silent switch until a media element has played,
+// so the first touch plays a 60ms silent wav through <audio> and the blips follow the switch no more
+const unmute = document.getElementById('unmute');
+function unlockAudio() {
+  unmute.play().catch(() => {});
+  ['touchend', 'click', 'keydown'].forEach(ev => document.removeEventListener(ev, unlockAudio, true));
+}
+['touchend', 'click', 'keydown'].forEach(ev => document.addEventListener(ev, unlockAudio, true));
 
 
 // ---------- board LEDs: each one answers to one real event ----------
@@ -395,9 +409,16 @@ function disconnectWallet() {
   if (activeView === 'gallery') openGallery(galleryMode);
 }
 
+// an injected provider only exists in desktop browsers with a wallet extension and inside wallet apps' own browsers
+function hasWallet() {
+  return typeof window.ethereum !== 'undefined';
+}
+
 async function connectWallet() {
-  if (typeof window.ethereum === 'undefined') {
-    showGalleryMessage('No wallet found. Install MetaMask or another Ethereum wallet, then try again.');
+  if (!hasWallet()) {
+    // the gallery's YOURS tab explains and, on phones, offers to reopen the site inside MetaMask
+    if (activeView !== 'gallery' || galleryMode !== 'mine') openGallery('mine');
+    else renderGallery();
     return false;
   }
   try {
@@ -469,8 +490,13 @@ function renderGallery() {
   galleryGrid.innerHTML = '';
   galleryConnect.classList.add('hidden');
   if (galleryMode === 'mine' && !walletAddress) {
-    showGalleryMessage('Connect a wallet to see which ones are yours.');
+    const wallet = hasWallet();
+    showGalleryMessage(wallet
+      ? 'Connect a wallet to see which ones are yours.'
+      : 'No wallet in this browser. On a phone, open moss quest inside your wallet app.');
     galleryConnect.classList.remove('hidden');
+    galleryConnectBtn.classList.toggle('hidden', !wallet);
+    galleryWalletLink.classList.toggle('hidden', wallet);
     return;
   }
   if (!visible.length) {
@@ -522,7 +548,7 @@ async function openGallery(mode = galleryMode) {
   // land on the first tile (or the connect button / a tab when there is nothing to show)
   const els = focusables();
   const firstTile = els.findIndex(el => el.classList.contains('tile'));
-  const connectBtn = els.findIndex(el => el.dataset.action === 'connect');
+  const connectBtn = els.findIndex(el => el.closest('#gallery-connect'));
   setFocus(firstTile >= 0 ? firstTile : (connectBtn >= 0 ? connectBtn : 0), { scroll: false });
 }
 
@@ -704,7 +730,7 @@ document.querySelectorAll('.device button:not(.focusable)').forEach(btn => btn.a
 // ---------- wiring: every input goes through press(), and the screen that is open decides what it means ----------
 document.querySelectorAll('[data-action="gallery"]').forEach(el => el.addEventListener('click', () => openGallery('all')));
 document.querySelectorAll('[data-action="chart"]').forEach(el => el.addEventListener('click', () => showView('chart')));
-document.getElementById('gallery-connect-btn').addEventListener('click', async () => {
+galleryConnectBtn.addEventListener('click', async () => {
   if (await connectWallet()) openGallery('mine');
 });
 views.gallery.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => {
@@ -730,8 +756,7 @@ function toggleSound() { sound.toggle(); setNote(sound.enabled ? 'sound on' : 's
 function activate() {
   const el = focusedElement();
   if (!el) return;
-  sound.open(Number(el.dataset.tokenId) || focusIndex[activeView]);
-  el.click();
+  el.click(); // the LCD click handler below plays the blip
 }
 function scrollLcd(dir) {
   const step = lcd.clientHeight * 0.6;
@@ -777,10 +802,13 @@ const ACTIONS = {
   help:    { up: () => scrollLcd('up'), down: () => scrollLcd('down'), b: closeHelp, select: closeHelp, start: toTitle }
 };
 
+// every press makes a sound: the action's own blip if it has one, otherwise a plain key click
 function press(button) {
+  sound.armed = true;
   const map = ACTIONS[activeView] || {};
   const fn = map.any || map[button];
   if (fn) fn();
+  if (sound.armed) sound.key();
 }
 
 document.getElementById('dpad').addEventListener('click', (e) => {
@@ -790,6 +818,7 @@ document.getElementById('dpad').addEventListener('click', (e) => {
 [['btn-a', 'a'], ['btn-b', 'b'], ['btn-x', 'x'], ['btn-y', 'y'], ['btn-l', 'l'], ['btn-r', 'r'], ['btn-start', 'start'], ['btn-select', 'select']]
   .forEach(([id, button]) => document.getElementById(id).addEventListener('click', () => press(button)));
 walletPill.addEventListener('click', async () => {
+  sound.tick();
   if (getConnectedAddress()) { disconnectWallet(); return; }
   if (await connectWallet()) setNote(`connected ${walletLabel.textContent}`);
 });
@@ -803,10 +832,11 @@ lcd.addEventListener('mouseover', (e) => {
   const i = focusables().indexOf(el);
   if (i >= 0 && i !== focusIndex[activeView]) setFocus(i, { scroll: false });
 });
-// clicking a link or tile with the mouse should also make the blip
+// anything focusable on the LCD blips when clicked or tapped, unless its own handler already made a sound
+lcd.addEventListener('click', () => { sound.armed = true; }, true);
 lcd.addEventListener('click', (e) => {
   const el = e.target.closest('.focusable');
-  if (el && !el.classList.contains('tile') && !el.dataset.action) sound.open(focusIndex[activeView]);
+  if (el && sound.armed) sound.open(Number(el.dataset.tokenId) || focusables().indexOf(el));
 });
 
 document.addEventListener('keydown', (e) => {

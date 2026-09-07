@@ -405,7 +405,13 @@ body {
     color: var(--lcd-mid);
 }
 
-.menu-item.gone { color: var(--lcd-mid); cursor: default; }
+/* a paragraph inside an expanded menu item, indented like a sub item */
+.menu-note {
+    padding: calc(var(--u) * 0.6) calc(var(--u) * 2) calc(var(--u) * 1) calc(var(--u) * 8);
+    font-size: calc(var(--u) * 3.3);
+    line-height: 1.15;
+    color: var(--lcd-mid);
+}
 
 .menu-item.focused {
     background: var(--lcd-dark);
@@ -430,6 +436,8 @@ body {
     color: var(--lcd-mid);
 }
 
+.menu-heading:first-child { margin-top: 0; }
+
 .menu-gap { height: calc(var(--u) * 1.8); }
 
 .lcd-note {
@@ -452,6 +460,80 @@ body {
 .help dl { display: grid; grid-template-columns: auto 1fr; gap: calc(var(--u) * 1.2) calc(var(--u) * 2); font-size: calc(var(--u) * 3.3); line-height: 1.2; }
 .help dt { color: var(--lcd-mid); text-transform: uppercase; letter-spacing: 0.08em; font-size: calc(var(--u) * 2.9); padding-top: calc(var(--u) * 0.3); }
 .help dd { word-break: break-word; }
+
+/* the controls key: drawn buttons next to one word each, grouped by screen */
+.keymap {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: calc(var(--u) * 2.6) calc(var(--u) * 3);
+    margin-bottom: calc(var(--u) * 4);
+}
+
+.keygroup h3 {
+    font-size: calc(var(--u) * 3);
+    font-weight: 400;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--lcd-mid);
+    border-bottom: calc(var(--u) * 0.35) solid var(--lcd-mid);
+    padding-bottom: calc(var(--u) * 0.3);
+    margin-bottom: calc(var(--u) * 1.2);
+}
+
+.keyrow {
+    display: grid;
+    grid-template-columns: minmax(calc(var(--u) * 12), auto) 1fr;
+    align-items: center;
+    gap: calc(var(--u) * 1.4);
+    min-height: calc(var(--u) * 5.4);
+    font-size: calc(var(--u) * 3.4);
+    line-height: 1.1;
+}
+
+.keys { display: inline-flex; align-items: center; gap: calc(var(--u) * 0.6); }
+
+.k {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: calc(var(--u) * 4.6);
+    height: calc(var(--u) * 4.6);
+    border: calc(var(--u) * 0.4) solid var(--lcd-dark);
+    border-radius: 50%;
+    font-size: calc(var(--u) * 2.9);
+    line-height: 1;
+    color: var(--lcd-dark);
+    background: var(--lcd);
+    text-transform: uppercase;
+}
+
+.k.any { width: auto; padding: 0 calc(var(--u) * 1); border-radius: calc(var(--u) * 2.3); font-size: calc(var(--u) * 2.5); letter-spacing: 0.06em; }
+
+.k.tab-k { width: calc(var(--u) * 5.4); height: calc(var(--u) * 3.4); border-radius: calc(var(--u) * 1.2) calc(var(--u) * 1.2) calc(var(--u) * 0.4) calc(var(--u) * 0.4); font-size: calc(var(--u) * 2.6); }
+
+.k.pill-k { width: calc(var(--u) * 8); height: calc(var(--u) * 3.2); border-radius: calc(var(--u) * 1.6); font-size: calc(var(--u) * 2.1); letter-spacing: 0.08em; }
+.k.pill-k.wide { width: calc(var(--u) * 10); }
+
+.k.cross {
+    border: 0;
+    border-radius: calc(var(--u) * 0.5);
+    background:
+        linear-gradient(var(--lcd-dark), var(--lcd-dark)) center / 36% 100% no-repeat,
+        linear-gradient(var(--lcd-dark), var(--lcd-dark)) center / 100% 36% no-repeat;
+}
+
+.k.cap { width: auto; min-width: calc(var(--u) * 4.6); height: calc(var(--u) * 4); padding: 0 calc(var(--u) * 1); border-radius: calc(var(--u) * 0.6); font-size: calc(var(--u) * 2.5); letter-spacing: 0.06em; }
+
+.keygroup.keyboard { grid-column: 1 / -1; }
+
+.kbmap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: calc(var(--u) * 1.2) calc(var(--u) * 2.8);
+}
+
+.eq { color: var(--lcd-mid); font-size: calc(var(--u) * 3); padding: 0 calc(var(--u) * 0.2); }
 
 /* gallery */
 .lcd-header {

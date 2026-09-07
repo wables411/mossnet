@@ -2,126 +2,192 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#1f9bb5">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="moss quest">
     <meta http-equiv="Content-Security-Policy" content="
     default-src 'self';
-    script-src 'self' https://cdn.jsdelivr.net https://www.defined.fi https://unpkg.com https://static.cloudflareinsights.com;
-    connect-src 'self' https://mainnet.sanko.xyz https://mossnet-proxy.wablesphoto.workers.dev wss://*.sanko.xyz https://cloudflare-ipfs.com https://ipfs.io https://dweb.link https://api.scatter.art https://api.opensea.io https://api.allorigins.win https://cdn.jsdelivr.net https://api.mainnet-beta.solana.com https://lime-given-booby-462.mypinata.cloud;
-    frame-src 'self' https://www.defined.fi https://auth.privy.io;
-    img-src 'self' data: https://*.ipfs.dweb.link https://cloudflare-ipfs.com https://gateway.pinata.cloud https://ipfs.io https://mossnet-proxy.wablesphoto.workers.dev https://d1kgk9u8ytew77.cloudfront.net https://lime-given-booby-462.mypinata.cloud;
+    script-src 'self' https://static.cloudflareinsights.com;
+    connect-src 'self' https://ethereum-rpc.publicnode.com https://1rpc.io https://gateway.pinata.cloud https://ipfs.filebase.io;
+    frame-src 'self' https://dexscreener.com;
+    img-src 'self' data: https://gateway.pinata.cloud https://ipfs.filebase.io;
     style-src 'self' 'unsafe-inline';
+    font-src 'self';
     media-src 'self';
     ">
-    <title>MossNet</title>
+    <title>moss quest</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="icon" href="assets/favicon.ico" type="image/x-icon">
+    <link rel="apple-touch-icon" href="assets/icon-192.png">
+    <link rel="manifest" href="manifest.webmanifest">
 </head>
 <body>
-    <!-- Beetle Button -->
-    <button id="beetle-btn" class="beetle-btn">🪲</button>
 
-    <!-- Seed Button -->
-    <button id="seed-btn" class="seed-btn">🌱</button>
+<canvas id="bg-canvas" class="bg-canvas" aria-hidden="true"></canvas>
+<div class="bg-pluses" aria-hidden="true"></div>
 
-    <!-- Video Overlay -->
-    <div id="video-overlay" class="video-overlay hidden">
-        <video id="overlay-video" controls>
-            <source src="assets/mossbeetle.mp4" type="video/mp4">
-            Your browser does not support the video tag.
-        </video>
-        <button id="minimize-video-btn" class="minimize-btn">Minimize</button>
-    </div>
+<main class="device" id="device" aria-label="moss quest handheld">
+    <button type="button" class="shoulder shoulder-l" id="btn-l" aria-label="L, left"></button>
+    <button type="button" class="shoulder shoulder-r" id="btn-r" aria-label="R, right"></button>
+    <div class="shell">
+        <!-- what you see through the plastic -->
+        <img class="guts" src="assets/moss/guts.webp" alt="" aria-hidden="true">
+        <span class="board-led led-net" id="led-net" aria-hidden="true"></span>
+        <span class="board-led led-mem" id="led-mem" aria-hidden="true"></span>
+        <span class="board-led led-wallet" id="led-wallet" aria-hidden="true"></span>
+        <span class="board-led led-audio" id="led-audio" aria-hidden="true"></span>
+        <span class="board-led led-bg" id="led-bg" aria-hidden="true"></span>
+        <div class="tint" aria-hidden="true"></div>
+        <div class="gloss" aria-hidden="true"></div>
+        <span class="screw s1" aria-hidden="true"></span><span class="screw s2" aria-hidden="true"></span>
+        <span class="screw s3" aria-hidden="true"></span><span class="screw s4" aria-hidden="true"></span>
 
-    <!-- Iframe Embed Overlay -->
-    <div id="iframe-overlay" class="iframe-overlay hidden">
-        <div class="iframe-container">
-            <iframe 
-                id="iframe-embed"
-                title="Defined Embed"
-                src="https://www.defined.fi/sanko/0x4a5ad9af56e2291f61d6c59ec098fe71b61fb2c4/embed?embed=true"
-                frameborder="0"
-                allow="clipboard-write"
-                class="iframe-content"
-            ></iframe>
-            <p class="iframe-fallback hidden">Unable to load $MOSS data due to security restrictions. Visit <a href="https://www.defined.fi/sanko/0x4a5ad9af56e2291f61d6c59ec098fe71b61fb2c4?quoteToken=token1" target="_blank">$MOSS on Defined.fi</a>.</p>
-        </div>
-        <button id="minimize-iframe-btn" class="minimize-btn">Minimize</button>
-    </div>
+        <div class="bezel">
+            <div class="bezel-label"><span class="led" id="led"></span>MOSS QUEST</div>
+            <div class="screen" id="screen">
+                <div class="lcd" id="lcd">
 
-    <!-- NFT Checker Overlay -->
-    <div id="nft-overlay" class="nft-overlay hidden">
-        <div class="nft-container">
-            <h2 class="nft-title">Your Moss NFTs</h2>
-            <p id="nft-loading" class="nft-loading">This might take a minute...</p>
-            <div id="nft-list" class="nft-list"></div>
-            <p id="nft-empty" class="nft-empty hidden">No NFTs found from these collections.</p>
-        </div>
-        <button id="minimize-nft-btn" class="minimize-btn">Minimize</button>
-    </div>
+                    <!-- Title screen -->
+                    <section id="view-title" class="view" data-note="A or tap: start · SELECT: controls and credits" tabindex="0">
+                        <img class="title-art" src="assets/mossawrettes-large/18.webp" alt="Mossawrettes #18" width="1400" height="1400">
+                        <h1 class="title">welcome to moss quest</h1>
+                        <p class="press-start">PRESS START</p>
+                    </section>
 
-    <!-- Collection NFT Overlay -->
-    <div id="collection-nft-overlay" class="nft-overlay hidden">
-        <div class="nft-container">
-            <h2 id="collection-nft-title" class="nft-title">Your Collection NFTs</h2>
-            <p id="collection-nft-loading" class="nft-loading">Loading your NFTs...</p>
-            <div id="collection-nft-list" class="nft-list"></div>
-            <p id="collection-nft-empty" class="nft-empty hidden">No NFTs found from this collection.</p>
-            <div id="collection-secondary-link" class="collection-secondary-link hidden">
-                <a id="secondary-market-link" href="#" target="_blank" class="secondary-market-btn">View on Secondary Market</a>
+                    <!-- Menu -->
+                    <section id="view-home" class="view hidden" data-note="A: select · B: title · X: sound · SELECT: controls">
+                        <ul class="menu">
+                            <li><button type="button" class="menu-item focusable" data-action="gallery" data-note="25 cigawrettes lost in the moss · Ethereum">Mossawrettes</button></li>
+                            <li><button type="button" class="menu-item focusable" id="moss-item" data-action="moss" data-expands="moss-sub" data-note="$MOSS RH token deployed live on Retake.TV · A: open" aria-expanded="false">$MOSS</button></li>
+                            <li class="moss-sub hidden"><button type="button" class="menu-item focusable sub" data-action="chart" data-note="live $MOSS chart on this screen">chart</button></li>
+                            <li class="moss-sub hidden"><a class="menu-item focusable sub" href="https://app.uniswap.org/explore/tokens/robinhood/0x81da740fFe60241ff526833BCe21c5560fe9aBC9" target="_blank" rel="noopener" data-note="$MOSS on Uniswap, Robinhood Chain">uniswap</a></li>
+                            <li class="moss-sub hidden"><a class="menu-item focusable sub" href="https://app.uniswap.org/swap?chain=robinhood&amp;inputCurrency=ETH&amp;outputCurrency=0x81da740ffe60241ff526833bce21c5560fe9abc9" target="_blank" rel="noopener" data-note="swap ETH for $MOSS on Uniswap, Robinhood Chain">click here to swap</a></li>
+                            <li><a class="menu-item focusable" href="https://x.com/mossmossmoss420" target="_blank" rel="noopener" data-note="follow along for more adventures.">Twitter</a></li>
+                            <li><a class="menu-item focusable" href="https://retake.tv/mossmossmoss420" target="_blank" rel="noopener" data-note="live on Retake.TV">Moss TV</a></li>
+                            <li><button type="button" class="menu-item focusable" id="hashstanza-item" data-action="hashstanza" data-expands="hashstanza-sub" data-note="poems by twinstar, on solana · A: open" aria-expanded="false">Hashstanza</button></li>
+                            <li class="hashstanza-sub hidden"><a class="menu-item focusable sub" href="https://x.com/mossmossmoss420/status/2005739979251802376?s=20" target="_blank" rel="noopener" data-note="about hashstanza, on X">info</a></li>
+                            <li class="hashstanza-sub hidden"><a class="menu-item focusable sub" href="https://www.vvv.so/hashstanza" target="_blank" rel="noopener" data-note="mint hashstanza on vvv.so">mint here</a></li>
+                            <li class="menu-heading">Gone But Not Forgotten</li>
+                            <li><a class="menu-item focusable" href="https://www.cigawrettepacks.shop/" target="_blank" rel="noopener" data-note="cigawrette packs">pappachaga</a></li>
+                            <li><a class="menu-item focusable" href="https://x.com/LosAngelEyes" target="_blank" rel="noopener" data-note="angeleyes">angeleyes</a></li>
+                            <li><span class="menu-item focusable gone" tabindex="0" data-note="Sanko Chain, Sanko TV, $DMT">sanko</span></li>
+                            <li class="menu-gap"></li>
+                            <li><a class="menu-item focusable" href="https://remilia.net" target="_blank" rel="noopener" data-note="remilia corporation">remilia.net</a></li>
+                            <li><a class="menu-item focusable" href="https://beetle.wiki/doku.php?id=artifact:moss" target="_blank" rel="noopener" data-note="artifact: moss">beetle.wiki</a></li>
+                            <li class="menu-gap"></li>
+                            <li><button type="button" class="menu-item focusable" id="bg-item" data-action="background" data-note="A: next background">BACKGROUND: moss 1</button></li>
+                        </ul>
+                        <p class="lcd-note">Thank you everyone who participated in the Moss Adventures on Sanko. I love you and regret to inform you that Sanko Chain (L3) had to sunset due to unexpected terrorish attacks. The Quest to find all the Moss continues.</p>
+                    </section>
+
+                    <!-- Mossawrettes gallery -->
+                    <section id="view-gallery" class="view hidden" data-note="←→ move · A: view · B: back">
+                        <header class="lcd-header">
+                            <span class="lcd-header-title">MOSSAWRETTES</span>
+                            <nav class="tabs" aria-label="Which Mossawrettes to show">
+                                <button type="button" class="tab focusable active" data-mode="all" data-note="every Mossawrette, read from Ethereum">ALL</button>
+                                <button type="button" class="tab focusable" data-mode="mine" data-note="the ones in your wallet">YOURS</button>
+                            </nav>
+                        </header>
+                        <p id="gallery-msg" class="lcd-msg hidden"></p>
+                        <div id="gallery-connect" class="hidden">
+                            <button type="button" class="menu-item focusable" id="gallery-connect-btn" data-action="connect" data-note="opens your Ethereum wallet">CONNECT WALLET</button>
+                        </div>
+                        <div id="gallery-grid" class="grid"></div>
+                    </section>
+
+                    <!-- Single Mossawrette -->
+                    <section id="view-item" class="view hidden" data-note="A: showcase · X: info · Y: green · L/R: prev/next · B: back">
+                        <div id="item-stage" class="item-stage focusable" data-action="showcase" tabindex="0">
+                            <img id="item-image" class="item-image" src="" alt="">
+                            <canvas id="item-green" class="item-image item-green hidden" aria-hidden="true"></canvas>
+                        </div>
+                        <h2 class="item-name"><span id="item-name"></span><span id="item-count" class="item-meta"></span></h2>
+                        <ul id="item-links" class="item-links"></ul>
+                        <div id="item-info" class="item-info hidden" aria-live="polite">
+                            <h3 id="info-title"></h3>
+                            <p id="info-desc"></p>
+                            <dl id="info-fields"></dl>
+                            <p class="lcd-note">X or B: close</p>
+                        </div>
+                    </section>
+
+                    <!-- Controls + credits (SELECT) -->
+                    <section id="view-help" class="view help hidden" data-note="D-pad: scroll · B or SELECT: close">
+                        <h2>CONTROLS</h2>
+                        <dl>
+                            <dt>Title</dt><dd>A or tap starts. The beetle plays on the way in; any button skips it.</dd>
+                            <dt>Menu</dt><dd>D-pad moves, A selects, B goes back to the title, X toggles sound.</dd>
+                            <dt>Gallery</dt><dd>D-pad moves, A opens a piece, B returns to the menu, L and R also move the cursor. ALL shows every Mossawrette read live from Ethereum; YOURS shows the ones in your connected wallet.</dd>
+                            <dt>Piece</dt><dd>A showcase (picture only, A or B to leave). X info card (D-pad scrolls it). Y green mode, a four-shade Game Boy rendering. L and R go to the previous and next piece. B goes back.</dd>
+                            <dt>Chart</dt><dd>B returns to the menu.</dd>
+                            <dt>Always</dt><dd>START: title screen. SELECT: this screen. WALLET pill: connect or disconnect an Ethereum wallet.</dd>
+                            <dt>Keyboard</dt><dd>Arrows, Enter, Escape, X, Y, Q and E for L and R, S for START, C for SELECT.</dd>
+                        </dl>
+                        <h2>CREDITS</h2>
+                        <dl>
+                            <dt>Mossawrettes</dt><dd>25 pieces on Ethereum, contract 0x71f7bedf8572b75e446766906079dcf05a386737. Ownership is read from the chain each visit; metadata and originals live on IPFS.</dd>
+                            <dt>MossNet</dt><dd>The backgrounds are MossNet #1, 20, 30, 40, 50, 60, 70, 80, 90 and 100: field research journal entries by MossHunter420 of the Winnsboro Feint Garden Bold division, from the Moss Expedition of May 2024, served from IPFS.</dd>
+                            <dt>Hashstanza</dt><dd>Poems written by twinstar, compiled and presented by mossmossmoss420, on Solana.</dd>
+                            <dt>$MOSS</dt><dd>On Robinhood Chain, 0x81da740ffe60241ff526833bce21c5560fe9abc9. Chart by DexScreener, swaps on Uniswap.</dd>
+                            <dt>Beetle</dt><dd>mossbeetle.mp4, from the MossNet archive.</dd>
+                            <dt>Font</dt><dd>Jersey 10 by The Soft Type Project Authors, SIL Open Font License 1.1.</dd>
+                            <dt>Background motion</dt><dd>A halftone shader after the one on remilia.net, rewritten in plain WebGL. The plus tile is drawn here.</dd>
+                            <dt>Sound</dt><dd>Generated in the browser on a pentatonic scale. No audio files.</dd>
+                            <dt>Site</dt><dd>Plain HTML, CSS and JavaScript, no frameworks. Built by mossmossmoss420 with Claude Code.</dd>
+                            <dt>Sanko</dt><dd>Thank you everyone who participated in the Moss Adventures on Sanko. Sanko Chain (L3) had to sunset. The Quest to find all the Moss continues.</dd>
+                        </dl>
+                    </section>
+
+                    <!-- Beetle video: plays between the title and the menu -->
+                    <section id="view-video" class="view view-full hidden" data-note="any button: skip">
+                        <video id="beetle-video" src="assets/mossbeetle.mp4" playsinline preload="none"></video>
+                    </section>
+
+                    <!-- $MOSS chart (SELECT) -->
+                    <section id="view-chart" class="view view-full hidden" data-note="B: menu">
+                        <iframe id="chart-frame" title="$MOSS chart" data-src="https://dexscreener.com/robinhood/0x2dc2647127120911e3d356465a07ffd08c84f026?embed=1&amp;theme=dark&amp;trades=0&amp;info=0" allow="clipboard-write"></iframe>
+                    </section>
+
+                </div>
+                <div class="lcd-status" id="lcd-status">A: select · START: beetle · SELECT: $MOSS chart</div>
             </div>
         </div>
-        <button id="minimize-collection-nft-btn" class="minimize-btn">Minimize</button>
+
+        <div class="dpad" id="dpad" aria-label="directional pad">
+            <button type="button" data-dir="up" aria-label="up"></button>
+            <button type="button" data-dir="left" aria-label="left"></button>
+            <span class="dpad-center"></span>
+            <button type="button" data-dir="right" aria-label="right"></button>
+            <button type="button" data-dir="down" aria-label="down"></button>
+        </div>
+
+        <div class="abxy">
+            <button type="button" id="btn-x" class="round" aria-label="X, sound on or off">X</button>
+            <button type="button" id="btn-y" class="round" aria-label="Y, home">Y</button>
+            <button type="button" id="btn-a" class="round" aria-label="A, select">A</button>
+            <button type="button" id="btn-b" class="round" aria-label="B, back">B</button>
+        </div>
+
+        <div class="mid">
+            <div class="grille" aria-hidden="true"></div>
+            <div class="ss">
+                <div><button type="button" id="btn-select" class="pill" aria-label="Select, controls and credits"></button><span>SELECT</span></div>
+                <div><button type="button" id="btn-start" class="pill" aria-label="Start, title screen"></button><span>START</span></div>
+            </div>
+            <div class="wallet"><button type="button" id="btn-wallet" class="pill wallet-pill" aria-label="connect or disconnect wallet"></button><span id="wallet-label">CONNECT</span></div>
+        </div>
+
+        <span class="stick stick-l" aria-hidden="true"></span>
+        <span class="stick stick-r" aria-hidden="true"></span>
+        <div class="model" aria-hidden="true">MOSS QUEST · MQ-01</div>
     </div>
 
-    <!-- Image Modal -->
-    <div id="image-modal" class="image-modal hidden">
-        <span id="close-modal" class="close-modal">×</span>
-        <img id="modal-image" class="modal-image" src="" alt="Enlarged NFT">
-    </div>
+</main>
 
-    <!-- Minting Section -->
-<div class="mint-section">
-    <img src="assets/cigsuiga.png" alt="Sancigawa Preview" class="cigsuiga-preview">
-    <h2>sancigawa</h2>
-    <p class="mint-description">
-        100 paintings of 100 memories of adventures with friends. Minting right now on Sanko.<br>
-        Created with the help of <button id="stationthisbot-btn" class="stationthisbot-btn">@stationthisbot</button> and 
-        <a href="https://cigbot.meme" target="_blank">cigbot.meme</a>
-    </p>
-    <div class="mint-schedule">
-        <p><strong>Mint Date: 06/03/25</strong></p>
-        <ul>
-            <li><strong>12am</strong>: 1 free mint to holders of Cigawarette Packs and/or Mossawarettes</li>
-            <li><strong>12am</strong>: 2 discounted mints (1 $DMT) to holders of MossNet and/or MossNet: Banners</li>
-            <li><strong>12pm</strong>: 2 discounted mints (1 $DMT) to holders of Miladystation and/or Minote2</li>
-            <li><strong>12pm</strong>: Public mint (4 $DMT)</li>
-        </ul>
-        <p>Thank you <a href="https://www.scatter.art/collection/sancigawa" target="_blank">scatter.art</a></p>
-    </div>
-    <button id="connect-wallet-btn" class="connect-wallet-btn">Connect Wallet</button>
-    <div id="invite-lists" class="invite-lists"></div>
-    <button id="view-sancigawa-nfts-btn" class="view-nfts-btn hidden">View Your Sancigawa NFTs</button>
-    <p id="wallet-status" class="wallet-status hidden">Please connect your wallet</p>
-</div>
-        <!-- Links with Tooltips -->
-        <ul class="link-list">
-            <li><a href="#" class="tooltip-mossnet collection-link" data-collection="mossnet" data-secondary-url="https://sudoswap.xyz/#/browse/sanko/buy/0x8e718b4aFe2ad12345c5a327e3c2cB7645026BB2" title="MossNet: Comprehensive Field Research Journal Entries by MossHunter420 of Winnsboro Feint Garden Bold division. Artifacts and memories we made along the way collected during the great Moss Expedition of May 2024. Rip Pappachaga. Post Moss.">MossNet</a></li>
-            <li><a href="#" class="tooltip-banners collection-link" data-collection="mossnet-banners" data-secondary-url="https://sudoswap.xyz/#/browse/sanko/buy/0x9275Bf0a32ae3c9227065f998Ac0B392FB9f0BFe" title="Comprehensive Field Research Journal Entries by MossHunter420 of Winnsboro Feint Garden Bold division. Artifacts collected during the great Moss Expedition of June 2024.">MossNet: Banners</a></li>
-            <li><a href="https://www.defined.fi/sanko/0x4a5ad9af56e2291f61d6c59ec098fe71b61fb2c4?quoteToken=token1" target="_blank" data-tooltip="13.33M $MOSS tokens growing on $DMT" title="13.33M $MOSS tokens growing on $DMT">$MOSS on Sanko</a></li>
-            <li><a href="#" class="tooltip-mossawrettes collection-link" data-collection="mossawrettes" data-secondary-url="https://opensea.io/collection/mossawrettes" title="recent studies indicate that micro exposure to moss, ie apple moss, carpet moss, sheet moss, cord moss, cushion moss, elf-cap moss, extinguisher moss, feather moss, fern moss, fringe moss, granite moss, hair-cap moss, horn-tooth moss, luminous moss, peat moss, rose moss, screw moss, tree moss, urn moss, top moss, water moss, wind-blown moss, broom moss, can increase endorphin levels in the brain. due to the release of phytoncides and negative ions that have been shown to have a positive impact on mood and mental health. 25+ cigawrettes that are simply lost in the moss.">Mossawrettes</a></li>
-            <li><a href="#" class="collection-link hashstanza-link" data-collection="hashstanza" data-secondary-url="https://www.vvv.so/hashstanza" title="Hashstanza NFT collection on Solana">Hashstanza</a></li>
-            <li><a href="https://x.com/mossmossmoss420" target="_blank" data-tooltip="follow along for more adventures." title="follow along for more adventures.">Twitter</a></li>
-            <li><a href="https://sanko.tv/mossmossmoss420" target="_blank" data-tooltip="Tune in to live stream powered by $DMT" title="Tune in to live stream powered by $DMT">Sanko TV</a></li>
-            <li><a href="https://cigbot.meme" target="_blank" data-tooltip="cigawrette packs meme maker" title="cigawrette packs meme maker">cigbot.meme</a></li>
-            <li><a href="https://www.cigawrettepacks.shop/" target="_blank" data-tooltip="cigawrette packs" title="cigawrette packs">rip pappachaga</a></li>
-            <li><a href="https://discord.gg/Jweknw8H" target="_blank" data-tooltip="discord" title="discord">big dogs diner</a></li>
-        </ul>
-    </div>
-
-    <!-- Scripts -->
-    <script src="https://cdn.jsdelivr.net/npm/web3@1.8.2/dist/web3.min.js"></script>
-    <script src="https://unpkg.com/@wagmi/core@2.2.0/dist/index.js"></script>
-    <script src="https://unpkg.com/viem@1.0.0/dist/index.js"></script>
-    <script src="script.js" type="module"></script>
+<script src="script.js" type="module"></script>
 </body>
 </html>

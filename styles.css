@@ -558,7 +558,8 @@ body {
 
 .tabs { display: flex; gap: calc(var(--u) * 1); }
 
-.tab {
+.tab,
+.promo-tab {
     font: inherit;
     font-size: calc(var(--u) * 3.6);
     padding: calc(var(--u) * 0.4) calc(var(--u) * 1.8);
@@ -570,7 +571,14 @@ body {
 }
 
 .tab.active { background: var(--lcd-dark); color: var(--lcd); }
-.tab.focused { box-shadow: 0 0 0 calc(var(--u) * 0.5) var(--lcd), 0 0 0 calc(var(--u) * 0.9) var(--lcd-dark); }
+.tab.focused,
+.promo-tab.focused { box-shadow: 0 0 0 calc(var(--u) * 0.5) var(--lcd), 0 0 0 calc(var(--u) * 0.9) var(--lcd-dark); }
+
+.promo-tab {
+    text-decoration: none;
+    display: inline-block;
+    line-height: 1.15;
+}
 
 .grid {
     display: grid;

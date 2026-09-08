@@ -81,6 +81,7 @@ const COLLECTIONS = {
     chain: CHAINS.solana,
     description: 'a collection of poems written with love by twinstar, compiled and presented by mossmossmoss420.',
     site: 'https://www.vvv.so/hashstanza',
+    promo: 'https://x.com/mossmossmoss420/status/2005739979251802376?s=20',
     links: (token) => [
       ['Mint', 'https://www.vvv.so/hashstanza', 'mint a Hashstanza on vvv.so'],
       ['Solscan', `https://solscan.io/token/${token.assetId}`, 'this poem on Solscan'],
@@ -99,6 +100,7 @@ const COLLECTIONS = {
     thumbnails: 'assets/mossawrettes-thumbs/{id}.webp',
     large: 'assets/mossawrettes-large/{id}.webp',
     site: 'https://www.scatter.art/c/mossawrettes',
+    promo: 'https://x.com/vate_4hl/status/1781034745083662772?s=20',
     links: (token) => [
       ['OpenSea', `https://opensea.io/assets/ethereum/0x71f7bedf8572b75e446766906079dcf05a386737/${token.tokenId}`, 'listing on OpenSea'],
       ['Etherscan', `${ETHERSCAN}/nft/0x71f7bedf8572b75e446766906079dcf05a386737/${token.tokenId}`, 'token on Etherscan'],
@@ -646,6 +648,7 @@ let galleryTokens = [];
 const galleryCache = {};
 let galleryRequest = 0;
 const galleryTitle = document.getElementById('gallery-title');
+const galleryPromo = document.getElementById('gallery-promo');
 
 function isOwnedBy(token, walletAddress) {
   if (!walletAddress) return false;
@@ -740,6 +743,11 @@ async function openGallery(mode = galleryMode, key = collection.key) {
   galleryTitle.href = collection.site;
   galleryTitle.dataset.note = `${collection.name} on scatter.art`;
   views.gallery.querySelector('.tab[data-mode="all"]').dataset.note = `every ${collection.name} token, read from ${collection.chain.name}`;
+  galleryPromo.classList.toggle('hidden', !collection.promo);
+  if (collection.promo) {
+    galleryPromo.href = collection.promo;
+    galleryPromo.dataset.note = `the ${collection.name} promo, on X`;
+  }
   showView('gallery', { focus: null });
   setGalleryTabs(mode, null);
   galleryConnect.classList.add('hidden');

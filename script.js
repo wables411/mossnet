@@ -669,7 +669,7 @@ function buildTile(token, walletAddress) {
   tile.dataset.note = `${token.name} · ${isOwnedBy(token, walletAddress) ? 'yours' : shortAddress(token.owner)}`;
   if (isOwnedBy(token, walletAddress)) tile.classList.add('mine');
   const img = document.createElement('img');
-  img.src = token.thumbnail || 'assets/placeholder.png';
+  img.src = token.thumbnail || (token.image ? ipfsToHttp(token.image) : 'assets/placeholder.png');
   img.alt = token.name;
   img.loading = 'lazy';
   const num = document.createElement('span');
@@ -717,7 +717,10 @@ function updateTile(token) {
   if (!tile) return;
   const walletAddress = getConnectedAddress();
   tile.dataset.note = `${token.name} · ${isOwnedBy(token, walletAddress) ? 'yours' : shortAddress(token.owner)}`;
-  tile.querySelector('img').alt = token.name;
+  const img = tile.querySelector('img');
+  img.alt = token.name;
+  // metadata may have arrived after the tile was built
+  if (!token.thumbnail && token.image) img.src = ipfsToHttp(token.image);
   if (tile.classList.contains('focused')) setNote(tile.dataset.note);
 }
 
@@ -786,7 +789,7 @@ function openItem(token) {
   itemIndex = visibleTokens.indexOf(token);
   fillInfo(token);
   applyGreen();
-  itemImage.src = token.large || token.thumbnail || 'assets/placeholder.png';
+  itemImage.src = token.large || token.thumbnail || (token.image ? ipfsToHttp(token.image) : 'assets/placeholder.png');
   itemImage.alt = token.name;
   itemName.textContent = token.name;
   itemCount.textContent = itemIndex >= 0 ? `${itemIndex + 1} / ${visibleTokens.length}` : '';
@@ -878,7 +881,8 @@ function renderGreen(token) {
       resolve(work);
     };
     img.onerror = () => resolve(null);
-    img.src = token.large || token.thumbnail;
+    img.crossOrigin = 'anonymous';
+    img.src = token.large || token.thumbnail || (token.image ? ipfsToHttp(token.image) : '');
   });
 }
 

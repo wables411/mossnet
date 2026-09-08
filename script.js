@@ -8,6 +8,7 @@ const lcd = document.getElementById('lcd');
 const lcdStatus = document.getElementById('lcd-status');
 const views = {
   help: document.getElementById('view-help'),
+  remilia: document.getElementById('view-remilia'),
   title: document.getElementById('view-title'),
   home: document.getElementById('view-home'),
   gallery: document.getElementById('view-gallery'),
@@ -537,7 +538,7 @@ const leds = {
 
 // ---------- focus cursor ----------
 let activeView = 'title';
-const focusIndex = { title: 0, home: 0, gallery: 0, item: 0, info: 0, help: 0 };
+const focusIndex = { title: 0, home: 0, gallery: 0, item: 0, info: 0, help: 0, remilia: 0 };
 let lastView = 'title';
 
 function shortAddress(address) {
@@ -617,6 +618,11 @@ function getConnectedAddress() {
 function handleAccountsChanged(accounts) {
   connectedAddress = accounts.length ? accounts[0] : null;
   renderWallet();
+
+// a visitor coming back from RemiliaNET lands here with ?code= in the address
+if (new URL(location.href).searchParams.has('code')) {
+  remiliaHandleReturn().then(ok => { if (ok) showRemilia(); });
+}
   if (activeView === 'gallery') openGallery(galleryMode);
 }
 
@@ -1006,9 +1012,192 @@ function haptic() {
 }
 document.querySelectorAll('.device button:not(.focusable)').forEach(btn => btn.addEventListener('pointerdown', haptic, { passive: true }));
 
+// ---------- RemiliaNET ----------
+// Authorization Code + PKCE against their Keycloak realm. A public client, so
+// there is no secret: the code verifier never leaves this browser and the
+// token exchange is a plain browser POST (their token endpoint sends CORS
+// headers for a registered origin).
+//
+// To switch this on: register the application at remilia.net/developer with
+// client type "Login", list this site's URL as a redirect URI verbatim, and
+// put the client id below. The id is not a secret.
+const REMILIA = {
+  clientId: '',                                   // <- from the developer portal
+  authorize: 'https://www.remilia.net/oidc/realms/remilia/protocol/openid-connect/auth',
+  token: 'https://www.remilia.net/oidc/realms/remilia/protocol/openid-connect/token',
+  logout: 'https://www.remilia.net/oidc/realms/remilia/protocol/openid-connect/logout',
+  api: 'https://www.remilia.net/api/v1',
+  // must be a subset of what the application was granted at registration
+  scopes: 'openid remilia:beetle.read remilia:stats.read',
+  redirect: `${location.origin}/`
+};
+
+const remiliaMsg = document.getElementById('remilia-msg');
+const remiliaActions = document.getElementById('remilia-actions');
+const remiliaFields = document.getElementById('remilia-fields');
+
+const store = {
+  get(k) { try { return sessionStorage.getItem(k); } catch (_) { return null; } },
+  set(k, v) { try { sessionStorage.setItem(k, v); } catch (_) { /* private mode */ } },
+  drop(k) { try { sessionStorage.removeItem(k); } catch (_) { /* private mode */ } }
+};
+
+function base64url(bytes) {
+  return btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function randomString(bytes) {
+  return base64url(crypto.getRandomValues(new Uint8Array(bytes)));
+}
+
+async function pkceChallenge(verifier) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+  return base64url(digest);
+}
+
+async function remiliaSignIn() {
+  if (!REMILIA.clientId) { setNote('RemiliaNET application not registered yet'); return; }
+  const verifier = randomString(32);
+  const state = randomString(16);
+  store.set('remilia-verifier', verifier);
+  store.set('remilia-state', state);
+  const params = new URLSearchParams({
+    client_id: REMILIA.clientId,
+    response_type: 'code',
+    redirect_uri: REMILIA.redirect,
+    scope: REMILIA.scopes,
+    state,
+    code_challenge: await pkceChallenge(verifier),
+    code_challenge_method: 'S256'
+  });
+  location.href = `${REMILIA.authorize}?${params}`;
+}
+
+async function remiliaToken(body) {
+  const response = await fetch(REMILIA.token, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ client_id: REMILIA.clientId, ...body })
+  });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.error_description || payload.error || `HTTP ${response.status}`);
+  store.set('remilia-access', payload.access_token);
+  store.set('remilia-refresh', payload.refresh_token || '');
+  store.set('remilia-expires', String(Date.now() + (payload.expires_in || 300) * 1000));
+  return payload;
+}
+
+// the authorization server sends the visitor back here with ?code=&state=
+async function remiliaHandleReturn() {
+  const url = new URL(location.href);
+  const code = url.searchParams.get('code');
+  const state = url.searchParams.get('state');
+  if (!code) return false;
+  const expected = store.get('remilia-state');
+  const verifier = store.get('remilia-verifier');
+  history.replaceState({}, '', url.pathname); // do not leave the code in the address bar
+  store.drop('remilia-state');
+  store.drop('remilia-verifier');
+  if (!expected || state !== expected || !verifier) { setNote('sign-in did not match this browser'); return false; }
+  try {
+    await remiliaToken({ grant_type: 'authorization_code', code, redirect_uri: REMILIA.redirect, code_verifier: verifier });
+    return true;
+  } catch (error) {
+    console.warn('RemiliaNET sign-in failed:', error);
+    return false;
+  }
+}
+
+async function remiliaAccessToken() {
+  const token = store.get('remilia-access');
+  const expires = Number(store.get('remilia-expires') || 0);
+  if (token && Date.now() < expires - 15000) return token;
+  const refresh = store.get('remilia-refresh');
+  if (!refresh) return null;
+  try {
+    const payload = await remiliaToken({ grant_type: 'refresh_token', refresh_token: refresh });
+    return payload.access_token;
+  } catch (_) {
+    remiliaSignOut(false);
+    return null;
+  }
+}
+
+async function remiliaApi(path) {
+  const token = await remiliaAccessToken();
+  if (!token) throw new Error('not signed in');
+  const response = await fetch(`${REMILIA.api}${path}`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!response.ok) throw new Error(`${path}: HTTP ${response.status}`);
+  return response.json();
+}
+
+function remiliaSignOut(redirect = true) {
+  ['remilia-access', 'remilia-refresh', 'remilia-expires'].forEach(store.drop);
+  if (redirect) showRemilia();
+}
+
+function remiliaRow(label, value) {
+  const dt = document.createElement('dt'); dt.textContent = label;
+  const dd = document.createElement('dd'); dd.textContent = value;
+  remiliaFields.append(dt, dd);
+}
+
+function remiliaButton(label, note, onClick) {
+  const li = document.createElement('li');
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'menu-item focusable';
+  button.textContent = label;
+  button.dataset.note = note;
+  button.addEventListener('click', onClick);
+  li.appendChild(button);
+  remiliaActions.appendChild(li);
+}
+
+async function showRemilia() {
+  showView('remilia', { focus: 0 });
+  remiliaActions.innerHTML = '';
+  remiliaFields.innerHTML = '';
+
+  if (!REMILIA.clientId) {
+    remiliaMsg.textContent = 'Not connected yet. The application still needs a client id from remilia.net/developer.';
+    return;
+  }
+  const token = await remiliaAccessToken();
+  if (!token) {
+    remiliaMsg.textContent = 'Sign in with your RemiliaNET account to see your profile and your Beetle on this screen.';
+    remiliaButton('SIGN IN', 'opens RemiliaNET to authorise this site', remiliaSignIn);
+    setFocus(0, { scroll: false });
+    return;
+  }
+
+  remiliaMsg.textContent = 'Reading your account...';
+  try {
+    const me = await remiliaApi('/me');
+    remiliaMsg.textContent = me.username ? `signed in as ${me.username}` : 'signed in';
+    if (me.username) remiliaRow('handle', me.username);
+    if (me.display_name) remiliaRow('name', me.display_name);
+    if (me.bio) remiliaRow('bio', me.bio);
+  } catch (error) {
+    remiliaMsg.textContent = `Could not read your profile: ${error.message}`;
+  }
+  // the Beetle needs remilia:beetle.read; without it the call answers 403
+  try {
+    const beetle = await remiliaApi('/me/beetle');
+    if (beetle.level != null) remiliaRow('beetle level', beetle.level);
+    if (beetle.xp != null) remiliaRow('beetle xp', beetle.xp);
+    const items = beetle.inventory && Object.keys(beetle.inventory).length;
+    if (items) remiliaRow('inventory', `${items} kinds`);
+  } catch (_) { /* scope not granted, or no beetle yet */ }
+
+  remiliaButton('SIGN OUT', 'forget this session on this device', () => remiliaSignOut());
+  setFocus(0, { scroll: false });
+}
+
 // ---------- wiring: every input goes through press(), and the screen that is open decides what it means ----------
 document.querySelectorAll('[data-action="gallery"]').forEach(el => el.addEventListener('click', () => openGallery('all', el.dataset.collection || collection.key)));
 document.querySelectorAll('[data-action="chart"]').forEach(el => el.addEventListener('click', () => showView('chart')));
+document.querySelectorAll('[data-action="remilia"]').forEach(el => el.addEventListener('click', showRemilia));
 galleryConnectBtn.addEventListener('click', async () => {
   if (await connectWallet()) openGallery('mine');
 });
@@ -1082,7 +1271,8 @@ const ACTIONS = {
   item:    { ...dirs, ...always, a: itemA, b: itemB, x: openInfo, y: toggleGreen, l: () => stepItem(-1), r: () => stepItem(1) },
   info:    { ...always, up: () => scrollLcd('up'), down: () => scrollLcd('down'), b: closeInfo, x: closeInfo, y: toggleGreen, l: () => stepItem(-1), r: () => stepItem(1) },
   chart:   { ...always, b: toHome },
-  help:    { ...dirs, ...always, a: activate, b: closeHelp, select: closeHelp }
+  help:    { ...dirs, ...always, a: activate, b: closeHelp, select: closeHelp },
+  remilia: { ...dirs, ...always, a: activate, b: toHome }
 };
 
 // every press lights the board and makes a sound: the action's own blip if it has one, otherwise a plain key click

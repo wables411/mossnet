@@ -1,2 +1,21 @@
 /*
   Content-Security-Policy: default-src 'self'; script-src 'self' https://static.cloudflareinsights.com; connect-src 'self' https://www.remilia.net https://lime-given-booby-462.mypinata.cloud https://ethereum-rpc.publicnode.com https://1rpc.io https://gateway.pinata.cloud https://ipfs.filebase.io; frame-src 'self' https://dexscreener.com; img-src 'self' data: https://pfp.remilia.net https://lime-given-booby-462.mypinata.cloud https://raw2.seadn.io https://i2c.seadn.io https://gateway.pinata.cloud https://ipfs.filebase.io; style-src 'self' 'unsafe-inline'; font-src 'self'; media-src 'self'; frame-ancestors 'self'
+
+# The code and the data bundles must revalidate, or a deploy takes hours to
+# reach anyone: Pages caches them for four hours by default. With an ETag a
+# revalidation is a cheap 304, and a real change arrives at once.
+/script.js
+  Cache-Control: no-cache
+
+/bg.js
+  Cache-Control: no-cache
+
+/styles.css
+  Cache-Control: no-cache
+
+/assets/*.json
+  Cache-Control: no-cache
+
+/manifest.webmanifest
+  Cache-Control: no-cache
+

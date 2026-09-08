@@ -11,7 +11,7 @@
     <meta http-equiv="Content-Security-Policy" content="
     default-src 'self';
     script-src 'self' https://static.cloudflareinsights.com;
-    connect-src 'self' https://ethereum-rpc.publicnode.com https://1rpc.io https://gateway.pinata.cloud https://ipfs.filebase.io;
+    connect-src 'self' https://ethereum-rpc.publicnode.com https://1rpc.io https://rpc.mainnet.chain.robinhood.com https://gateway.pinata.cloud https://ipfs.filebase.io;
     frame-src 'self' https://dexscreener.com;
     img-src 'self' data: https://gateway.pinata.cloud https://ipfs.filebase.io;
     style-src 'self' 'unsafe-inline';
@@ -61,7 +61,8 @@
                     <section id="view-home" class="view hidden" data-note="A: ok · L/R: background · B: title">
                         <ul class="menu">
                             <li class="menu-heading">Collect</li>
-                            <li><button type="button" class="menu-item focusable" data-action="gallery" data-note="25 cigawrettes lost in the moss · Ethereum">Mossawrettes</button></li>
+                            <li><button type="button" class="menu-item focusable" data-action="gallery" data-collection="mossnet" data-note="100 field research journal entries · Robinhood Chain">Moss:Net</button></li>
+                            <li><button type="button" class="menu-item focusable" data-action="gallery" data-collection="mossawrettes" data-note="25 cigawrettes lost in the moss · Ethereum">Mossawrettes</button></li>
                             <li><button type="button" class="menu-item focusable" id="moss-item" data-action="moss" data-expands="moss-sub" data-note="$MOSS RH token deployed live on Retake.TV · A: open" aria-expanded="false">$MOSS</button></li>
                             <li class="moss-sub hidden"><p class="menu-note">moss growing on robinhood chain deployed on retake.tv</p></li>
                             <li class="moss-sub hidden"><button type="button" class="menu-item focusable sub address" data-action="chart" data-note="$MOSS contract · A: live chart on this screen">0x81da740ffe60241ff526833bce21c5560fe9abc9</button></li>
@@ -87,9 +88,9 @@
                     <!-- Mossawrettes gallery -->
                     <section id="view-gallery" class="view hidden" data-note="A: open · L/R: all / yours · B: back">
                         <header class="lcd-header">
-                            <a class="lcd-header-title focusable" href="https://www.scatter.art/c/mossawrettes" target="_blank" rel="noopener" data-note="Mossawrettes on scatter.art">MOSSAWRETTES</a>
-                            <nav class="tabs" aria-label="Which Mossawrettes to show">
-                                <button type="button" class="tab focusable active" data-mode="all" data-note="every Mossawrette, read from Ethereum">ALL</button>
+                            <a id="gallery-title" class="lcd-header-title focusable" href="https://www.scatter.art/c/moss-net" target="_blank" rel="noopener" data-note="Moss:Net on scatter.art">MOSS:NET</a>
+                            <nav class="tabs" aria-label="Which tokens to show">
+                                <button type="button" class="tab focusable active" data-mode="all" data-note="every token, read from the chain">ALL</button>
                                 <button type="button" class="tab focusable" data-mode="mine" data-note="the ones in your wallet">YOURS</button>
                             </nav>
                         </header>

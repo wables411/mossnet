@@ -36,21 +36,55 @@ const soundToggle = document.getElementById('btn-y');
 const guts = document.querySelector('.guts');
 const ETHERSCAN = 'https://etherscan.io';
 
-const MOSSAWRETTES = {
-  name: 'Mossawrettes',
-  address: '0x71f7bedf8572b75e446766906079dcf05a386737',
-  description: 'recent studies indicate that micro exposure to moss can increase endorphin levels in the brain. 25+ cigawrettes that are simply lost in the moss.',
-  firstTokenId: 1,
-  // 480px thumbs for the grid, 1400px for the item screen; originals stay on IPFS as a link
-  thumbnails: 'assets/mossawrettes-thumbs/{id}.webp',
-  large: 'assets/mossawrettes-large/{id}.webp'
+const CHAINS = {
+  ethereum: { name: 'Ethereum mainnet', rpcs: ['https://ethereum-rpc.publicnode.com', 'https://1rpc.io/eth'] },
+  // Robinhood's public RPC is rate-limited but allows browser CORS and JSON-RPC batches
+  robinhood: { name: 'Robinhood Chain', rpcs: ['https://rpc.mainnet.chain.robinhood.com'] }
 };
 
+// Each collection: on-chain address + chain, local thumbs/large copies, and where its links go.
+// Moss:Net's metadata is bundled (assets/mossnet-meta.json) because Scatter's tokenURI has no CORS.
+const COLLECTIONS = {
+  mossnet: {
+    key: 'mossnet',
+    name: 'Moss:Net',
+    plural: 'Moss:Net entries',
+    address: '0x15f499841Df89F34529Ca41eB30271cAdDEee573',
+    chain: CHAINS.robinhood,
+    description: 'MossNet: Comprehensive Field Research Journal Entries by MossHunter420 of Winnsboro Feint Garden Bold division. Artifacts collected during the great Moss Expedition of May 2024.',
+    firstTokenId: 1,
+    thumbnails: 'assets/mossnet-thumbs/{id}.webp',
+    large: 'assets/mossnet-large/{id}.webp',
+    metadataFile: 'assets/mossnet-meta.json',
+    site: 'https://www.scatter.art/c/moss-net',
+    links: (token) => [
+      ['Scatter', 'https://www.scatter.art/c/moss-net', 'Moss:Net on scatter.art'],
+      ['Explorer', `https://robinhoodchain.blockscout.com/token/0x15f499841Df89F34529Ca41eB30271cAdDEee573/instance/${token.tokenId}`, 'token on Robinhood Chain explorer'],
+      ['Original', token.image, 'full-size original, 1500px']
+    ]
+  },
+  mossawrettes: {
+    key: 'mossawrettes',
+    name: 'Mossawrettes',
+    plural: 'Mossawrettes',
+    address: '0x71f7bedf8572b75e446766906079dcf05a386737',
+    chain: CHAINS.ethereum,
+    description: 'recent studies indicate that micro exposure to moss can increase endorphin levels in the brain. 25+ cigawrettes that are simply lost in the moss.',
+    firstTokenId: 1,
+    // 480px thumbs for the grid, 1400px for the item screen; originals stay on IPFS as a link
+    thumbnails: 'assets/mossawrettes-thumbs/{id}.webp',
+    large: 'assets/mossawrettes-large/{id}.webp',
+    site: 'https://www.scatter.art/c/mossawrettes',
+    links: (token) => [
+      ['OpenSea', `https://opensea.io/assets/ethereum/0x71f7bedf8572b75e446766906079dcf05a386737/${token.tokenId}`, 'listing on OpenSea'],
+      ['Etherscan', `${ETHERSCAN}/nft/0x71f7bedf8572b75e446766906079dcf05a386737/${token.tokenId}`, 'token on Etherscan'],
+      ['IPFS', token.image ? ipfsToHttp(token.image, IPFS_GATEWAYS.length - 1) : null, 'full-size original, 9-12MB']
+    ]
+  }
+};
+let collection = COLLECTIONS.mossnet;
+
 // Read-only Ethereum mainnet RPCs, tried in order (all allow browser CORS + JSON-RPC batches)
-const ETH_RPCS = [
-  'https://ethereum-rpc.publicnode.com',
-  'https://1rpc.io/eth'
-];
 const ETH_BATCH_SIZE = 50;
 
 // IPFS gateways, tried in order (ipfs.io / dweb.link now rate-limit, cloudflare-ipfs is gone)
@@ -123,7 +157,7 @@ function decodeString(hex) {
 }
 
 // Batched eth_call with RPC fallback. Returns result hex per call, or null where the call reverted.
-async function ethCallBatch(address, calls) {
+async function ethCallBatch(address, calls, rpcs = CHAINS.ethereum.rpcs) {
   const results = new Array(calls.length).fill(null);
   for (let offset = 0; offset < calls.length; offset += ETH_BATCH_SIZE) {
     const chunk = calls.slice(offset, offset + ETH_BATCH_SIZE);
@@ -135,7 +169,7 @@ async function ethCallBatch(address, calls) {
     }));
     let done = false;
     let lastError;
-    for (const rpc of ETH_RPCS) {
+    for (const rpc of rpcs) {
       try {
         const response = await fetch(rpc, {
           method: 'POST',
@@ -162,7 +196,7 @@ async function ethCallBatch(address, calls) {
 
 // Reads totalSupply, then ownerOf + tokenURI for every token id, all in one batched request
 async function fetchErc721Tokens(collection) {
-  const [supplyHex] = await ethCallBatch(collection.address, [ERC721.totalSupply]);
+  const [supplyHex] = await ethCallBatch(collection.address, [ERC721.totalSupply], collection.chain.rpcs);
   const totalSupply = decodeUint(supplyHex);
   if (!totalSupply) throw new Error('Could not read the collection supply');
 
@@ -173,7 +207,7 @@ async function fetchErc721Tokens(collection) {
     calls.push(ERC721.ownerOf + encodeUint(id));
     calls.push(ERC721.tokenURI + encodeUint(id));
   });
-  const results = await ethCallBatch(collection.address, calls);
+  const results = await ethCallBatch(collection.address, calls, collection.chain.rpcs);
 
   const tokens = [];
   ids.forEach((id, i) => {
@@ -192,6 +226,26 @@ async function fetchErc721Tokens(collection) {
     });
   });
   return tokens;
+}
+
+// Bundled metadata (one JSON for the whole collection) applied in one go
+const bundledMetadata = {};
+async function applyBundledMetadata(collection, tokens, onUpdate) {
+  if (!bundledMetadata[collection.key]) {
+    const response = await fetch(collection.metadataFile);
+    if (!response.ok) throw new Error(`metadata bundle HTTP ${response.status}`);
+    bundledMetadata[collection.key] = await response.json();
+  }
+  const all = bundledMetadata[collection.key];
+  tokens.forEach(token => {
+    const m = all[String(token.tokenId)];
+    if (!m) return;
+    token.metadata = m;
+    token.name = String(m.name).replace(/(\S)#(\d)/, '$1 #$2');
+    token.description = m.description || '';
+    token.image = m.image || null;
+    onUpdate?.(token);
+  });
 }
 
 // Fills in name/image from each token's metadata, a few at a time, calling onUpdate per token
@@ -436,7 +490,9 @@ async function connectWallet() {
 // ---------- gallery ----------
 let galleryMode = 'all';
 let galleryTokens = [];
+const galleryCache = {};
 let galleryRequest = 0;
+const galleryTitle = document.getElementById('gallery-title');
 
 function isOwnedBy(token, walletAddress) {
   return Boolean(walletAddress) && token.owner.toLowerCase() === walletAddress.toLowerCase();
@@ -498,7 +554,7 @@ function renderGallery() {
     return;
   }
   if (!visible.length) {
-    showGalleryMessage(galleryMode === 'mine' ? `No Mossawrettes in ${shortAddress(walletAddress)}. Yet.` : 'Nothing found.');
+    showGalleryMessage(galleryMode === 'mine' ? `No ${collection.plural} in ${shortAddress(walletAddress)}. Yet.` : 'Nothing found.');
     return;
   }
   const holders = new Set(galleryTokens.map(t => t.owner.toLowerCase())).size;
@@ -517,23 +573,31 @@ function updateTile(token) {
   if (tile.classList.contains('focused')) setNote(tile.dataset.note);
 }
 
-async function openGallery(mode = galleryMode) {
+async function openGallery(mode = galleryMode, key = collection.key) {
+  if (key !== collection.key) { galleryCache[collection.key] = galleryTokens; collection = COLLECTIONS[key]; galleryTokens = galleryCache[key] || []; focusIndex.gallery = 0; }
   galleryMode = mode;
   const request = ++galleryRequest;
+  galleryTitle.textContent = collection.name.toUpperCase();
+  galleryTitle.href = collection.site;
+  galleryTitle.dataset.note = `${collection.name} on scatter.art`;
+  views.gallery.querySelector('.tab[data-mode="all"]').dataset.note = `every ${collection.name} token, read from ${collection.chain.name}`;
   showView('gallery', { focus: null });
   setGalleryTabs(mode, null);
   galleryConnect.classList.add('hidden');
   galleryGrid.innerHTML = '';
 
   if (!galleryTokens.length) {
-    showGalleryMessage('Reading Ethereum mainnet...');
+    showGalleryMessage(`Reading ${collection.chain.name}...`);
     setFocus(0, { scroll: false });
     leds.set('net', 'blink');
     try {
-      const tokens = await fetchErc721Tokens(MOSSAWRETTES);
+      const tokens = await fetchErc721Tokens(collection);
       if (request !== galleryRequest) return;
       galleryTokens = tokens;
-      hydrateTokenMetadata(tokens, updateTile).then(() => leds.set('net', 'off'));
+      const hydrate = collection.metadataFile
+        ? applyBundledMetadata(collection, tokens, updateTile)
+        : hydrateTokenMetadata(tokens, updateTile);
+      hydrate.then(() => leds.set('net', 'off')).catch(err => { console.warn(err); leds.set('net', 'off'); });
     } catch (error) {
       leds.set('net', 'off');
       if (request !== galleryRequest) return;
@@ -576,9 +640,7 @@ function openItem(token) {
   itemName.textContent = token.name;
   itemCount.textContent = itemIndex >= 0 ? `${itemIndex + 1} / ${visibleTokens.length}` : '';
   itemLinks.innerHTML = '';
-  itemLinks.appendChild(linkItem('OpenSea', `https://opensea.io/assets/ethereum/${MOSSAWRETTES.address}/${token.tokenId}`, 'listing on OpenSea'));
-  itemLinks.appendChild(linkItem('Etherscan', `${ETHERSCAN}/nft/${MOSSAWRETTES.address}/${token.tokenId}`, 'token on Etherscan'));
-  if (token.image) itemLinks.appendChild(linkItem('IPFS', ipfsToHttp(token.image, IPFS_GATEWAYS.length - 1), 'full-size original, 9-12MB'));
+  collection.links(token).forEach(([label, href, note]) => { if (href) itemLinks.appendChild(linkItem(label, href, note)); });
   const dmg = document.createElement('li');
   const dmgBtn = document.createElement('button');
   dmgBtn.type = 'button';
@@ -695,7 +757,7 @@ function toggleGreen() {
 function fillInfo(token) {
   const walletAddress = getConnectedAddress();
   infoTitle.textContent = token.name;
-  infoDesc.textContent = token.description || MOSSAWRETTES.description;
+  infoDesc.textContent = token.description || collection.description;
   infoFields.innerHTML = '';
   const meta = token.metadata || {};
   const traits = Array.isArray(meta.attributes) && meta.attributes.length
@@ -705,8 +767,8 @@ function fillInfo(token) {
     ['token', `#${token.tokenId} of ${galleryTokens.length}`],
     ['owner', `${token.owner}${isOwnedBy(token, walletAddress) ? ' (you)' : ''}`],
     ['traits', traits],
-    ['contract', MOSSAWRETTES.address],
-    ['chain', 'Ethereum mainnet · ERC-721'],
+    ['contract', collection.address],
+    ['chain', `${collection.chain.name} · ERC-721`],
     ['metadata', token.tokenUri || 'unknown'],
     ['image', token.image || 'unknown'],
     ['external', meta.external_url || '']
@@ -750,7 +812,7 @@ function haptic() {
 document.querySelectorAll('.device button:not(.focusable)').forEach(btn => btn.addEventListener('pointerdown', haptic, { passive: true }));
 
 // ---------- wiring: every input goes through press(), and the screen that is open decides what it means ----------
-document.querySelectorAll('[data-action="gallery"]').forEach(el => el.addEventListener('click', () => openGallery('all')));
+document.querySelectorAll('[data-action="gallery"]').forEach(el => el.addEventListener('click', () => openGallery('all', el.dataset.collection || collection.key)));
 document.querySelectorAll('[data-action="chart"]').forEach(el => el.addEventListener('click', () => showView('chart')));
 galleryConnectBtn.addEventListener('click', async () => {
   if (await connectWallet()) openGallery('mine');

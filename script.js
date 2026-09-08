@@ -126,6 +126,14 @@ const ERC721 = {
 };
 
 
+// Pinata's gateway resizes on request, which turns a 22MB original into a
+// few tens of kilobytes. Only it understands these parameters, so leave any
+// other host's URL alone.
+function sized(url, width) {
+  if (!url || !/\.mypinata\.cloud\//.test(url)) return url;
+  return `${url}${url.includes('?') ? '&' : '?'}img-width=${width}&img-format=webp`;
+}
+
 function ipfsToHttp(uri, gatewayIndex = 0) {
   if (!uri) return '';
   if (uri.startsWith('ipfs://')) {
@@ -669,7 +677,7 @@ function buildTile(token, walletAddress) {
   tile.dataset.note = `${token.name} · ${isOwnedBy(token, walletAddress) ? 'yours' : shortAddress(token.owner)}`;
   if (isOwnedBy(token, walletAddress)) tile.classList.add('mine');
   const img = document.createElement('img');
-  img.src = token.thumbnail || (token.image ? ipfsToHttp(token.image) : 'assets/placeholder.png');
+  img.src = token.thumbnail || (token.image ? sized(ipfsToHttp(token.image), 400) : 'assets/placeholder.png');
   img.alt = token.name;
   img.loading = 'lazy';
   const num = document.createElement('span');
@@ -720,7 +728,7 @@ function updateTile(token) {
   const img = tile.querySelector('img');
   img.alt = token.name;
   // metadata may have arrived after the tile was built
-  if (!token.thumbnail && token.image) img.src = ipfsToHttp(token.image);
+  if (!token.thumbnail && token.image) img.src = sized(ipfsToHttp(token.image), 400);
   if (tile.classList.contains('focused')) setNote(tile.dataset.note);
 }
 
@@ -789,7 +797,7 @@ function openItem(token) {
   itemIndex = visibleTokens.indexOf(token);
   fillInfo(token);
   applyGreen();
-  itemImage.src = token.large || token.thumbnail || (token.image ? ipfsToHttp(token.image) : 'assets/placeholder.png');
+  itemImage.src = token.large || token.thumbnail || (token.image ? sized(ipfsToHttp(token.image), 1024) : 'assets/placeholder.png');
   itemImage.alt = token.name;
   itemName.textContent = token.name;
   itemCount.textContent = itemIndex >= 0 ? `${itemIndex + 1} / ${visibleTokens.length}` : '';
@@ -882,7 +890,7 @@ function renderGreen(token) {
     };
     img.onerror = () => resolve(null);
     img.crossOrigin = 'anonymous';
-    img.src = token.large || token.thumbnail || (token.image ? ipfsToHttp(token.image) : '');
+    img.src = token.large || token.thumbnail || (token.image ? sized(ipfsToHttp(token.image), 1024) : '');
   });
 }
 

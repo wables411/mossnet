@@ -1029,12 +1029,18 @@ const REMILIA = {
   api: 'https://www.remilia.net/api/v1',
   // must be a subset of what the application was granted at registration
   scopes: 'openid remilia:beetle.read remilia:stats.read',
-  redirect: `${location.origin}/`
+  redirect: `${location.origin}/`,
+  // the public profile endpoint needs no token at all
+  handle: 'moss'
 };
 
 const remiliaMsg = document.getElementById('remilia-msg');
 const remiliaActions = document.getElementById('remilia-actions');
 const remiliaFields = document.getElementById('remilia-fields');
+const remiliaPfp = document.getElementById('remilia-pfp');
+const remiliaName = document.getElementById('remilia-name');
+const remiliaHandle = document.getElementById('remilia-handle');
+const remiliaBio = document.getElementById('remilia-bio');
 
 const store = {
   get(k) { try { return sessionStorage.getItem(k); } catch (_) { return null; } },
@@ -1154,43 +1160,74 @@ function remiliaButton(label, note, onClick) {
   remiliaActions.appendChild(li);
 }
 
+// A public profile: no token, no client id, open CORS.
+async function remiliaProfile(handle) {
+  const response = await fetch(`${REMILIA.api}/users/${encodeURIComponent(handle)}`);
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const payload = await response.json();
+  return payload.user || payload;
+}
+
+function remiliaCard(user) {
+  remiliaPfp.src = user.pfpUrl || '';
+  remiliaPfp.alt = user.displayName ? `${user.displayName}'s picture` : '';
+  remiliaPfp.classList.toggle('hidden', !user.pfpUrl);
+  remiliaName.textContent = user.displayName || user.username || '';
+  remiliaHandle.textContent = [user.username && `@${user.username}`, user.location].filter(Boolean).join(' · ');
+  remiliaBio.textContent = user.bio || '';
+
+  const counts = [
+    ['beetles', user.beetles],
+    ['pokes', user.pokes],
+    ['friends', user.friendCount],
+    ['social credit', user.socialCredit],
+    ['page views', user.pageViews]
+  ].filter(([, v]) => v != null);
+  counts.forEach(([k, v]) => remiliaRow(k, Number(v).toLocaleString()));
+
+  const badges = user.achievementsDisplayed || user.allAchievements || [];
+  badges.slice(0, 6).forEach(a => remiliaRow('badge', a.title));
+}
+
 async function showRemilia() {
   showView('remilia', { focus: 0 });
   remiliaActions.innerHTML = '';
   remiliaFields.innerHTML = '';
+  remiliaMsg.textContent = 'Reading RemiliaNET...';
 
-  if (!REMILIA.clientId) {
-    remiliaMsg.textContent = 'Not connected yet. The application still needs a client id from remilia.net/developer.';
-    return;
-  }
-  const token = await remiliaAccessToken();
-  if (!token) {
-    remiliaMsg.textContent = 'Sign in with your RemiliaNET account to see your profile and your Beetle on this screen.';
-    remiliaButton('SIGN IN', 'opens RemiliaNET to authorise this site', remiliaSignIn);
+  const token = REMILIA.clientId ? await remiliaAccessToken() : null;
+
+  if (token) {
+    // signed in: the visitor's own account
+    try {
+      const me = await remiliaApi('/me');
+      const user = me.user || me;
+      remiliaMsg.textContent = `signed in as ${user.username || 'you'}`;
+      remiliaCard(user);
+    } catch (error) {
+      remiliaMsg.textContent = `Could not read your profile: ${error.message}`;
+    }
+    // the Beetle needs remilia:beetle.read; without it the call answers 403
+    try {
+      const beetle = await remiliaApi('/me/beetle');
+      if (beetle.level != null) remiliaRow('beetle level', beetle.level);
+      if (beetle.xp != null) remiliaRow('beetle xp', beetle.xp);
+    } catch (_) { /* scope not granted, or no beetle yet */ }
+    remiliaButton('SIGN OUT', 'forget this session on this device', () => remiliaSignOut());
     setFocus(0, { scroll: false });
     return;
   }
 
-  remiliaMsg.textContent = 'Reading your account...';
+  // signed out: show the site's own profile, which needs no token
   try {
-    const me = await remiliaApi('/me');
-    remiliaMsg.textContent = me.username ? `signed in as ${me.username}` : 'signed in';
-    if (me.username) remiliaRow('handle', me.username);
-    if (me.display_name) remiliaRow('name', me.display_name);
-    if (me.bio) remiliaRow('bio', me.bio);
+    const user = await remiliaProfile(REMILIA.handle);
+    remiliaMsg.textContent = '';
+    remiliaCard(user);
   } catch (error) {
-    remiliaMsg.textContent = `Could not read your profile: ${error.message}`;
+    remiliaMsg.textContent = `Could not reach RemiliaNET: ${error.message}`;
   }
-  // the Beetle needs remilia:beetle.read; without it the call answers 403
-  try {
-    const beetle = await remiliaApi('/me/beetle');
-    if (beetle.level != null) remiliaRow('beetle level', beetle.level);
-    if (beetle.xp != null) remiliaRow('beetle xp', beetle.xp);
-    const items = beetle.inventory && Object.keys(beetle.inventory).length;
-    if (items) remiliaRow('inventory', `${items} kinds`);
-  } catch (_) { /* scope not granted, or no beetle yet */ }
-
-  remiliaButton('SIGN OUT', 'forget this session on this device', () => remiliaSignOut());
+  remiliaButton('VIEW ON REMILIA.NET', 'open this profile on remilia.net', () => window.open(`https://www.remilia.net/~${REMILIA.handle}`, '_blank', 'noopener'));
+  if (REMILIA.clientId) remiliaButton('SIGN IN', 'see your own profile and Beetle here', remiliaSignIn);
   setFocus(0, { scroll: false });
 }
 

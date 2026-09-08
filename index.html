@@ -13,7 +13,7 @@
     script-src 'self' https://static.cloudflareinsights.com;
     connect-src 'self' https://www.remilia.net https://lime-given-booby-462.mypinata.cloud https://ethereum-rpc.publicnode.com https://1rpc.io https://gateway.pinata.cloud https://ipfs.filebase.io;
     frame-src 'self' https://dexscreener.com;
-    img-src 'self' data: https://lime-given-booby-462.mypinata.cloud https://raw2.seadn.io https://i2c.seadn.io https://gateway.pinata.cloud https://ipfs.filebase.io;
+    img-src 'self' data: https://pfp.remilia.net https://lime-given-booby-462.mypinata.cloud https://raw2.seadn.io https://i2c.seadn.io https://gateway.pinata.cloud https://ipfs.filebase.io;
     style-src 'self' 'unsafe-inline';
     font-src 'self';
     media-src 'self';
@@ -122,10 +122,17 @@
 
                     <!-- RemiliaNET: sign in, profile, Beetle -->
                     <section id="view-remilia" class="view help hidden" data-note="A: select · B: menu">
-                        <h2>REMILIANET</h2>
+                        <div class="rn-head">
+                            <img id="remilia-pfp" class="rn-pfp hidden" src="" alt="">
+                            <div>
+                                <h2 id="remilia-name"></h2>
+                                <p id="remilia-handle" class="rn-handle"></p>
+                            </div>
+                        </div>
+                        <p id="remilia-bio" class="rn-bio"></p>
                         <p id="remilia-msg" class="lcd-msg"></p>
-                        <ul id="remilia-actions" class="menu"></ul>
                         <dl id="remilia-fields"></dl>
+                        <ul id="remilia-actions" class="menu"></ul>
                     </section>
 
                     <!-- Controls + credits (SELECT) -->

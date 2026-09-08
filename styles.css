@@ -944,3 +944,33 @@ body {
 @media (pointer: coarse) and (orientation: landscape) and (max-height: 640px) {
     .device { width: min(96vw, calc((100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 2vh) * 1.72)); }
 }
+
+/* ---------- RemiliaNET profile ---------- */
+.rn-head {
+    display: flex;
+    align-items: center;
+    gap: calc(var(--u) * 2.4);
+    margin-bottom: calc(var(--u) * 1.6);
+}
+
+.rn-pfp {
+    width: calc(var(--u) * 18);
+    height: calc(var(--u) * 18);
+    object-fit: cover;
+    image-rendering: pixelated;
+    border: calc(var(--u) * 0.5) solid var(--lcd-dark);
+    background: #fff;
+}
+
+#remilia-name { margin: 0; }
+
+.rn-handle {
+    font-size: calc(var(--u) * 3.2);
+    color: var(--lcd-mid);
+}
+
+.rn-bio {
+    font-size: calc(var(--u) * 3.4);
+    line-height: 1.2;
+    margin-bottom: calc(var(--u) * 1.6);
+}

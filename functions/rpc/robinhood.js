@@ -12,8 +12,9 @@
 // Cloudflare Pages Function: POST /rpc/robinhood
 
 const UPSTREAM = 'https://rpc.mainnet.chain.robinhood.com';
-const ATTEMPTS = 3;
-const BACKOFF_MS = [250, 600];
+const ATTEMPTS = 2;
+const BACKOFF_MS = [300];
+const TIMEOUT_MS = 6000;
 
 export async function onRequestPost({ request }) {
   const body = await request.text();
@@ -25,9 +26,14 @@ export async function onRequestPost({ request }) {
     try {
       const upstream = await fetch(UPSTREAM, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: {
+          'content-type': 'application/json',
+          // the upstream is unhappy with the default Workers user agent
+          'user-agent': 'Mozilla/5.0 (compatible; mossquest/1.0; +https://mossmossmoss.quest)',
+          accept: 'application/json'
+        },
         body,
-        signal: AbortSignal.timeout(12_000)
+        signal: AbortSignal.timeout(TIMEOUT_MS)
       });
       // read it fully here: a drop mid-body is then ours to retry, not a broken stream
       const text = await upstream.text();

@@ -169,7 +169,9 @@ async function ethCallBatch(address, calls, rpcs = CHAINS.ethereum.rpcs) {
     }));
     let done = false;
     let lastError;
-    for (const rpc of rpcs) {
+    // two passes: public RPCs (Robinhood's especially) rate-limit, so a short wait often clears it
+    for (const rpc of [...rpcs, ...rpcs]) {
+      if (done) break;
       try {
         const response = await fetch(rpc, {
           method: 'POST',
@@ -187,9 +189,10 @@ async function ethCallBatch(address, calls, rpcs = CHAINS.ethereum.rpcs) {
       } catch (error) {
         console.warn(`RPC ${rpc} failed:`, error);
         lastError = error;
+        await new Promise(r => setTimeout(r, 700));
       }
     }
-    if (!done) throw lastError || new Error('All Ethereum RPCs failed');
+    if (!done) throw lastError || new Error('every RPC refused the request');
   }
   return results;
 }
@@ -602,7 +605,8 @@ async function openGallery(mode = galleryMode, key = collection.key) {
       leds.set('net', 'off');
       if (request !== galleryRequest) return;
       console.error('Gallery failed:', error);
-      showGalleryMessage(`Could not read the chain: ${error.message}`);
+      showGalleryMessage(`Could not reach ${collection.chain.name}. A: try again.`);
+      galleryTitle.focus?.();
       return;
     }
   }
@@ -752,7 +756,7 @@ function toggleGreen() {
   sound.tick();
   applyGreen();
   itemLinks.querySelectorAll('[aria-pressed]').forEach(b => b.setAttribute('aria-pressed', String(greenMode)));
-  setNote(greenMode ? 'DMG palette on' : 'DMG palette off');
+  setNote(greenMode ? 'DMG palette on · Y or DMG: colour' : 'DMG palette off · Y or DMG: four Game Boy shades');
 }
 
 function fillInfo(token) {
@@ -885,8 +889,8 @@ const ACTIONS = {
   video:   { any: skipIntro },
   home:    { ...dirs, ...always, a: activate, b: toTitle, l: () => stepBackground(-1), r: () => stepBackground(1), start: null },
   gallery: { ...dirs, ...always, a: activate, b: toHome, l: flipGallery, r: flipGallery },
-  item:    { ...dirs, ...always, a: itemA, b: itemB, x: openInfo, l: () => stepItem(-1), r: () => stepItem(1) },
-  info:    { ...always, up: () => scrollLcd('up'), down: () => scrollLcd('down'), b: closeInfo, x: closeInfo, l: () => stepItem(-1), r: () => stepItem(1) },
+  item:    { ...dirs, ...always, a: itemA, b: itemB, x: openInfo, y: toggleGreen, l: () => stepItem(-1), r: () => stepItem(1) },
+  info:    { ...always, up: () => scrollLcd('up'), down: () => scrollLcd('down'), b: closeInfo, x: closeInfo, y: toggleGreen, l: () => stepItem(-1), r: () => stepItem(1) },
   chart:   { ...always, b: toHome },
   help:    { ...dirs, ...always, a: activate, b: closeHelp, select: closeHelp }
 };

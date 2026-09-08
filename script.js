@@ -691,7 +691,8 @@ function closeInfo() {
 // 4-shade Game Boy rendering of the picture: Floyd-Steinberg dithered to the LCD palette
 const DMG = [[15, 56, 15], [48, 98, 48], [139, 172, 15], [155, 188, 15]];
 function renderGreen(token) {
-  if (greenCache.has(token.tokenId)) return Promise.resolve(greenCache.get(token.tokenId));
+  const cacheKey = `${collection.key}/${token.tokenId}`;
+  if (greenCache.has(cacheKey)) return Promise.resolve(greenCache.get(cacheKey));
   return new Promise((resolve) => {
     const img = new Image();
     img.onload = () => {
@@ -722,7 +723,7 @@ function renderGreen(token) {
         }
       }
       ctx.putImageData(data, 0, 0);
-      greenCache.set(token.tokenId, work);
+      greenCache.set(cacheKey, work);
       resolve(work);
     };
     img.onerror = () => resolve(null);

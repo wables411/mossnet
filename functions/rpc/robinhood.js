@@ -1,34 +1,30 @@
 // Same-origin proxy for Robinhood Chain JSON-RPC.
 //
-// Two problems with talking to the chain's public RPC from the browser:
-//   1. It intermittently answers with two Access-Control-Allow-Origin
-//      headers ("*, *"), which browsers reject outright.
-//   2. It intermittently drops the connection, more often for shared
-//      egress like Cloudflare's.
-// Going through the site's own origin removes the CORS check entirely, and
-// buffering the upstream answer (rather than streaming it) means a dropped
-// connection is a caught error we can retry instead of a broken response.
+// The browser talks only to this endpoint, so no CORS check happens and no
+// provider key is ever exposed. Set ROBINHOOD_RPC_URL in the Cloudflare
+// Pages project (Settings -> Environment variables) to a keyed provider
+// such as Alchemy; without it we fall back to the chain's public RPC,
+// which rate-limits and sometimes sends a duplicate CORS header.
 //
 // Cloudflare Pages Function: POST /rpc/robinhood
 
-const UPSTREAM = 'https://rpc.mainnet.chain.robinhood.com';
+const PUBLIC_RPC = 'https://rpc.mainnet.chain.robinhood.com';
 const ATTEMPTS = 2;
-const BACKOFF_MS = [300];
 const TIMEOUT_MS = 6000;
 
-export async function onRequestPost({ request }) {
+export async function onRequestPost({ request, env }) {
+  const upstreamUrl = env.ROBINHOOD_RPC_URL || PUBLIC_RPC;
   const body = await request.text();
   if (body.length > 200_000) return json({ error: 'request too large' }, 413);
 
   let lastError = 'no response';
   for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
-    if (attempt) await new Promise(r => setTimeout(r, BACKOFF_MS[attempt - 1] ?? 600));
+    if (attempt) await new Promise(r => setTimeout(r, 300));
     try {
-      const upstream = await fetch(UPSTREAM, {
+      const upstream = await fetch(upstreamUrl, {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
-          // the upstream is unhappy with the default Workers user agent
           'user-agent': 'Mozilla/5.0 (compatible; mossquest/1.0; +https://mossmossmoss.quest)',
           accept: 'application/json'
         },

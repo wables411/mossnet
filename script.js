@@ -208,21 +208,24 @@ async function fetchErc721Tokens(collection) {
 
   const first = collection.firstTokenId ?? 1;
   const ids = Array.from({ length: totalSupply }, (_, i) => first + i);
+  // a collection that ships its metadata needs no tokenURI call, which halves the reads
+  const needsUri = !collection.metadataFile;
   const calls = [];
   ids.forEach(id => {
     calls.push(ERC721.ownerOf + encodeUint(id));
-    calls.push(ERC721.tokenURI + encodeUint(id));
+    if (needsUri) calls.push(ERC721.tokenURI + encodeUint(id));
   });
   const results = await ethCallBatch(collection.address, calls, collection.chain.rpcs);
 
   const tokens = [];
+  const stride = needsUri ? 2 : 1;
   ids.forEach((id, i) => {
-    const owner = decodeAddress(results[i * 2]);
+    const owner = decodeAddress(results[i * stride]);
     if (!owner) return; // burned or nonexistent id
     tokens.push({
       tokenId: id,
       owner,
-      tokenUri: decodeString(results[i * 2 + 1]),
+      tokenUri: needsUri ? decodeString(results[i * stride + 1]) : null,
       name: `${collection.name} #${id}`,
       description: '',
       image: null,

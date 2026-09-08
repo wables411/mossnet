@@ -4,18 +4,15 @@
 # The code and the data bundles must revalidate, or a deploy takes hours to
 # reach anyone: Pages caches them for four hours by default. With an ETag a
 # revalidation is a cheap 304, and a real change arrives at once.
-/script.js
-  Cache-Control: no-cache
+/*.js
+  Cache-Control: public, max-age=0, must-revalidate
 
-/bg.js
-  Cache-Control: no-cache
-
-/styles.css
-  Cache-Control: no-cache
+/*.css
+  Cache-Control: public, max-age=0, must-revalidate
 
 /assets/*.json
-  Cache-Control: no-cache
+  Cache-Control: public, max-age=0, must-revalidate
 
 /manifest.webmanifest
-  Cache-Control: no-cache
+  Cache-Control: public, max-age=0, must-revalidate
 

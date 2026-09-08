@@ -50,6 +50,15 @@ export function onRequestOptions() {
   return new Response(null, { status: 204, headers: { allow: 'POST, OPTIONS' } });
 }
 
+// GET reports which upstream is configured (host only, never the key), so a
+// misconfigured environment is obvious without guesswork
+export function onRequestGet({ env }) {
+  const url = env.ROBINHOOD_RPC_URL || PUBLIC_RPC;
+  let host = 'unparseable';
+  try { host = new URL(url).host; } catch (_) { /* leave as is */ }
+  return json({ error: 'POST JSON-RPC only', upstreamHost: host, keyed: Boolean(env.ROBINHOOD_RPC_URL) }, 405);
+}
+
 export function onRequest() {
   return json({ error: 'POST JSON-RPC only' }, 405);
 }

@@ -95,7 +95,7 @@ const COLLECTIONS = {
     plural: 'Kudzuwrettes',
     address: '0xbb14b3142bf04014c99c478b44581cd0fc1d5747',
     chain: CHAINS.ethereum,
-    description: 'kudzu, the vine that ate the south, and the cigawrettes lost in it.',
+    description: 'Kudzuwrettes, a small set of beautiful Kudzu swallowed cigawrette packs with lines from poet Little Tank’s last book, “Spirit of Network Earth”. From the team that brought you Guacawrettes and Mossawrettes.',
     firstTokenId: 1,
     // The metadata CID on this contract has no reachable IPFS provider left,
     // so the pictures come from the copies OpenSea took at mint time.

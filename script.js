@@ -42,7 +42,11 @@ const CHAINS = {
   // Robinhood's public RPC sometimes sends two Access-Control-Allow-Origin
   // headers, which browsers refuse; /rpc/robinhood is our own same-origin
   // proxy to it (functions/rpc/robinhood.js). Direct is kept as a fallback.
-  robinhood: { name: 'Robinhood Chain', rpcs: ['/rpc/robinhood', 'https://rpc.mainnet.chain.robinhood.com'] }
+  // Only our own origin: the chain's public RPC sometimes sends a duplicate
+  // Access-Control-Allow-Origin header that browsers reject outright, so
+  // falling back to it here could never succeed. /rpc/robinhood does that
+  // fallback server-side instead (functions/rpc/robinhood.js).
+  robinhood: { name: 'Robinhood Chain', rpcs: ['/rpc/robinhood'] }
 };
 
 // Each collection: on-chain address + chain, local thumbs/large copies, and where its links go.

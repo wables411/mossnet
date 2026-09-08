@@ -1,45 +1,47 @@
 // Same-origin proxy for Robinhood Chain JSON-RPC.
 //
-// Robinhood's public RPC intermittently answers with two
-// Access-Control-Allow-Origin headers ("*, *"), which browsers reject
-// outright, so the gallery could not read the chain. Going through the
-// site's own origin means no CORS check happens at all.
+// Two problems with talking to the chain's public RPC from the browser:
+//   1. It intermittently answers with two Access-Control-Allow-Origin
+//      headers ("*, *"), which browsers reject outright.
+//   2. It intermittently drops the connection, more often for shared
+//      egress like Cloudflare's.
+// Going through the site's own origin removes the CORS check entirely, and
+// buffering the upstream answer (rather than streaming it) means a dropped
+// connection is a caught error we can retry instead of a broken response.
 //
 // Cloudflare Pages Function: POST /rpc/robinhood
 
 const UPSTREAM = 'https://rpc.mainnet.chain.robinhood.com';
+const ATTEMPTS = 3;
+const BACKOFF_MS = [250, 600];
 
 export async function onRequestPost({ request }) {
   const body = await request.text();
   if (body.length > 200_000) return json({ error: 'request too large' }, 413);
 
-  let attempt = 0;
-  let lastStatus = 502;
-  while (attempt < 2) {
+  let lastError = 'no response';
+  for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
+    if (attempt) await new Promise(r => setTimeout(r, BACKOFF_MS[attempt - 1] ?? 600));
     try {
       const upstream = await fetch(UPSTREAM, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body
+        body,
+        signal: AbortSignal.timeout(12_000)
       });
-      if (upstream.ok) {
-        return new Response(upstream.body, {
-          status: 200,
-          headers: {
-            'content-type': 'application/json',
-            // the chain's answer for a given block does not change
-            'cache-control': 'public, max-age=15'
-          }
-        });
-      }
-      lastStatus = upstream.status;
-    } catch (_) {
-      lastStatus = 502;
+      // read it fully here: a drop mid-body is then ours to retry, not a broken stream
+      const text = await upstream.text();
+      if (!upstream.ok) { lastError = `upstream ${upstream.status}`; continue; }
+      try { JSON.parse(text); } catch { lastError = 'upstream sent malformed JSON'; continue; }
+      return new Response(text, {
+        status: 200,
+        headers: { 'content-type': 'application/json', 'cache-control': 'public, max-age=15' }
+      });
+    } catch (error) {
+      lastError = String(error?.message || error);
     }
-    attempt += 1;
-    if (attempt < 2) await new Promise(r => setTimeout(r, 400));
   }
-  return json({ error: `upstream RPC unavailable (${lastStatus})` }, 502);
+  return json({ error: `Robinhood RPC unavailable: ${lastError}` }, 502);
 }
 
 export function onRequestOptions() {

@@ -1,4 +1,4 @@
-import { createBackground } from './bg.js';
+import { createBackground } from './bg.js?v=bbedd670';
 
 // ===================== moss quest — the handheld =====================
 // Everything on the site happens on the device screen. The d-pad, A and B

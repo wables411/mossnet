@@ -75,8 +75,8 @@ const COLLECTIONS = {
     key: 'hashstanza',
     name: 'Hashstanza',
     plural: 'Hashstanzas',
-    // Metaplex Core collection: assets carry their owner and collection in
-    // the account itself, so a single getProgramAccounts reads the lot.
+    // Metaplex Core collection: assets are found through the collection's
+    // transaction history, then read straight from their accounts.
     address: '3i1CahhvX9tZTJFJxt3v4sA718FdXPvoreq2v1q4csUD',
     chain: CHAINS.solana,
     description: 'a collection of poems written with love by twinstar, compiled and presented by mossmossmoss420.',
@@ -274,45 +274,97 @@ function toBase58(bytes) {
 }
 
 async function solanaRpc(collection, method, params) {
+  const [result] = await solanaBatch(collection, [{ method, params }]);
+  if (result?.error) throw new Error(result.error.message || 'RPC error');
+  return result?.result;
+}
+
+// one HTTP request carries many JSON-RPC calls
+async function solanaBatch(collection, calls) {
   const response = await fetch(collection.chain.rpcs[0], {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params })
+    body: JSON.stringify(calls.map((c, i) => ({ jsonrpc: '2.0', id: i, method: c.method, params: c.params })))
   });
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   const payload = await response.json();
-  if (payload.error) throw new Error(payload.error.message || 'RPC error');
-  return payload.result;
+  if (!Array.isArray(payload)) throw new Error(payload?.error?.message || 'unexpected RPC answer');
+  const byId = new Map(payload.map(p => [p.id, p]));
+  return calls.map((_, i) => byId.get(i));
+}
+
+function chunk(list, size) {
+  const out = [];
+  for (let i = 0; i < list.length; i += size) out.push(list.slice(i, i + size));
+  return out;
+}
+
+// Core assets cannot be listed cheaply: getProgramAccounts scans the whole
+// program, which a small plan refuses on cost and the public RPC throttles.
+// The collection's own transaction history is an indexed lookup, and every
+// mint transaction names the asset it created, so we read the history and
+// then load those accounts directly.
+async function discoverCoreAssets(collection) {
+  const signatures = await solanaRpc(collection, 'getSignaturesForAddress', [collection.address, { limit: 1000 }]);
+  const sigs = (signatures || []).filter(s => !s.err).map(s => s.signature);
+  if (!sigs.length) return [];
+
+  const candidates = new Set();
+  for (const group of chunk(sigs, 25)) {
+    const results = await solanaBatch(collection, group.map(signature => ({
+      method: 'getTransaction',
+      params: [signature, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }]
+    })));
+    results.forEach(entry => {
+      const tx = entry?.result;
+      if (!tx) return;
+      const logs = tx.meta?.logMessages || [];
+      if (!logs.some(l => l.includes('Instruction: Create'))) return; // only mints
+      (tx.transaction?.message?.accountKeys || []).forEach(key => {
+        const address = typeof key === 'string' ? key : key.pubkey;
+        const isNewAccount = typeof key === 'object' && key.signer && key.writable;
+        if (isNewAccount && address !== collection.address) candidates.add(address);
+      });
+    });
+  }
+  return [...candidates];
 }
 
 async function fetchCoreTokens(collection) {
-  const accounts = await solanaRpc(collection, 'getProgramAccounts', [
-    CORE_PROGRAM,
-    { encoding: 'base64', filters: [{ memcmp: { offset: 34, bytes: collection.address } }] }
-  ]);
+  const candidates = await discoverCoreAssets(collection);
+  if (!candidates.length) return [];
+
   const readString = (bytes, offset) => {
-    const len = new DataView(bytes.buffer, bytes.byteOffset).getUint32(offset, true);
+    const view = new DataView(bytes.buffer, bytes.byteOffset);
+    const len = view.getUint32(offset, true);
     return [new TextDecoder().decode(bytes.subarray(offset + 4, offset + 4 + len)), offset + 4 + len];
   };
-  const tokens = accounts.map(entry => {
-    const bytes = Uint8Array.from(atob(entry.account.data[0]), c => c.charCodeAt(0));
-    const owner = toBase58(bytes.subarray(1, 33));
-    const [name, afterName] = readString(bytes, 66);
-    const [uri] = readString(bytes, afterName);
-    const tail = uri.replace(/\/$/, '').split('/').pop();
-    return {
-      tokenId: /^\d+$/.test(tail) ? Number(tail) : entry.pubkey.slice(0, 4),
-      assetId: entry.pubkey,
-      owner,
-      tokenUri: uri,
-      name,
-      description: '',
-      image: null,
-      thumbnail: null,
-      large: null,
-      metadata: null
-    };
-  });
+
+  const tokens = [];
+  for (const group of chunk(candidates, 100)) {
+    const accounts = await solanaRpc(collection, 'getMultipleAccounts', [group, { encoding: 'base64' }]);
+    (accounts?.value || []).forEach((account, i) => {
+      if (!account || account.owner !== CORE_PROGRAM) return;
+      const bytes = Uint8Array.from(atob(account.data[0]), c => c.charCodeAt(0));
+      if (bytes[0] !== 1 || bytes[33] !== 2) return;                       // AssetV1 held by a collection
+      if (toBase58(bytes.subarray(34, 66)) !== collection.address) return; // and by this one
+      const [name, afterName] = readString(bytes, 66);
+      const [uri] = readString(bytes, afterName);
+      const tail = uri.replace(/\/$/, '').split('/').pop();
+      tokens.push({
+        tokenId: /^\d+$/.test(tail) ? Number(tail) : group[i].slice(0, 4),
+        assetId: group[i],
+        owner: toBase58(bytes.subarray(1, 33)),
+        tokenUri: uri,
+        name,
+        description: '',
+        image: null,
+        thumbnail: null,
+        large: null,
+        metadata: null
+      });
+    });
+  }
   tokens.sort((a, b) => (typeof a.tokenId === 'number' && typeof b.tokenId === 'number' ? a.tokenId - b.tokenId : 0));
   return tokens;
 }

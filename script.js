@@ -46,7 +46,8 @@ const CHAINS = {
   // Access-Control-Allow-Origin header that browsers reject outright, so
   // falling back to it here could never succeed. /rpc/robinhood does that
   // fallback server-side instead (functions/rpc/robinhood.js).
-  robinhood: { name: 'Robinhood Chain', rpcs: ['/rpc/robinhood'] }
+  robinhood: { name: 'Robinhood Chain', rpcs: ['/rpc/robinhood'] },
+  solana: { name: 'Solana', rpcs: ['/rpc/solana'], solana: true }
 };
 
 // Each collection: on-chain address + chain, local thumbs/large copies, and where its links go.
@@ -68,6 +69,22 @@ const COLLECTIONS = {
       ['Scatter', 'https://www.scatter.art/c/moss-net', 'Moss:Net on scatter.art'],
       ['Explorer', `https://robinhoodchain.blockscout.com/token/0x15f499841Df89F34529Ca41eB30271cAdDEee573/instance/${token.tokenId}`, 'token on Robinhood Chain explorer'],
       ['Original', token.image, 'full-size original, 1500px']
+    ]
+  },
+  hashstanza: {
+    key: 'hashstanza',
+    name: 'Hashstanza',
+    plural: 'Hashstanzas',
+    // Metaplex Core collection: assets carry their owner and collection in
+    // the account itself, so a single getProgramAccounts reads the lot.
+    address: '3i1CahhvX9tZTJFJxt3v4sA718FdXPvoreq2v1q4csUD',
+    chain: CHAINS.solana,
+    description: 'a collection of poems written with love by twinstar, compiled and presented by mossmossmoss420.',
+    site: 'https://www.vvv.so/hashstanza',
+    links: (token) => [
+      ['Mint', 'https://www.vvv.so/hashstanza', 'mint a Hashstanza on vvv.so'],
+      ['Solscan', `https://solscan.io/token/${token.assetId}`, 'this poem on Solscan'],
+      ['Original', token.image, 'full-size original']
     ]
   },
   mossawrettes: {
@@ -241,6 +258,65 @@ async function fetchErc721Tokens(collection) {
   return tokens;
 }
 
+// ---------- Metaplex Core (Solana) ----------
+// AssetV1 layout: key(1) owner(32) updateAuthority[enum(1)+pubkey(32)] name uri
+const CORE_PROGRAM = 'CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d';
+const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+
+function toBase58(bytes) {
+  let n = 0n;
+  for (const b of bytes) n = n * 256n + BigInt(b);
+  let out = '';
+  while (n > 0n) { out = B58[Number(n % 58n)] + out; n /= 58n; }
+  let zeros = 0;
+  while (zeros < bytes.length && bytes[zeros] === 0) zeros++;
+  return '1'.repeat(zeros) + out;
+}
+
+async function solanaRpc(collection, method, params) {
+  const response = await fetch(collection.chain.rpcs[0], {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params })
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  const payload = await response.json();
+  if (payload.error) throw new Error(payload.error.message || 'RPC error');
+  return payload.result;
+}
+
+async function fetchCoreTokens(collection) {
+  const accounts = await solanaRpc(collection, 'getProgramAccounts', [
+    CORE_PROGRAM,
+    { encoding: 'base64', filters: [{ memcmp: { offset: 34, bytes: collection.address } }] }
+  ]);
+  const readString = (bytes, offset) => {
+    const len = new DataView(bytes.buffer, bytes.byteOffset).getUint32(offset, true);
+    return [new TextDecoder().decode(bytes.subarray(offset + 4, offset + 4 + len)), offset + 4 + len];
+  };
+  const tokens = accounts.map(entry => {
+    const bytes = Uint8Array.from(atob(entry.account.data[0]), c => c.charCodeAt(0));
+    const owner = toBase58(bytes.subarray(1, 33));
+    const [name, afterName] = readString(bytes, 66);
+    const [uri] = readString(bytes, afterName);
+    const tail = uri.replace(/\/$/, '').split('/').pop();
+    return {
+      tokenId: /^\d+$/.test(tail) ? Number(tail) : entry.pubkey.slice(0, 4),
+      assetId: entry.pubkey,
+      owner,
+      tokenUri: uri,
+      name,
+      description: '',
+      image: null,
+      thumbnail: null,
+      large: null,
+      metadata: null
+    };
+  });
+  tokens.sort((a, b) => (typeof a.tokenId === 'number' && typeof b.tokenId === 'number' ? a.tokenId - b.tokenId : 0));
+  return tokens;
+}
+
 // Bundled metadata (one JSON for the whole collection) applied in one go
 const bundledMetadata = {};
 async function applyBundledMetadata(collection, tokens, onUpdate) {
@@ -271,7 +347,11 @@ async function hydrateTokenMetadata(tokens, onUpdate) {
       try {
         const metadata = await fetchTokenMetadata(token.tokenUri);
         token.metadata = metadata;
-        if (metadata.name) token.name = String(metadata.name).replace(/(\S)#(\d)/, '$1 #$2');
+        if (metadata.name) {
+          const label = String(metadata.name).replace(/(\S)#(\d)/, '$1 #$2');
+          // every Hashstanza is called "hashstanza"; keep them apart by number
+          token.name = /#/.test(label) ? label : `${label} #${token.tokenId}`;
+        }
         if (metadata.image) token.image = metadata.image;
         if (metadata.description) token.description = metadata.description;
         onUpdate?.(token);
@@ -508,7 +588,10 @@ let galleryRequest = 0;
 const galleryTitle = document.getElementById('gallery-title');
 
 function isOwnedBy(token, walletAddress) {
-  return Boolean(walletAddress) && token.owner.toLowerCase() === walletAddress.toLowerCase();
+  if (!walletAddress) return false;
+  // base58 is case-sensitive; hex addresses are not
+  if (collection.chain.solana) return token.owner === walletAddress;
+  return token.owner.toLowerCase() === walletAddress.toLowerCase();
 }
 
 function showGalleryMessage(text) {
@@ -604,7 +687,9 @@ async function openGallery(mode = galleryMode, key = collection.key) {
     setFocus(0, { scroll: false });
     leds.set('net', 'blink');
     try {
-      const tokens = await fetchErc721Tokens(collection);
+      const tokens = collection.chain.solana
+        ? await fetchCoreTokens(collection)
+        : await fetchErc721Tokens(collection);
       if (request !== galleryRequest) return;
       galleryTokens = tokens;
       const hydrate = collection.metadataFile

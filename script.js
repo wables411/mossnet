@@ -88,6 +88,24 @@ const COLLECTIONS = {
       ['Original', token.image, 'full-size original']
     ]
   },
+  kudzuwrettes: {
+    key: 'kudzuwrettes',
+    name: 'Kudzuwrettes',
+    plural: 'Kudzuwrettes',
+    address: '0xbb14b3142bf04014c99c478b44581cd0fc1d5747',
+    chain: CHAINS.ethereum,
+    description: 'kudzu, the vine that ate the south, and the cigawrettes lost in it.',
+    firstTokenId: 1,
+    // The metadata CID on this contract has no reachable IPFS provider left,
+    // so the pictures come from the copies OpenSea took at mint time.
+    metadataFile: 'assets/kudzuwrettes-meta.json',
+    site: 'https://opensea.io/collection/kudzuwrettes',
+    links: (token) => [
+      ['OpenSea', `https://opensea.io/assets/ethereum/0xbb14b3142bf04014c99c478b44581cd0fc1d5747/${token.tokenId}`, 'listing on OpenSea'],
+      ['Etherscan', `${ETHERSCAN}/nft/0xbb14b3142bf04014c99c478b44581cd0fc1d5747/${token.tokenId}`, 'token on Etherscan'],
+      ['Original', token.image, 'full-size original']
+    ]
+  },
   mossawrettes: {
     key: 'mossawrettes',
     name: 'Mossawrettes',
@@ -132,8 +150,13 @@ const ERC721 = {
 // few tens of kilobytes. Only it understands these parameters, so leave any
 // other host's URL alone.
 function sized(url, width) {
-  if (!url || !/\.mypinata\.cloud\//.test(url)) return url;
-  return `${url}${url.includes('?') ? '&' : '?'}img-width=${width}&img-format=webp`;
+  if (!url) return url;
+  if (/\.mypinata\.cloud\//.test(url)) {
+    return `${url}${url.includes('?') ? '&' : '?'}img-width=${width}&img-format=webp`;
+  }
+  // OpenSea serves a resized copy from i2c; raw2 is the untouched original
+  if (/raw2\.seadn\.io\//.test(url)) return `${url.replace('raw2.seadn.io', 'i2c.seadn.io')}?w=${width}`;
+  return url;
 }
 
 function ipfsToHttp(uri, gatewayIndex = 0) {

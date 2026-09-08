@@ -1022,7 +1022,7 @@ document.querySelectorAll('.device button:not(.focusable)').forEach(btn => btn.a
 // client type "Login", list this site's URL as a redirect URI verbatim, and
 // put the client id below. The id is not a secret.
 const REMILIA = {
-  clientId: '',                                   // <- from the developer portal
+  clientId: 'tpa-mossquest',                      // from the developer portal; not a secret
   authorize: 'https://www.remilia.net/oidc/realms/remilia/protocol/openid-connect/auth',
   token: 'https://www.remilia.net/oidc/realms/remilia/protocol/openid-connect/token',
   logout: 'https://www.remilia.net/oidc/realms/remilia/protocol/openid-connect/logout',

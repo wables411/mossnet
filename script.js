@@ -101,6 +101,7 @@ const COLLECTIONS = {
     // so the pictures come from the copies OpenSea took at mint time.
     metadataFile: 'assets/kudzuwrettes-meta.json',
     site: 'https://opensea.io/collection/kudzuwrettes',
+    promo: 'https://x.com/constance_trebi/status/1780688470307938347?s=20',
     links: (token) => [
       ['OpenSea', `https://opensea.io/assets/ethereum/0xbb14b3142bf04014c99c478b44581cd0fc1d5747/${token.tokenId}`, 'listing on OpenSea'],
       ['Etherscan', `${ETHERSCAN}/nft/0xbb14b3142bf04014c99c478b44581cd0fc1d5747/${token.tokenId}`, 'token on Etherscan'],

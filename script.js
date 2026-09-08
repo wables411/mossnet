@@ -66,6 +66,7 @@ const COLLECTIONS = {
     large: 'assets/mossnet-large/{id}.webp',
     metadataFile: 'assets/mossnet-meta.json',
     site: 'https://www.scatter.art/c/moss-net',
+    promo: 'https://x.com/CigNetHR/status/1810410454411534584?s=20',
     links: (token) => [
       ['Scatter', 'https://www.scatter.art/c/moss-net', 'Moss:Net on scatter.art'],
       ['Explorer', `https://robinhoodchain.blockscout.com/token/0x15f499841Df89F34529Ca41eB30271cAdDEee573/instance/${token.tokenId}`, 'token on Robinhood Chain explorer'],

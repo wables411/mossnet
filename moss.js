@@ -536,10 +536,7 @@
     ctx.textBaseline = 'top';
     const clock = `${String(Math.floor(h)).padStart(2, '0')}:${String(Math.floor(h % 1 * 60)).padStart(2, '0')} ${local ? 'LOCAL' : 'UTC'}`;
     const state = feeds.get(feedUrl(level()));
-    const feed = mode === 'demo'
-      ? `SIMULATED · ${level().key}`
-      : state && state.error ? `$MOSS · ${level().key} · ${world.count} CANDLES · CACHED`
-      : `$MOSS · ${level().key} · ${world.count} CANDLES`;
+    const feed = `$MOSS · ${level().key} · ${world.count} CANDLES${state && state.error ? ' · CACHED' : ''}`;
     const chip = (text, x0) => {
       const w = ctx.measureText(text).width + pad * 1.6;
       ctx.fillStyle = 'rgba(0,0,0,0.42)'; ctx.fillRect(x0, pad, w, fs * 1.5);
@@ -551,7 +548,7 @@
   }
 
   function start(canvas, opts = {}) {
-    const key = `${canvas.clientWidth}x${canvas.clientHeight}:${mode}:${zoom}:${opts.seed || 20260908}`;
+    const key = `${canvas.clientWidth}x${canvas.clientHeight}:${zoom}:${opts.seed || 20260908}`;
     if (opts.force || canvas.dataset.key !== key || !canvas.__world) { canvas.dataset.key = key; build3(canvas, opts); }
     stop();
     const local = Boolean(opts.local);
@@ -571,7 +568,7 @@
       const l = level();
       try {
         const candles = await fetchCandles(l);
-        if (mode === 'live' && l === level() && signature(candles) !== canvas.__world?.sig) build3(canvas, opts);
+        if (l === level() && signature(candles) !== canvas.__world?.sig) build3(canvas, opts);
       } catch (error) {
         const url = feedUrl(l);
         feeds.set(url, { candles: feeds.get(url)?.candles || remembered(url) || [], error: String(error?.message || error) });
@@ -586,13 +583,6 @@
     if (loop) cancelAnimationFrame(loop);
     if (poll) clearInterval(poll);
     loop = 0; poll = 0; running = null;
-  }
-
-  // X on the device flips between the real chart and the demo year
-  function setMode(next) {
-    mode = next === 'demo' ? 'demo' : 'live';
-    rebuildRunning();
-    return mode;
   }
 
   // year → month → day → hour → one minute, the blocks getting bigger as the window
@@ -640,7 +630,6 @@
   const POLL_MS = 60000;
 
   const feeds = new Map();                                           // one entry per zoom level
-  let mode = 'live';                                                 // 'live' or 'demo'
   const level = () => ZOOM[zoom];
   const feedUrl = l => `/price/moss?tf=${l.tf}&limit=${l.limit}`;
 
@@ -681,36 +670,19 @@
     [1788652800, 2.5e-06, 2.557e-06, 2.49e-06, 2.55707767274212e-06, 0.22],
     [1788739200, 2.55e-06, 2.556e-06, 2.494e-06, 2.49485074786645e-06, 13.17]
   ];
-  // the demo world: a deterministic series at whatever granularity is being looked at,
-  // for showing what the garden looks like when there is something to grow on
-  function seeded(n, seed, stride = 86400) {
-    const rand = rng(seed), out = []; let price = REAL[0][4];
-    let t = Math.floor(Date.now() / 1000) - n * stride;
-    const scale = stride / 86400;
-    for (let i = 0; i < n; i++) {
-      const open = price;
-      price = Math.max(4e-7, price * (1 + (rand() - 0.465) * (stride >= 86400 ? 0.10 : 0.035)));
-      out.push([t + i * stride, open, Math.max(open, price), Math.min(open, price), price,
-                (Math.pow(rand(), 2.3) * 9000 + 30) * scale]);
-    }
-    return out;
-  }
-
   function currentCandles(opts) {
-    const l = level();
     if (opts && opts.candles) return opts.candles;
-    if (mode === 'demo') return seeded(Math.min(l.limit, 240), 20260908, STRIDE[l.tf]);
+    const l = level();
     const cached = feeds.get(feedUrl(l))?.candles || remembered(feedUrl(l));
     return cached && cached.length ? cached : REAL;
   }
 
   window.mossGarden = {
-    start, stop, still, seeded, setMode, setZoom, setZoomTo,
+    start, stop, still, setZoom, setZoomTo,
     levels: () => ZOOM.map(l => l.key),
     zoomIndex: () => zoom,
-    mode: () => mode,
     zoom: () => level().key,
-    status: () => ({ mode, zoom: level().key, candles: (feeds.get(feedUrl(level()))?.candles || []).length, error: feeds.get(feedUrl(level()))?.error || null }),
+    status: () => ({ zoom: level().key, candles: (feeds.get(feedUrl(level()))?.candles || []).length, error: feeds.get(feedUrl(level()))?.error || null }),
     REAL
   };
 })();

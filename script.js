@@ -643,14 +643,6 @@ function growMoss(force = false) {
   window.mossGarden.start(mossCanvas, { force, local: Boolean(store.get('remilia-access')) });
 }
 
-// X flips the moss chart between the real $MOSS candles and a simulated year, for
-// when there is not yet enough trading to grow anything
-function toggleMossMode() {
-  if (!window.mossGarden) return;
-  const mode = window.mossGarden.setMode(window.mossGarden.mode() === 'demo' ? 'live' : 'demo');
-  setNote(mode === 'demo' ? 'simulated year · X: back to live $MOSS' : 'live $MOSS · X: simulated year');
-}
-
 // The window buttons under the chart, and L/R, are the same control: year down to one
 // minute, the blocks growing as the window shortens
 const mossZoomButtons = document.querySelectorAll('[data-zoom]');
@@ -1379,7 +1371,7 @@ const ACTIONS = {
   item:    { ...dirs, ...always, a: itemA, b: itemB, x: openInfo, y: toggleGreen, l: () => stepItem(-1), r: () => stepItem(1) },
   info:    { ...always, up: () => scrollLcd('up'), down: () => scrollLcd('down'), b: closeInfo, x: closeInfo, y: toggleGreen, l: () => stepItem(-1), r: () => stepItem(1) },
   chart:   { ...always, b: toHome },
-  moss:    { ...dirs, ...always, a: activate, b: toHome, x: toggleMossMode, l: () => zoomMossChart(-1, true), r: () => zoomMossChart(1, true) },
+  moss:    { ...dirs, ...always, a: activate, b: toHome, l: () => zoomMossChart(-1, true), r: () => zoomMossChart(1, true) },
   help:    { ...dirs, ...always, a: activate, b: closeHelp, select: closeHelp },
   remilia: { ...dirs, ...always, a: activate, b: toHome }
 };

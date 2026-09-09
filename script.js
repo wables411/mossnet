@@ -55,6 +55,24 @@ const CHAINS = {
 // Each collection: on-chain address + chain, local thumbs/large copies, and where its links go.
 // Moss:Net's metadata is bundled (assets/mossnet-meta.json) because Scatter's tokenURI has no CORS.
 const COLLECTIONS = {
+  sancigawa: {
+    key: 'sancigawa',
+    name: 'sancigawa',
+    plural: 'sancigawa paintings',
+    address: '0x2E557707df4a8b07457D69fA91EFc62DeB50CB59',
+    chain: CHAINS.robinhood,
+    description: '100 paintings of 100 memories of adventures with friends. some adventures on the way to moss, some with moss, some with friends we made along the way. created with the help of @stationthisbot and cigbot.meme. 30% of painting proceeds dedicated to the moss preservation foundation. rip pappachaga.',
+    firstTokenId: 1,
+    thumbnails: 'assets/sancigawa-thumbs/{id}.webp',
+    large: 'assets/sancigawa-large/{id}.webp',
+    metadataFile: 'assets/sancigawa-meta.json',
+    site: 'https://www.scatter.art/c/sancigawa-rh',
+    links: (token) => [
+      ['Scatter', 'https://www.scatter.art/c/sancigawa-rh', 'sancigawa on scatter.art'],
+      ['Explorer', `https://robinhoodchain.blockscout.com/token/0x2E557707df4a8b07457D69fA91EFc62DeB50CB59/instance/${token.tokenId}`, 'token on Robinhood Chain explorer'],
+      ['Original', token.image, 'full-size original, 1500px']
+    ]
+  },
   mossnet: {
     key: 'mossnet',
     name: 'Moss:Net',
@@ -130,7 +148,7 @@ const COLLECTIONS = {
     ]
   }
 };
-let collection = COLLECTIONS.mossnet;
+let collection = COLLECTIONS.sancigawa;
 
 // Read-only Ethereum mainnet RPCs, tried in order (all allow browser CORS + JSON-RPC batches)
 const ETH_BATCH_SIZE = 50;

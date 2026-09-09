@@ -714,9 +714,11 @@ function hasWallet() {
 
 async function connectWallet() {
   if (!hasWallet()) {
-    // the gallery's YOURS tab explains and, on phones, offers to reopen the site inside MetaMask
-    if (activeView !== 'gallery' || galleryMode !== 'mine') openGallery('mine');
-    else renderGallery();
+    // Say so where the user already is. The gallery's YOURS tab has the fuller
+    // explanation and the phone deep link, but pressing CONNECT should never
+    // navigate somewhere the user did not ask to go.
+    if (activeView === 'gallery') renderGallery();
+    else setNote('no wallet in this browser · on a phone, open moss quest inside your wallet app');
     return false;
   }
   try {

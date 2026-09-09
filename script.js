@@ -67,6 +67,7 @@ const COLLECTIONS = {
     large: 'assets/sancigawa-large/{id}.webp',
     metadataFile: 'assets/sancigawa-meta.json',
     site: 'https://www.scatter.art/c/sancigawa-rh',
+    promo: 'https://x.com/mossmossmoss420/status/2097558778811908138?s=20',
     links: (token) => [
       ['Scatter', 'https://www.scatter.art/c/sancigawa-rh', 'sancigawa on scatter.art'],
       ['Explorer', `https://robinhoodchain.blockscout.com/token/0x2E557707df4a8b07457D69fA91EFc62DeB50CB59/instance/${token.tokenId}`, 'token on Robinhood Chain explorer'],

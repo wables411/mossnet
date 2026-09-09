@@ -11,9 +11,9 @@
     <meta http-equiv="Content-Security-Policy" content="
     default-src 'self';
     script-src 'self' https://static.cloudflareinsights.com;
-    connect-src 'self' https://www.remilia.net https://lime-given-booby-462.mypinata.cloud https://ethereum-rpc.publicnode.com https://1rpc.io https://gateway.pinata.cloud https://ipfs.filebase.io;
-    frame-src 'self' https://dexscreener.com;
-    img-src 'self' data: https://pfp.remilia.net https://lime-given-booby-462.mypinata.cloud https://raw2.seadn.io https://i2c.seadn.io https://gateway.pinata.cloud https://ipfs.filebase.io;
+    connect-src 'self' https://www.remilia.net https://lime-given-booby-462.mypinata.cloud https://ethereum-rpc.publicnode.com https://1rpc.io https://gateway.pinata.cloud https://ipfs.filebase.io https://rpc.walletconnect.com https://rpc.walletconnect.org https://relay.walletconnect.com https://relay.walletconnect.org wss://relay.walletconnect.com wss://relay.walletconnect.org https://pulse.walletconnect.com https://pulse.walletconnect.org https://api.web3modal.com https://api.web3modal.org https://keys.walletconnect.com https://keys.walletconnect.org wss://www.walletlink.org https://cca-lite.coinbase.com https://explorer-api.walletconnect.com https://rpc.mainnet.chain.robinhood.com;
+    frame-src 'self' https://dexscreener.com https://verify.walletconnect.com https://verify.walletconnect.org https://secure.walletconnect.com https://secure.walletconnect.org;
+    img-src 'self' data: blob: https://walletconnect.org https://walletconnect.com https://secure.walletconnect.com https://secure.walletconnect.org https://explorer-api.walletconnect.com https://pfp.remilia.net https://lime-given-booby-462.mypinata.cloud https://raw2.seadn.io https://i2c.seadn.io https://gateway.pinata.cloud https://ipfs.filebase.io;
     style-src 'self' 'unsafe-inline';
     font-src 'self';
     media-src 'self';
@@ -99,7 +99,6 @@
                         <p id="gallery-msg" class="lcd-msg hidden"></p>
                         <div id="gallery-connect" class="hidden">
                             <button type="button" class="menu-item focusable" id="gallery-connect-btn" data-action="connect" data-note="opens your Ethereum wallet">CONNECT WALLET</button>
-                            <button type="button" class="menu-item focusable hidden" id="gallery-wallet-link" data-action="wallet-options" data-note="open moss quest inside a wallet app">OPEN IN A WALLET APP</button>
                         </div>
                         <div id="gallery-grid" class="grid"></div>
                     </section>
@@ -177,18 +176,6 @@
                         <video id="beetle-video" src="assets/mossbeetle.mp4" playsinline preload="none"></video>
                     </section>
 
-                    <!-- Wallets: a phone browser has no wallet, so offer the in-app browsers -->
-                    <section id="view-connect" class="view help hidden" data-note="A: open · B: back">
-                        <h2>connect a wallet</h2>
-                        <p id="connect-blurb"></p>
-                        <ul class="menu">
-                            <li><button type="button" class="menu-item focusable hidden" id="connect-inject" data-action="connect" data-note="opens the wallet in this browser">CONNECT WALLET</button></li>
-                            <li><a class="menu-item focusable" id="link-metamask" href="#" data-note="reopens moss quest inside MetaMask">METAMASK</a></li>
-                            <li><a class="menu-item focusable" id="link-coinbase" href="#" data-note="reopens moss quest inside Coinbase Wallet">COINBASE WALLET</a></li>
-                            <li><a class="menu-item focusable" id="link-trust" href="#" data-note="reopens moss quest inside Trust Wallet">TRUST WALLET</a></li>
-                        </ul>
-                    </section>
-
                     <!-- moss chart: the $MOSS chart grown as a block world -->
                     <section id="view-moss" class="view view-full hidden" data-note="A or L/R: window · B: back">
                         <canvas id="moss-canvas" aria-label="the $MOSS chart grown as moss on stone"></canvas>
@@ -243,6 +230,6 @@
 </main>
 
 <script src="moss.js?v=82361ef5"></script>
-<script src="script.js?v=2eb84dee" type="module"></script>
+<script src="script.js?v=7be9150f" type="module"></script>
 </body>
 </html>

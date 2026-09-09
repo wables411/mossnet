@@ -5,6 +5,7 @@ import { createBackground } from './bg.js?v=bbedd670';
 // buttons, keyboard and mouse all drive one focus cursor per view.
 
 const lcd = document.getElementById('lcd');
+const APPKIT_BUNDLE = 'appkit.bundle.js?v=9c168907';
 const lcdStatus = document.getElementById('lcd-status');
 const views = {
   help: document.getElementById('view-help'),
@@ -16,14 +17,12 @@ const views = {
   info: document.getElementById('view-info'),
   video: document.getElementById('view-video'),
   chart: document.getElementById('view-chart'),
-  connect: document.getElementById('view-connect'),
   moss: document.getElementById('view-moss')
 };
 const galleryGrid = document.getElementById('gallery-grid');
 const galleryMsg = document.getElementById('gallery-msg');
 const galleryConnect = document.getElementById('gallery-connect');
 const galleryConnectBtn = document.getElementById('gallery-connect-btn');
-const galleryWalletLink = document.getElementById('gallery-wallet-link');
 const itemImage = document.getElementById('item-image');
 const itemName = document.getElementById('item-name');
 const itemLinks = document.getElementById('item-links');
@@ -561,7 +560,7 @@ const leds = {
 
 // ---------- focus cursor ----------
 let activeView = 'title';
-const focusIndex = { title: 0, home: 0, gallery: 0, item: 0, info: 0, help: 0, remilia: 0, moss: 0, connect: 0 };
+const focusIndex = { title: 0, home: 0, gallery: 0, item: 0, info: 0, help: 0, remilia: 0, moss: 0 };
 let lastView = 'title';
 
 function shortAddress(address) {
@@ -678,14 +677,11 @@ function getConnectedAddress() {
   return connectedAddress;
 }
 
-function handleAccountsChanged(accounts) {
-  connectedAddress = accounts.length ? accounts[0] : null;
+// AppKit reports the account, whether it came from a browser extension, a phone
+// over WalletConnect, or a session it restored on its own
+function onWalletAccount(next) {
+  connectedAddress = next || null;
   renderWallet();
-
-// a visitor coming back from RemiliaNET lands here with ?code= in the address
-if (new URL(location.href).searchParams.has('code')) {
-  remiliaHandleReturn().then(ok => { if (ok) showRemilia(); });
-}
   if (activeView === 'gallery') openGallery(galleryMode);
 }
 
@@ -699,70 +695,55 @@ function renderWallet() {
   leds.set('wallet', address ? 'on' : 'off');
 }
 
-// the site forgets the address; the wallet extension itself keeps its own connection list
-function disconnectWallet() {
+// the site forgets the address, and AppKit ends its own session too
+async function disconnectWallet() {
+  try { await window.mossWallet?.disconnect(); } catch (_) { /* already gone */ }
   connectedAddress = null;
-  window.ethereum?.removeListener?.('accountsChanged', handleAccountsChanged);
   renderWallet();
   setNote('wallet disconnected');
   if (activeView === 'gallery') openGallery(galleryMode);
 }
 
-// an injected provider only exists in desktop browsers with a wallet extension and inside wallet apps' own browsers
-function hasWallet() {
-  return typeof window.ethereum !== 'undefined';
+// AppKit is 4.4MB — forty times the rest of the site — so it is fetched the first
+// time somebody presses CONNECT, never on first paint. It ships as npm packages
+// with no CDN build, so it is bundled into assets/appkit.bundle.js by
+// `npm run build:wallet` and served from here, which keeps script-src at 'self'.
+let walletLoading = null;
+
+function loadWallet() {
+  if (window.mossWallet) return Promise.resolve(window.mossWallet);
+  if (walletLoading) return walletLoading;
+  setNote('loading wallets...');
+  leds.set('net', 'blink');
+  walletLoading = import(`./assets/${APPKIT_BUNDLE}`)
+    .then(() => {
+      leds.set('net', 'off');
+      window.mossWallet.onAccount(onWalletAccount);
+      onWalletAccount(window.mossWallet.address());       // a restored session is already connected
+      return window.mossWallet;
+    })
+    .catch(error => {
+      leds.set('net', 'off');
+      walletLoading = null;
+      setNote('could not load the wallet connector');
+      console.error('AppKit failed to load:', error);
+      throw error;
+    });
+  return walletLoading;
 }
 
-// A phone's own browser has no injected provider, so the only way in is the wallet
-// app's built-in browser. These universal links reopen this exact page inside one:
-// MetaMask's own generator produces /dapp/<url minus the scheme>, Coinbase takes a
-// percent-encoded cb_url, and Trust takes coin_id 60 (Ethereum's slip44 index).
-const WALLET_APPS = () => {
-  const bare = location.host + location.pathname + location.search;
-  const full = location.origin + location.pathname + location.search;
-  return {
-    'link-metamask': `https://metamask.app.link/dapp/${bare}`,
-    'link-coinbase': `https://go.cb-w.com/dapp?cb_url=${encodeURIComponent(full)}`,
-    'link-trust': `https://link.trustwallet.com/open_url?coin_id=60&url=${encodeURIComponent(full)}`
-  };
-};
-
-let connectReturn = 'home';
-
-function openWalletOptions() {
-  const wallet = hasWallet();
-  for (const [id, href] of Object.entries(WALLET_APPS())) {
-    const el = document.getElementById(id);
-    if (el) el.href = href;
-  }
-  document.getElementById('connect-inject').classList.toggle('hidden', !wallet);
-  document.getElementById('connect-blurb').textContent = wallet
-    ? 'A wallet is available in this browser. Or reopen moss quest inside a wallet app.'
-    : 'This browser has no wallet. Reopen moss quest inside a wallet app and it will connect there.';
-  if (activeView !== 'connect') connectReturn = activeView;
-  sound.tick();
-  showView('connect', { focus: 0 });
-}
-
+// One button for every wallet: AppKit's own dialog lists browser extensions, shows
+// a QR for desktop, and deep links into the wallet apps on a phone.
 async function connectWallet() {
-  if (!hasWallet()) {
-    // No injected provider: offer the wallet apps rather than failing silently.
-    openWalletOptions();
-    return false;
-  }
   try {
-    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
-    connectedAddress = accounts[0] || null;
-    window.ethereum.removeListener?.('accountsChanged', handleAccountsChanged);
-    window.ethereum.on?.('accountsChanged', handleAccountsChanged);
-    renderWallet();
-    return Boolean(connectedAddress);
-  } catch (error) {
-    console.error('Connection failed:', error);
-    showGalleryMessage(`Could not connect: ${error.message || 'request rejected'}`);
+    const wallet = await loadWallet();
+    await wallet.open();
+    return true;
+  } catch (_) {
     return false;
   }
 }
+
 
 // ---------- gallery ----------
 let galleryMode = 'all';
@@ -825,13 +806,9 @@ function renderGallery() {
   galleryGrid.innerHTML = '';
   galleryConnect.classList.add('hidden');
   if (galleryMode === 'mine' && !walletAddress) {
-    const wallet = hasWallet();
-    showGalleryMessage(wallet
-      ? 'Connect a wallet to see which ones are yours.'
-      : 'No wallet in this browser. On a phone, open moss quest inside your wallet app.');
+    showGalleryMessage('Connect a wallet to see which ones are yours.');
     galleryConnect.classList.remove('hidden');
-    galleryConnectBtn.classList.toggle('hidden', !wallet);
-    galleryWalletLink.classList.toggle('hidden', wallet);
+    galleryConnectBtn.classList.remove('hidden');
     return;
   }
   if (!visible.length) {
@@ -1329,7 +1306,6 @@ document.querySelectorAll('[data-action="gallery"]').forEach(el => el.addEventLi
 document.querySelectorAll('[data-action="chart"]').forEach(el => el.addEventListener('click', () => showView('chart')));
 document.querySelectorAll('[data-action="garden"]').forEach(el => el.addEventListener('click', () => showView('moss', { focus: null })));
 document.querySelectorAll('[data-action="remilia"]').forEach(el => el.addEventListener('click', showRemilia));
-document.querySelectorAll('[data-action="wallet-options"]').forEach(el => el.addEventListener('click', openWalletOptions));
 galleryConnectBtn.addEventListener('click', async () => {
   if (await connectWallet()) openGallery('mine');
 });
@@ -1405,7 +1381,6 @@ const ACTIONS = {
   chart:   { ...always, b: toHome },
   moss:    { ...dirs, ...always, a: activate, b: toHome, l: () => zoomMossChart(-1, true), r: () => zoomMossChart(1, true) },
   help:    { ...dirs, ...always, a: activate, b: closeHelp, select: closeHelp },
-  connect: { ...dirs, ...always, a: activate, b: () => { sound.close(); showView(connectReturn === 'connect' ? 'home' : connectReturn, { focus: null }); } },
   remilia: { ...dirs, ...always, a: activate, b: toHome }
 };
 

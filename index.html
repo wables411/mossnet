@@ -99,7 +99,7 @@
                         <p id="gallery-msg" class="lcd-msg hidden"></p>
                         <div id="gallery-connect" class="hidden">
                             <button type="button" class="menu-item focusable" id="gallery-connect-btn" data-action="connect" data-note="opens your Ethereum wallet">CONNECT WALLET</button>
-                            <a class="menu-item focusable hidden" id="gallery-wallet-link" href="https://metamask.app.link/dapp/mossmossmoss.quest" data-note="opens this site inside the MetaMask app">OPEN IN METAMASK</a>
+                            <button type="button" class="menu-item focusable hidden" id="gallery-wallet-link" data-action="wallet-options" data-note="open moss quest inside a wallet app">OPEN IN A WALLET APP</button>
                         </div>
                         <div id="gallery-grid" class="grid"></div>
                     </section>
@@ -177,6 +177,18 @@
                         <video id="beetle-video" src="assets/mossbeetle.mp4" playsinline preload="none"></video>
                     </section>
 
+                    <!-- Wallets: a phone browser has no wallet, so offer the in-app browsers -->
+                    <section id="view-connect" class="view help hidden" data-note="A: open · B: back">
+                        <h2>connect a wallet</h2>
+                        <p id="connect-blurb"></p>
+                        <ul class="menu">
+                            <li><button type="button" class="menu-item focusable hidden" id="connect-inject" data-action="connect" data-note="opens the wallet in this browser">CONNECT WALLET</button></li>
+                            <li><a class="menu-item focusable" id="link-metamask" href="#" data-note="reopens moss quest inside MetaMask">METAMASK</a></li>
+                            <li><a class="menu-item focusable" id="link-coinbase" href="#" data-note="reopens moss quest inside Coinbase Wallet">COINBASE WALLET</a></li>
+                            <li><a class="menu-item focusable" id="link-trust" href="#" data-note="reopens moss quest inside Trust Wallet">TRUST WALLET</a></li>
+                        </ul>
+                    </section>
+
                     <!-- moss chart: the $MOSS chart grown as a block world -->
                     <section id="view-moss" class="view view-full hidden" data-note="A or L/R: window · B: back">
                         <canvas id="moss-canvas" aria-label="the $MOSS chart grown as moss on stone"></canvas>
@@ -231,6 +243,6 @@
 </main>
 
 <script src="moss.js?v=82361ef5"></script>
-<script src="script.js?v=5e919d31" type="module"></script>
+<script src="script.js?v=2eb84dee" type="module"></script>
 </body>
 </html>

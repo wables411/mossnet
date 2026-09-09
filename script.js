@@ -16,6 +16,7 @@ const views = {
   info: document.getElementById('view-info'),
   video: document.getElementById('view-video'),
   chart: document.getElementById('view-chart'),
+  connect: document.getElementById('view-connect'),
   moss: document.getElementById('view-moss')
 };
 const galleryGrid = document.getElementById('gallery-grid');
@@ -560,7 +561,7 @@ const leds = {
 
 // ---------- focus cursor ----------
 let activeView = 'title';
-const focusIndex = { title: 0, home: 0, gallery: 0, item: 0, info: 0, help: 0, remilia: 0, moss: 0 };
+const focusIndex = { title: 0, home: 0, gallery: 0, item: 0, info: 0, help: 0, remilia: 0, moss: 0, connect: 0 };
 let lastView = 'title';
 
 function shortAddress(address) {
@@ -712,13 +713,41 @@ function hasWallet() {
   return typeof window.ethereum !== 'undefined';
 }
 
+// A phone's own browser has no injected provider, so the only way in is the wallet
+// app's built-in browser. These universal links reopen this exact page inside one:
+// MetaMask's own generator produces /dapp/<url minus the scheme>, Coinbase takes a
+// percent-encoded cb_url, and Trust takes coin_id 60 (Ethereum's slip44 index).
+const WALLET_APPS = () => {
+  const bare = location.host + location.pathname + location.search;
+  const full = location.origin + location.pathname + location.search;
+  return {
+    'link-metamask': `https://metamask.app.link/dapp/${bare}`,
+    'link-coinbase': `https://go.cb-w.com/dapp?cb_url=${encodeURIComponent(full)}`,
+    'link-trust': `https://link.trustwallet.com/open_url?coin_id=60&url=${encodeURIComponent(full)}`
+  };
+};
+
+let connectReturn = 'home';
+
+function openWalletOptions() {
+  const wallet = hasWallet();
+  for (const [id, href] of Object.entries(WALLET_APPS())) {
+    const el = document.getElementById(id);
+    if (el) el.href = href;
+  }
+  document.getElementById('connect-inject').classList.toggle('hidden', !wallet);
+  document.getElementById('connect-blurb').textContent = wallet
+    ? 'A wallet is available in this browser. Or reopen moss quest inside a wallet app.'
+    : 'This browser has no wallet. Reopen moss quest inside a wallet app and it will connect there.';
+  if (activeView !== 'connect') connectReturn = activeView;
+  sound.tick();
+  showView('connect', { focus: 0 });
+}
+
 async function connectWallet() {
   if (!hasWallet()) {
-    // Say so where the user already is. The gallery's YOURS tab has the fuller
-    // explanation and the phone deep link, but pressing CONNECT should never
-    // navigate somewhere the user did not ask to go.
-    if (activeView === 'gallery') renderGallery();
-    else setNote('no wallet in this browser · on a phone, open moss quest inside your wallet app');
+    // No injected provider: offer the wallet apps rather than failing silently.
+    openWalletOptions();
     return false;
   }
   try {
@@ -1300,6 +1329,7 @@ document.querySelectorAll('[data-action="gallery"]').forEach(el => el.addEventLi
 document.querySelectorAll('[data-action="chart"]').forEach(el => el.addEventListener('click', () => showView('chart')));
 document.querySelectorAll('[data-action="garden"]').forEach(el => el.addEventListener('click', () => showView('moss', { focus: null })));
 document.querySelectorAll('[data-action="remilia"]').forEach(el => el.addEventListener('click', showRemilia));
+document.querySelectorAll('[data-action="wallet-options"]').forEach(el => el.addEventListener('click', openWalletOptions));
 galleryConnectBtn.addEventListener('click', async () => {
   if (await connectWallet()) openGallery('mine');
 });
@@ -1375,6 +1405,7 @@ const ACTIONS = {
   chart:   { ...always, b: toHome },
   moss:    { ...dirs, ...always, a: activate, b: toHome, l: () => zoomMossChart(-1, true), r: () => zoomMossChart(1, true) },
   help:    { ...dirs, ...always, a: activate, b: closeHelp, select: closeHelp },
+  connect: { ...dirs, ...always, a: activate, b: () => { sound.close(); showView(connectReturn === 'connect' ? 'home' : connectReturn, { focus: null }); } },
   remilia: { ...dirs, ...always, a: activate, b: toHome }
 };
 

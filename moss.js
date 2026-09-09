@@ -538,7 +538,7 @@
     const state = feeds.get(feedUrl(level()));
     const feed = mode === 'demo'
       ? `SIMULATED · ${level().key}`
-      : state && state.error ? `$MOSS · ${level().key} · CACHED`
+      : state && state.error ? `$MOSS · ${level().key} · ${world.count} CANDLES · CACHED`
       : `$MOSS · ${level().key} · ${world.count} CANDLES`;
     const chip = (text, x0) => {
       const w = ctx.measureText(text).width + pad * 1.6;
@@ -668,7 +668,9 @@
     const candles = Array.isArray(payload.candles) ? payload.candles : [];
     // the far zooms want the tail, not the whole history
     const trimmed = l.limit && candles.length > l.limit ? candles.slice(-l.limit) : candles;
-    feeds.set(key, { candles: trimmed, error: null, source: payload.source, at: Date.now() });
+    // `stale` means the upstream was throttling and the edge answered from its last
+    // good copy — real candles, just not fresh, so say so rather than pretend
+    feeds.set(key, { candles: trimmed, error: payload.stale ? 'stale' : null, source: payload.source, at: Date.now() });
     if (trimmed.length) remember(key, trimmed);
     return trimmed;
   }

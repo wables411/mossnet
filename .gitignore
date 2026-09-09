@@ -2,3 +2,5 @@ assets/nft-images/
 assets/nft-metadata/
 .env
 .DS_Store
+node_modules/
+.wrangler/

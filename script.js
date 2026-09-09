@@ -15,7 +15,8 @@ const views = {
   item: document.getElementById('view-item'),
   info: document.getElementById('view-info'),
   video: document.getElementById('view-video'),
-  chart: document.getElementById('view-chart')
+  chart: document.getElementById('view-chart'),
+  moss: document.getElementById('view-moss')
 };
 const galleryGrid = document.getElementById('gallery-grid');
 const galleryMsg = document.getElementById('gallery-msg');
@@ -540,7 +541,7 @@ const leds = {
 
 // ---------- focus cursor ----------
 let activeView = 'title';
-const focusIndex = { title: 0, home: 0, gallery: 0, item: 0, info: 0, help: 0, remilia: 0 };
+const focusIndex = { title: 0, home: 0, gallery: 0, item: 0, info: 0, help: 0, remilia: 0, moss: 0 };
 let lastView = 'title';
 
 function shortAddress(address) {
@@ -607,8 +608,56 @@ function showView(name, { focus = 0, scroll = true } = {}) {
     beetleVideo.play().catch(() => {});
   }
   if (name === 'chart' && !chartFrame.src && chartFrame.dataset.src) chartFrame.src = chartFrame.dataset.src;
+  if (name === 'moss') requestAnimationFrame(() => { growMoss(); syncMossZooms(); });
+  else window.mossGarden?.stop();
   setFocus(focus == null ? focusIndex[name] || 0 : focus, { scroll });
 }
+
+// ---------- moss garden ----------
+// the $MOSS chart grown as a block world: surface height is price, volume decides
+// how far moss has taken the stone, a falling stretch dries it back to cobble
+const mossCanvas = document.getElementById('moss-canvas');
+
+function growMoss(force = false) {
+  if (!window.mossGarden || !mossCanvas) return;
+  // signed in: your own clock. Everyone else shares UTC.
+  window.mossGarden.start(mossCanvas, { force, local: Boolean(store.get('remilia-access')) });
+}
+
+// X flips the moss chart between the real $MOSS candles and a simulated year, for
+// when there is not yet enough trading to grow anything
+function toggleMossMode() {
+  if (!window.mossGarden) return;
+  const mode = window.mossGarden.setMode(window.mossGarden.mode() === 'demo' ? 'live' : 'demo');
+  setNote(mode === 'demo' ? 'simulated year · X: back to live $MOSS' : 'live $MOSS · X: simulated year');
+}
+
+// The window buttons under the chart, and L/R, are the same control: year down to one
+// minute, the blocks growing as the window shortens
+const mossZoomButtons = document.querySelectorAll('[data-zoom]');
+
+function syncMossZooms() {
+  if (!window.mossGarden) return;
+  const active = window.mossGarden.zoomIndex();
+  mossZoomButtons.forEach(el => el.classList.toggle('on', Number(el.dataset.zoom) === active));
+}
+
+function zoomMossChart(target, relative = false) {
+  if (!window.mossGarden) return;
+  sound.tick();
+  const key = relative ? window.mossGarden.setZoom(target) : window.mossGarden.setZoomTo(target);
+  syncMossZooms();
+  setNote(`${key} · A or L/R: window`);
+}
+
+mossZoomButtons.forEach(el => el.addEventListener('click', () => zoomMossChart(Number(el.dataset.zoom))));
+
+let mossResize;
+window.addEventListener('resize', () => {
+  if (activeView !== 'moss') return;
+  clearTimeout(mossResize);
+  mossResize = setTimeout(() => growMoss(true), 200);
+});
 
 // ---------- wallet ----------
 let connectedAddress = null;
@@ -1236,6 +1285,7 @@ async function showRemilia() {
 // ---------- wiring: every input goes through press(), and the screen that is open decides what it means ----------
 document.querySelectorAll('[data-action="gallery"]').forEach(el => el.addEventListener('click', () => openGallery('all', el.dataset.collection || collection.key)));
 document.querySelectorAll('[data-action="chart"]').forEach(el => el.addEventListener('click', () => showView('chart')));
+document.querySelectorAll('[data-action="garden"]').forEach(el => el.addEventListener('click', () => showView('moss', { focus: null })));
 document.querySelectorAll('[data-action="remilia"]').forEach(el => el.addEventListener('click', showRemilia));
 galleryConnectBtn.addEventListener('click', async () => {
   if (await connectWallet()) openGallery('mine');
@@ -1310,6 +1360,7 @@ const ACTIONS = {
   item:    { ...dirs, ...always, a: itemA, b: itemB, x: openInfo, y: toggleGreen, l: () => stepItem(-1), r: () => stepItem(1) },
   info:    { ...always, up: () => scrollLcd('up'), down: () => scrollLcd('down'), b: closeInfo, x: closeInfo, y: toggleGreen, l: () => stepItem(-1), r: () => stepItem(1) },
   chart:   { ...always, b: toHome },
+  moss:    { ...dirs, ...always, a: activate, b: toHome, x: toggleMossMode, l: () => zoomMossChart(-1, true), r: () => zoomMossChart(1, true) },
   help:    { ...dirs, ...always, a: activate, b: closeHelp, select: closeHelp },
   remilia: { ...dirs, ...always, a: activate, b: toHome }
 };

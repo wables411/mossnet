@@ -366,6 +366,7 @@ body {
 
 .view-full { height: 100%; }
 .view-full video,
+.view-full canvas,
 .view-full iframe {
     display: block;
     width: 100%;
@@ -374,6 +375,23 @@ body {
     border: 0;
 }
 .lcd:has(.view-full:not(.hidden)) { padding: 0; }
+
+/* the moss chart: the world fills the screen, its windows sit under it the way the
+   token links sit under a picture */
+#view-moss { display: flex; flex-direction: column; }
+#moss-canvas { image-rendering: pixelated; flex: 1 1 auto; min-height: 0; height: auto; }
+.moss-zooms {
+    flex: 0 0 auto;
+    justify-content: center;
+    padding: calc(var(--u) * 1.2) calc(var(--u) * 1.6);
+    gap: calc(var(--u) * 1);
+    background: var(--lcd);
+    border-top: calc(var(--u) * 0.4) solid var(--lcd-dark);
+}
+.moss-zooms .menu-item.on {
+    background: var(--lcd-dark);
+    color: var(--lcd);
+}
 
 .title-art {
     display: block;

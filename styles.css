@@ -982,7 +982,7 @@ body {
 .q-who { display: flex; align-items: center; gap: calc(var(--u) * 2); margin: calc(var(--u) * 2) 0 calc(var(--u) * 1); }
 .q-who b { font-weight: 400; display: block; }
 .q-pfp { width: calc(var(--u) * 10); height: calc(var(--u) * 10); }
-.q-dialog { font-size: calc(var(--u) * 4.4); line-height: 1.15; margin-top: calc(var(--u) * 1.4); min-height: 6em; white-space: pre-wrap; }
+.q-dialog { font-size: calc(var(--u) * 4.4); line-height: 1.15; margin-top: calc(var(--u) * 1.4); min-height: 3.2em; white-space: pre-wrap; }
 .q-stage { display: flex; justify-content: center; margin: 0 0 calc(var(--u) * 1.4); }
 .q-photo { display: block; width: 100%; max-width: calc(var(--u) * 46); aspect-ratio: 4 / 3; object-fit: cover; border: calc(var(--u) * 0.5) solid var(--lcd-dark); background: #fff; }
 .q-quiz .q-photo { max-width: calc(var(--u) * 36); }
@@ -997,6 +997,13 @@ body {
 /* beetle cards: Beetleboy's renders on the LCD, uncaught ones as shadows */
 .q-beetle { display: block; width: calc(var(--u) * 30); height: calc(var(--u) * 30); object-fit: contain; image-rendering: auto; }
 .q-beetle.q-dim { filter: brightness(0) opacity(0.35); }
+/* the name grid: letters the d-pad can walk, done spans two */
+.q-keys { grid-template-columns: repeat(7, 1fr); gap: calc(var(--u) * 0.6); margin-top: calc(var(--u) * 1); }
+.q-keys .menu-item { text-align: center; padding: calc(var(--u) * 0.4) 0; border: calc(var(--u) * 0.35) solid var(--lcd-dark); font-size: calc(var(--u) * 3.6); }
+.q-keys .menu-item.focused::before { content: none; }
+.q-keys .q-wide { grid-column: span 2; }
+.q-typed { min-height: 1.2em; letter-spacing: 0.08em; }
+.q-caret { animation: press-start 1s steps(1) infinite; }
 .q-name { font-size: calc(var(--u) * 4.6); font-weight: 400; line-height: 1.1; }
 .q-author, .q-common { font-size: calc(var(--u) * 3.3); color: var(--lcd-mid); }
 .q-common { margin-top: calc(var(--u) * 0.4); }

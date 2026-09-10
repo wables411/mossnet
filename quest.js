@@ -257,11 +257,12 @@ function ambientFor(i){amb.on=true;amb.seed=i+1;if(AC&&amb.next<AC.currentTime)a
 let user=null;
 function setUser(u){user=u;if(u){buildPlayer(u.id||u.handle);pfpImg=null;if(u.pfpUrl){pfpImg=new Image();pfpImg.src=u.pfpUrl;}loadSave();}}
 const GUEST={handle:'GUEST',displayName:'Explorer',pfpUrl:null,id:'guest',guest:true};
-const pname=()=>norm((user&&(user.displayName||user.handle))||'EXPLORER').slice(0,18);
+const playerName=()=>(save&&save.name)||(user&&!user.guest?'~'+user.handle:null)||'Traveler';
+const pname=()=>norm(playerName()).slice(0,18);
 
 /* ---------------- save ---------------- */
 const SAVE_V=2;
-const fresh=()=>({v:SAVE_V,collected:{},seen:{},region:null,steps:0,last:null,cheese:0,beetles:{},pity:0,introDone:false,pet:null});
+const fresh=()=>({v:SAVE_V,name:null,collected:{},seen:{},region:null,steps:0,last:null,cheese:0,beetles:{},pity:0,introDone:false,pet:null});
 let save=fresh();
 const saveKey=()=>'mossquest.save.'+(user?(user.id||user.handle):'guest');
 function loadSave(){save=fresh();try{const s=localStorage.getItem(saveKey())||(user&&user.guest?localStorage.getItem('mossquest.save'):null);if(s)save=Object.assign(save,JSON.parse(s));}catch(e){}pruneSave();}
@@ -368,21 +369,26 @@ function catchBeetle(i){const b=beetles[i];beetles.splice(i,1);respawnQ.push(600
 
 /* ---------------- intro (Professor Chaga) ---------------- */
 const INTRO=()=>[
- 'HELLO THERE! WELCOME TO THE WORLD OF MOSS. MY NAME IS CHAGA. PEOPLE CALL ME THE MOSS PROFESSOR.',
- 'LOOK DOWN. ON ROCKS, BARK, SOIL AND OLD WALLS THERE IS A SMALL GREEN WORLD THAT MOST PEOPLE WALK STRAIGHT PAST. THOSE ARE MOSSES. THERE ARE MORE THAN 12,000 KINDS.',
- 'MOSSES WERE AMONG THE FIRST PLANTS EVER TO LIVE ON LAND, OVER 400 MILLION YEARS AGO. THEY HAVE NO ROOTS AND NO FLOWERS. THEY DRINK RAIN AND FOG STRAIGHT THROUGH THEIR LEAVES.',
- 'WHEN IT IS DRY THEY CURL UP AND WAIT, SOMETIMES FOR YEARS. ONE DROP OF WATER AND THEY TURN GREEN AGAIN WITHIN MINUTES. ALMOST NOTHING ELSE ALIVE CAN DO THAT.',
- 'AND THEY MATTER. MOSS HOLDS SOIL TOGETHER, SOAKS UP RAIN LIKE A SPONGE, AND THE PEAT BOGS BUILT BY SPHAGNUM MOSS STORE MORE CARBON THAN ALL THE FORESTS ON EARTH.',
- 'I HAVE STUDIED THEM ALL MY LIFE. I BUILT THE MOSSDEX TO HOLD '+SP.length+' OF THE BEST DOCUMENTED SPECIES IN THE WORLD: A PHOTO, A NAME, A FAMILY, AND EVERY PLACE EACH ONE GROWS.',
- 'LAST NIGHT EVERY ENTRY VANISHED. LOST OR STOLEN, I DO NOT KNOW. I AM TOO OLD TO CROSS SEVEN CONTINENTS AGAIN. {NAME}, I NEED YOU TO FIND THEM ALL.',
- 'HERE IS HOW A BRYOLOGIST LOOKS. FACE A GREEN TUFT AND PRESS A. STUDY THE PHOTO: THE LEAF SHAPE, HOW THE SHOOTS BRANCH, THE COLOUR, THE LITTLE CAPSULES ON STALKS. THEN PICK THE NAME. THE FAMILY IS YOUR CLUE.',
- 'NAME IT RIGHT AND THE ENTRY RETURNS TO THE MOSSDEX. NAME IT WRONG AND THE MOSS SLIPS AWAY, BUT IT STAYS MARKED AS SEEN. EVERY MISTAKE TEACHES YOU A NAME.',
- 'BEETLES LIVE AMONG THE MOSS. FACE ONE AND PRESS A TO CATCH IT FOR CHEESE. STUCK ON A NAME? PRESS X DURING A QUIZ TO SPEND ONE CHEESE, AND A BEETLE WILL RULE OUT TWO WRONG ANSWERS.',
- 'EACH CONTINENT HAS ITS OWN MOSSES, FROM ANTARCTIC ROCK TO CITY PAVEMENTS. USE THE MAP TO TRAVEL. THE MOSSDEX SHOWS WHAT IS STILL MISSING IN EACH PLACE.',
- 'ONCE YOU HAVE A SPECIES, PLANT A CUTTING IN GOODMOSS AND KEEP IT ALIVE. YOU WILL LEARN MORE FROM ONE LIVING MOSS THAN FROM ANY BOOK.',
- 'RECOVER ALL '+SP.length+' ENTRIES AND MY LIFE\'S WORK IS SAFE AGAIN. {NAME}, YOUR MOSS QUEST BEGINS NOW!'];
-let intro={page:0,ch:0,ret:'region',pages:[]};
-function startIntro(ret){intro={page:0,ch:0,ret:ret||'region',pages:INTRO().map(sentence)};state='intro';snd('chime');}
+ {t:'HELLO THERE! WELCOME TO THE WORLD OF MOSS. MY NAME IS CHAGA. PEOPLE CALL ME THE MOSS PROFESSOR.'},
+ {t:'LOOK DOWN. ON ROCKS, BARK, SOIL AND OLD WALLS THERE IS A SMALL GREEN WORLD THAT MOST PEOPLE WALK STRAIGHT PAST. THOSE ARE MOSSES. THERE ARE MORE THAN 12,000 KINDS.'},
+ {t:'MOSSES WERE AMONG THE FIRST PLANTS EVER TO LIVE ON LAND, OVER 400 MILLION YEARS AGO. THEY HAVE NO ROOTS AND NO FLOWERS. THEY DRINK RAIN AND FOG STRAIGHT THROUGH THEIR LEAVES.'},
+ {t:'WHEN IT IS DRY THEY CURL UP AND WAIT, SOMETIMES FOR YEARS. ONE DROP OF WATER AND THEY TURN GREEN AGAIN WITHIN MINUTES. ALMOST NOTHING ELSE ALIVE CAN DO THAT.'},
+ {t:'AND THEY MATTER. MOSS HOLDS SOIL TOGETHER, SOAKS UP RAIN LIKE A SPONGE, AND THE PEAT BOGS BUILT BY SPHAGNUM MOSS STORE MORE CARBON THAN ALL THE FORESTS ON EARTH.'},
+ {t:'I HAVE STUDIED THEM ALL MY LIFE. I BUILT THE MOSSDEX TO HOLD '+SP.length+' OF MY FAVORITE MOSS SPECIES IN THE WORLD: A PHOTO, A NAME, A FAMILY, AND THE LOCATION OF WHERE TO FIND EACH MOSS.'},
+ {t:'LAST NIGHT EVERY ENTRY VANISHED. I CAN\'T PROVE THEY WERE STOLEN AND I HAVEN\'T RULED OUT MALWARE. REGARDLESS, MY LIFE\'S WORK HAS VANISHED, AND I AM FAR TOO OLD TO VISIT EACH CONTINENT ONCE MORE.'},
+ {t:'I NEED YOUR HELP, TRAVELER. WILL YOU GO COLLECT ALL '+SP.length+' MOSS ENTRIES AND SAVE THE MOSSDEX?',ask:'quest'},
+ {t:'WONDERFUL. WHAT SHALL I CALL YOU, TRAVELER?',ask:'name'},
+ {t:'{NAME}. A FINE NAME FOR A MOSS HUNTER. HERE IS HOW A BRYOLOGIST LOOKS. FACE A GREEN TUFT AND PRESS A. STUDY THE PHOTO: THE LEAF SHAPE, HOW THE SHOOTS BRANCH, THE COLOUR, THE LITTLE CAPSULES ON STALKS. THEN PICK THE NAME. THE FAMILY IS YOUR CLUE.'},
+ {t:'NAME IT RIGHT AND THE ENTRY RETURNS TO THE MOSSDEX. NAME IT WRONG AND THE MOSS SLIPS AWAY, BUT IT STAYS MARKED AS SEEN. EVERY MISTAKE TEACHES YOU A NAME.'},
+ {t:'BEETLES LIVE AMONG THE MOSS. FACE ONE AND PRESS A TO CATCH IT FOR CHEESE. STUCK ON A NAME? PRESS X DURING A QUIZ TO SPEND ONE CHEESE, AND A BEETLE WILL RULE OUT TWO WRONG ANSWERS.'},
+ {t:'EACH CONTINENT HAS ITS OWN MOSSES, FROM ANTARCTIC ROCK TO CITY PAVEMENTS. USE THE MAP TO TRAVEL. THE MOSSDEX SHOWS WHAT IS STILL MISSING IN EACH PLACE.'},
+ {t:'ONCE YOU HAVE A SPECIES, PLANT A CUTTING IN GOODMOSS AND KEEP IT ALIVE. YOU WILL LEARN MORE FROM ONE LIVING MOSS THAN FROM ANY BOOK.'},
+ {t:'RECOVER ALL '+SP.length+' ENTRIES AND MY LIFE\'S WORK IS SAFE AGAIN. {NAME}, YOUR MOSS QUEST BEGINS NOW!'}];
+const INTRO_NO=[{t:'I UNDERSTAND. THE MOSS WILL WAIT, IT ALWAYS HAS. COME BACK WHEN YOU ARE READY, TRAVELER.'}];
+let intro={page:0,ch:0,ret:'region',pages:[],opt:false,kb:false,buf:'',bail:false};
+function startIntro(ret){intro={page:0,ch:0,ret:ret||'region',pages:INTRO(),opt:false,kb:false,buf:'',bail:false};state='intro';snd('chime');}
+const pageText=()=>sentence((intro.pages[intro.page]||{t:''}).t);
+function introNext(){if(intro.page<intro.pages.length-1){intro.page++;intro.ch=0;intro.opt=false;intro.kb=false;snd('move',intro.page);dirty();}else finishIntro();}
 
 
 /* ---------------- GoodMoss ---------------- */
@@ -596,13 +602,14 @@ function useHint(){if(enc.hinted||save.cheese<1){snd('miss');say(enc.hinted?'THE
 function answer(i){if(enc.phase!==1||enc.gone.includes(i))return;const ok=enc.opts[i]===enc.sp;enc.ok=ok;enc.cur=i;enc.phase=2;save.seen[enc.sp.key]=1;save.last=enc.sp.key;
   if(ok)save.collected[enc.sp.key]=Date.now();persist();snd(ok?'collect':'miss',enc.sp.id);dirty();}
 function encDone(){respawnSpot(enc.spot);toast=null;if(nCollected()>=SP.length){snd('win');go('win');}else go('world');}
-function finishIntro(){save.introDone=true;persist();snd('ok');if(intro.ret==='world'&&map)go('world');else go('region');}
+function finishIntro(){if(intro.bail){snd('back');go('title');return;}save.introDone=true;persist();snd('ok');if(intro.ret==='world'&&map)go('world');else go('region');}
 
 // which buttons the game wants for itself right now; the host's focus cursor takes the rest
 function handles(b){
   if(b==='b')return true;
   if(state==='world')return !menuOpen;
-  if(state==='intro'||state==='petlapse'||state==='win')return true;
+  if(state==='intro'){const pg=intro.pages[intro.page]||{};if(b==='a')return !(pg.ask&&intro.opt);return false;}
+  if(state==='petlapse'||state==='win')return true;
   if(state==='journal')return b==='left'||b==='right'||b==='j'||(entry&&b==='a');
   if(state==='enc')return (enc.phase===2&&b==='a')||(enc.phase===1&&b==='j');
   if(state==='pet'||state==='petpick')return b==='j';
@@ -614,9 +621,10 @@ const pad=()=>state==='world'&&!menuOpen;
 // the game's own input, for the states it handles. Menus, lists and buttons are clicked by the host.
 function update(){frame++;if(amb.on&&!muted&&state!=='title')ambient();if(confirmNew>0)confirmNew--;if(confirmRel>0)confirmRel--;
   if(toast&&--toast.n<=0){toast=null;dirty();}
-  if(state==='intro'){const pg=intro.pages[intro.page];if(intro.ch<pg.length){intro.ch+=2;if(frame%3===0)snd('talk',intro.ch);const d=ui&&ui.querySelector('#q-dialog');if(d)d.textContent=pg.slice(0,intro.ch);}
-    if(hit('a')||(click&&click.top)){if(intro.ch<pg.length){intro.ch=pg.length;const d=ui&&ui.querySelector('#q-dialog');if(d)d.textContent=pg;}else if(intro.page<intro.pages.length-1){intro.page++;intro.ch=0;snd('move',intro.page);dirty();}else finishIntro();}
-    if(hit('b')){if(intro.page>0){intro.page--;intro.ch=intro.pages[intro.page].length;snd('back');dirty();}else snd('miss');}}
+  if(state==='intro'){const pg=intro.pages[intro.page],txt=pageText();if(intro.ch<txt.length){intro.ch+=2;if(frame%3===0)snd('talk',intro.ch);const d=ui&&ui.querySelector('#q-dialog');if(d)d.textContent=txt.slice(0,intro.ch);}
+    if(intro.ch>=txt.length&&pg.ask&&!intro.opt){intro.opt=true;dirty();}
+    if(hit('a')||(click&&click.top)){if(intro.ch<txt.length){intro.ch=txt.length;const d=ui&&ui.querySelector('#q-dialog');if(d)d.textContent=txt;if(pg.ask){intro.opt=true;dirty();}}else if(!pg.ask)introNext();}
+    if(hit('b')){if(intro.kb&&intro.buf){intro.buf=intro.buf.slice(0,-1);dirty();}else if(intro.kb){intro.kb=false;dirty();}else if(intro.page>0&&!intro.bail){intro.page--;intro.ch=pageText().length;intro.opt=!!intro.pages[intro.page].ask;snd('back');dirty();}else snd('miss');}}
   else if(state==='region'){if(hit('b')&&save.region&&map){snd('back');go('world');}}
   else if(state==='world'){stepBeetles();
     if(menuOpen){if(hit('b')){menuOpen=false;snd('back');dirty();}}
@@ -655,6 +663,11 @@ function update(){frame++;if(amb.on&&!muted&&state!=='title')ambient();if(confir
 function act(name,arg){
   if(name.startsWith('title:'))titleAct(name);
   else if(name==='region:go')enterRegion(arg);
+  else if(name==='intro:yes')introNext();
+  else if(name==='intro:no'){intro.pages=INTRO_NO;intro.page=0;intro.ch=0;intro.opt=false;intro.bail=true;snd('back');dirty();}
+  else if(name==='intro:name'){let nm=String(arg||'').trim().slice(0,12);if(!nm)return;if(nm[0]!=='~')nm=nm.charAt(0).toUpperCase()+nm.slice(1).toLowerCase();save.name=nm;persist();snd('ok');introNext();}
+  else if(name==='intro:namekb'){intro.kb=true;intro.buf='';dirty();}
+  else if(name==='intro:key'){if(arg==='<')intro.buf=intro.buf.slice(0,-1);else if(intro.buf.length<12)intro.buf+=arg;dirty();}
   else if(name==='world:menu'){menuOpen=true;dirty();}
   else if(name==='menu:mossdex'){menuOpen=false;openJournal();}
   else if(name==='menu:goodmoss'){menuOpen=false;openPet();}
@@ -690,8 +703,8 @@ const msg=t=>t?`<p class="lcd-msg">${esc(sentence(t))}</p>`:'';
 const row=(k,v)=>`<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`;
 const photoEl=(sp,hidden)=>sp&&sp.image&&!hidden?`<img class="q-photo" src="${esc((opts.imgBase||'')+sp.image.file)}" alt="${esc(sp.name)}">`:`<div class="q-photo q-nophoto">${hidden?'???':'no photo'}</div>`;
 const low=t=>String(t||'').toLowerCase();
-const PROPER={mossdex:'MossDex',goodmoss:'GoodMoss',chaga:'Chaga',gbif:'GBIF',inaturalist:'iNaturalist',antarctic:'Antarctic',antarctica:'Antarctica',sphagnum:'Sphagnum',remilianet:'RemiliaNET'};
-function sentence(t){const name=(user&&(user.displayName||user.handle))||'Explorer';t=String(t||'').toLowerCase();
+const PROPER={traveler:'Traveler',mossdex:'MossDex',goodmoss:'GoodMoss',chaga:'Chaga',gbif:'GBIF',inaturalist:'iNaturalist',antarctic:'Antarctic',antarctica:'Antarctica',sphagnum:'Sphagnum',remilianet:'RemiliaNET'};
+function sentence(t){const name=playerName();t=String(t||'').toLowerCase();
   t=t.replace(/(^|[.!?]\s+)([a-z])/g,(m,a,b)=>a+b.toUpperCase()).replace(/\bi\b/g,'I').replace(/[a-z]+/gi,w=>PROPER[w.toLowerCase()]||w);
   return t.replace(/\{name\}/g,name);}
 const titleCase=t=>String(t||'').toLowerCase().replace(/\b[a-z]/g,c=>c.toUpperCase());
@@ -710,9 +723,14 @@ function speciesCard(sp,k){const known_=k==null?known(sp):k;return `<div class="
 
 function render(){if(!ui)return;let h='',focus=0,scene='none';const u=user||GUEST;
   if(state==='title'){scene='lab';h=`<h1 class="q-title">moss quest</h1><p class="lcd-note q-center">${esc(SP.length)} species · seven continents · one MossDex</p>
-    <div class="q-who">${u.pfpUrl?`<img class="rn-pfp q-pfp" src="${esc(u.pfpUrl)}" alt="">`:''}<div><b>${esc(u.displayName||u.handle)}</b><span class="rn-handle">${u.guest?'guest · saved on this device':'@'+esc(u.handle)+' · RemiliaNET'}${nCollected()?' · '+nCollected()+' / '+SP.length+' logged · '+save.cheese+' cheese':''}</span></div></div>
+    <div class="q-who">${u.pfpUrl?`<img class="rn-pfp q-pfp" src="${esc(u.pfpUrl)}" alt="">`:''}<div><b>${esc(playerName())}</b><span class="rn-handle">${u.guest?'guest · saved on this device':'@'+esc(u.handle)+' · RemiliaNET'}${nCollected()?' · '+nCollected()+' / '+SP.length+' logged · '+save.cheese+' cheese':''}</span></div></div>
     ${msg(toast&&toast.t)}<ul class="menu">${titleOpts().map(o=>mi(o[0],o[2],null,o[1])).join('')}</ul>`;}
-  else if(state==='intro'){scene='lab';const pg=intro.pages[intro.page];h=`<div class="lcd-header"><span class="lcd-header-title">PROF. CHAGA</span><span class="item-meta">page ${intro.page+1} / ${intro.pages.length}</span></div><p class="q-dialog" id="q-dialog">${esc(pg.slice(0,intro.ch))}</p>`;}
+  else if(state==='intro'){scene=intro.kb?'none':'lab';const pg=intro.pages[intro.page],txt=pageText();h=`<div class="lcd-header"><span class="lcd-header-title">PROF. CHAGA</span><span class="item-meta">page ${intro.page+1} / ${intro.pages.length}</span></div><p class="q-dialog" id="q-dialog">${esc(txt.slice(0,intro.ch))}</p>`;
+    if(intro.opt&&pg.ask==='quest')h+=`<ul class="menu">${mi('gladly','intro:yes',null,'the moss quest begins')}${mi('not today','intro:no',null,'the professor will wait')}</ul>`;
+    else if(intro.opt&&pg.ask==='name'){
+      if(intro.kb){const keys='ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');const kb=(l,act,arg,note,cls)=>`<button type="button" class="menu-item focusable${cls?' '+cls:''}" data-act="${act}" data-arg="${esc(arg)}" data-note="${esc(note)}">${esc(l)}</button>`;
+        h+=`<p class="q-name q-typed">${esc(intro.buf)||'&nbsp;'}<span class="q-caret">_</span></p><div class="grid q-keys">${keys.map(k=>kb(k,'intro:key',k,'A: type '+k)).join('')}${kb('⌫','intro:key','<','A: delete · B does too')}${kb('done','intro:name',intro.buf,intro.buf?'call me '+intro.buf:'type a name first','q-wide')}</div>`;}
+      else{const rn=user&&!user.guest?'~'+user.handle:null;h+=`<ul class="menu">${rn?mi('call me '+rn,'intro:name',rn,'your RemiliaNET name'):''}${mi(rn?'something else':'type a name','intro:namekb',null,'spell it on the letter grid')}${save.name?mi('still '+save.name,'intro:name',save.name,'the name you used before'):''}</ul>`;}}}
   else if(state==='region'){h=`<div class="lcd-header"><span class="lcd-header-title">WHERE TO?</span><span class="item-meta">${nCollected()} / ${SP.length}</span></div><ul class="menu">`+
     CONT.map((c,i)=>{const R=roster[c],g=nCollectedIn(c);return mi(`${titleCase(CN[c])} · ${g}/${R.length}`,'region:go',c,low(THEMES[c].blurb)+' · '+new Set(R.map(s=>s.family)).size+' families');}).join('')+'</ul>';
     focus=Math.max(0,CONT.indexOf(save.region));}
@@ -811,7 +829,7 @@ function drawScene(){fitWorld();rect(0,0,cv.width,cv.height,C.paper);
 let lastStatus='';
 function statusText(){const n=nCollected()+'/'+SP.length;
   if(state==='title')return 'A: ok · '+n+' logged';
-  if(state==='intro')return 'Prof. Chaga · A: next · B: back';
+  if(state==='intro')return intro.kb?'spell your name · A: type · B: delete':intro.opt?'Prof. Chaga · A: choose':'Prof. Chaga · A: next · B: back';
   if(state==='region')return 'A: travel · B: back';
   if(state==='world')return menuOpen?'A: ok · B: close':titleCase(CN[REG()])+' · '+n+' · d-pad: walk · A: look · B: menu · X: MossDex';
   if(state==='enc')return enc.phase===0?'A: identify':enc.phase===1?'A: answer · X: ask a beetle, 1 cheese':'A: continue';

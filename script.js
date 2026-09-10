@@ -1131,8 +1131,9 @@ function fillInfo(token) {
     ['token', `#${token.tokenId} of ${galleryTokens.length}`],
     ['owner', `${token.owner}${isOwnedBy(token, walletAddress) ? ' (you)' : ''}`],
     ['traits', traits],
-    ['contract', collection.address],
-    ['chain', `${collection.chain.name} · ERC-721`],
+    [collection.chain.solana ? 'collection' : 'contract', collection.address],
+    ['asset', collection.chain.solana ? token.assetId : ''],
+    ['chain', collection.chain.solana ? 'Solana · Metaplex Core' : `${collection.chain.name} · ERC-721`],
     ['metadata', token.tokenUri || 'unknown'],
     ['image', token.image || 'unknown'],
     ['external', meta.external_url || '']

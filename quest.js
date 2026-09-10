@@ -193,9 +193,9 @@ function buildTiles(th){const [g,gd,gl]=th.ground,[h,hd,hl]=th.ground2,[w,wl,wd]
   tl[ROCK]=sprite(ROCKBM,{'5':ra,'6':rb,'7':rc});tl[MTN]=sprite(MTNBM,{'5':ma,'6':mb,'7':mb,'d':mc});
   const tc=(cols)=>({'1':cols[0],'2':cols[1],'3':cols[2],'4':cols[3]});
   tl[TREE]=sprite(TREEBM[th.tree],tc(th.treeCol));tl[TREE2]=th.tree2?sprite(TREEBM[th.tree2],tc(th.tree2Col)):tl[TREE];tl[TREE3]=th.tree3?sprite(TREEBM[th.tree3],tc(th.tree3Col)):tl[TREE];
-  const bl=th.bldg;tl[BLDG]=[0,1,2].map(v=>tile(bl.wall,q=>{q(0,0,bl.roof,16,4);q(0,4,'#1a1a2e',16,1);q(0,0,'#1a1a2e',1,16);q(15,0,'#1a1a2e',1,16);
+  const bl=th.bldg;tl[BLDG]=[0,1].map(v=>tile(bl.wall,q=>{q(0,0,bl.roof,16,4);q(0,4,'#1a1a2e',16,1);q(0,0,'#1a1a2e',1,16);q(15,0,'#1a1a2e',1,16);
     for(let y=6;y<13;y+=4)for(let x=2;x<14;x+=4){q(x,y,(x+y+v)%3?bl.win:'#2a2a3a',3,2);}q(6,12,bl.door,4,4);q(0,15,'#1a1a2e',16,1);
-    if(v===2){LOGO9.forEach((r,i)=>{for(let j=0;j<r.length;j++)if(r[j]!=='.')q(6+j,3+i,LOGOPAL[r[j]]);});}}));
+}));
   return tl;}
 
 /* ---------------- data ---------------- */
@@ -520,7 +520,8 @@ function drawPot(x,y,w,h,p,snap){const q=snap?{hyd:snap.w,health:snap.h,fit:p.fi
   px(tx-4,ty+1,C.lav,3,3);px(tx-4,ty+5,C.lav,3,3);px(tx-2,ty+4,C.lav2,2,1);
   return info;}
 function drawJar(x,y,w,h,p,snap){return drawPot(x,y,w,h,p,snap);}
-function addBeads(n){for(let k=0;k<n;k++)pa.beads.push({x:32+Math.random()*100,y:30+Math.random()*30,v:.15+Math.random()*.35});}
+const JAR={x:58,y:16,w:140,h:158};
+function addBeads(n){for(let k=0;k<n;k++)pa.beads.push({x:JAR.x+6+Math.random()*(JAR.w-12),y:JAR.y+10+Math.random()*30,v:.15+Math.random()*.35});}
 function petAnim(p){if(pa.blink>0)pa.blink--;else if(Math.random()<.008)pa.blink=6;if(pa.wake>0)pa.wake--;if(pa.bounce>0)pa.bounce--;
   for(let i=pa.beads.length-1;i>=0;i--){const b=pa.beads[i];b.y+=b.v;if(b.y>125)pa.beads.splice(i,1);}
   const b=pa.bug;if(b.hop>0)b.hop--;if(--b.t<=0){b.t=30+(Math.random()*50|0);b.x=Math.max(.05,Math.min(.95,b.x+(Math.random()-.5)*.3));b.hop=6;}}
@@ -542,8 +543,25 @@ function pickList(){return SP.filter(s=>save.collected[s.key]);}
 function openPick(){if(!pickList().length){snd('miss');say('COLLECT A MOSS FIRST, THEN PLANT IT');go('world');return;}naming=null;go('petpick');}
 function plantPick(sp,name){save.pet=newPet(sp,name);save.pet.log=['PLANTED '+sp.name.toUpperCase()+' ON '+save.pet.sub.toUpperCase()+'.'];persist();snd('collect',sp.id);petCur=0;naming=null;go('pet');}
 function openPet(){if(save.pet){simPet(save.pet,Date.now());persist();petCur=0;go('pet');}else openPick();}
-function petLabels(p){return [['mist','a fine spray, the way rain arrives'],['soak','fill the jar to the brim'],['light: '+LIGHTS.find(l=>l[0]===p.light)[1].toLowerCase(),'shade, a window, or full sun'],['lid: '+LIDS.find(l=>l[0]===p.air)[1].toLowerCase(),'open, vented, or closed'],
-  ['substrate: '+p.sub,'rock, bark, soil or peat · costs one cheese'],['time-lapse','replay the jar so far'],['fast-forward 6h','a test button: six hours pass','dev'],['new pet','release '+p.name+' and plant another cutting']];}
+function petLabels(p){const pr=prefs(petSp(p));const L=LIGHTS.find(l=>l[0]===p.light)[1].toLowerCase(),D=LIDS.find(l=>l[0]===p.air)[1].toLowerCase();
+  return [['water','a light mist. water goes up a third',0],['soak','fills the jar to the brim. with a closed lid that breeds algae',1],
+    ['light: '+L,'shade, window, full sun. it likes '+word(pr.light,'shade','half shade','sun'),2],['lid: '+D,'open, vented, closed. closed keeps water in, but the air goes stale',3],
+    ['repot · 1 cheese','rock, bark, soil, peat. it likes '+pr.sub+(p.sub===pr.sub?' and it is on '+p.sub:', it is on '+p.sub),4],['time-lapse','the jar so far, replayed',5],
+    ['fast-forward 6h','a test button: six hours pass',6,'dev'],['release','let '+p.name+' go and plant another cutting',7]];}
+// one sentence: how it is, and the one thing to do about it
+function petAdvice(p){const pr=prefs(petSp(p));
+  if(p.dead)return 'it is gone. take a new cutting.';
+  if(p.dormant)return 'dried out and dormant. water it and it wakes within minutes.';
+  if(p.hyd>.85&&p.air<.4)return 'soggy and stuffy. open the lid before it rots.';
+  if(p.algae>.5)return 'a film of algae. vent the lid and go easier on the water.';
+  if(p.hyd<pr.moist-.25)return 'thirsty. a mist would do.';
+  if(p.light>pr.light+.35)return 'too bright for it. move it to '+(pr.light<.4?'the shade':'the window')+'.';
+  if(p.light<pr.light-.35)return 'wants more light. try '+(pr.light>.7?'full sun':'the window')+'.';
+  if(p.sub!==pr.sub)return 'growing, but it would rather sit on '+pr.sub+'.';
+  if(p.spor>.5)return 'putting up sporophytes. keep doing what you are doing.';
+  if(p.fit>.75)return 'thriving.';
+  if(p.fit>.5)return 'content.';return 'struggling a little. check light and water.';}
+const pips=(v,n)=>{const k=Math.round(Math.max(0,Math.min(1,v))*n);return '●'.repeat(k)+'○'.repeat(n-k);};
 
 /* ---------------- states ---------------- */
 let state='title',cur=0,enc=null,jr={filter:0,cur:0},entry=null,toast=null,chimed=false,menuOpen=false,confirmNew=0,confirmRel=0,uiDirty=true,screenSig='';
@@ -698,11 +716,17 @@ function render(){if(!ui)return;let h='',focus=0,scene='none';const u=user||GUES
     if(naming){h=`<div class="lcd-header"><span class="lcd-header-title">NAME IT</span></div>${speciesCard(naming)}<ul class="menu">${heading('a name for your moss')}${PETNAMES.map(n=>mi(low(n),'pet:name',n,'plant '+naming.name+' as '+low(n))).join('')}${mi('surprise me','pet:name','*','a random name')}${mi('back','pet:cancel',null,'choose another cutting')}</ul>`;}
     else{h=`<div class="lcd-header"><span class="lcd-header-title">PLANT A CUTTING</span><span class="item-meta">${L.length} collected</span></div><p class="lcd-note">mosses have no roots. they drink from the air and go dormant, not dead, when they dry. keep light, water and air near what the species knows from the wild and it will fruit.</p><ul class="menu q-list">`+
       L.map(s=>{const pr=prefs(s);return mi(s.name,'pet:pick',s.key,`grows as a ${FORMS[pr.form].label.toLowerCase()} · likes ${word(pr.moist,'dryish','moist','wet')}, ${word(pr.light,'shade','half shade','sun')} · on ${pr.sub}`);}).join('')+'</ul>';focus=pick.cur;}}
-  else if(state==='pet'&&save.pet){scene='jar';const p=save.pet,sp=petSp(p),pr=prefs(sp);const mm=petMood(p);
-    h=`<div class="lcd-header"><span class="lcd-header-title">${esc(p.name)}</span><span class="item-meta">${esc(low(petAge(p)))} old · ${esc(FORMS[pr.form].label.toLowerCase())}</span></div><p class="lcd-msg">${esc(low(mm[0]))}</p>
-      <dl class="q-meters">${meter('hydration',p.hyd)}${meter('light fit',1-Math.abs(pr.light-p.light))}${meter('air',p.air)}${meter('health',p.health)}${meter('growth',p.growth)}</dl>
-      ${p.log[0]?`<p class="lcd-note">${esc(low(p.log[0]))}</p>`:''}${msg(toast&&toast.t)}
-      <ul class="menu">${petLabels(p).map((l,i)=>l[2]==='dev'&&!opts.dev?'':mi(l[0],'pet:act',i,l[1])).join('')}</ul><p class="lcd-note">spores ${p.spores} · fruited ${p.fruited}× · cheese ${save.cheese} · ${esc(sp.name)}</p>`;focus=petCur;}
+  else if(state==='pet'&&save.pet){scene='jar';const p=save.pet,sp=petSp(p),pr=prefs(sp);const acts=petLabels(p).filter(a=>a[3]!=='dev'||opts.dev);
+    const btn=a=>mi(a[0],'pet:act',a[2],a[1]);
+    h=`<div class="lcd-header"><span class="lcd-header-title">${esc(p.name)}</span><span class="item-meta">${esc(sp.name)} · ${esc(low(petAge(p)))} old</span></div>
+      <p class="lcd-msg">${esc(petAdvice(p))}</p>
+      <div class="q-needs"><span>water</span><span class="q-dots">${pips(p.hyd,5)}</span><span class="item-meta">likes ${word(pr.moist,'dryish','moist','wet')}</span>
+        <span>light</span><span class="q-dots">${pips(p.light,5)}</span><span class="item-meta">likes ${word(pr.light,'shade','half shade','sun')}</span>
+        <span>air</span><span class="q-dots">${pips(p.air,5)}</span><span class="item-meta">${p.air<.35?'lid closed':p.air<.7?'lid vented':'lid open'}</span>
+        <span>growth</span><span class="q-dots">${pips(p.growth,5)}</span><span class="item-meta">health ${pips(p.health,5)}${p.spores?' · spores '+p.spores:''}</span></div>
+      <ul class="menu item-links">${acts.slice(0,2).map(btn).join('')}${btn(acts.find(a=>a[2]===4))}</ul>
+      <ul class="menu item-links">${btn(acts.find(a=>a[2]===2))}${btn(acts.find(a=>a[2]===3))}${acts.filter(a=>a[2]>=5).map(btn).join('')}</ul>
+      ${p.log[0]&&!/^(MISTED|SOAKED|MOVED|LID|REPOTTED)/.test(p.log[0])?`<p class="lcd-note">${esc(low(p.log[0]))}</p>`:''}${msg(toast&&toast.t)}`;focus=petCur;}
   else if(state==='petlapse'&&save.pet){scene='jar';const p=save.pet;h=`<div class="lcd-header"><span class="lcd-header-title">TIME-LAPSE</span><span class="item-meta" id="q-frame">frame 1 / ${p.snaps.length}</span></div><p class="lcd-note">the jar so far, replayed. A: back to the jar</p>`;}
   else if(state==='win'){h=`<h1 class="q-title">you did it!</h1><p class="lcd-msg">every moss collected. a bryologist is born.</p><dl>${row('steps walked',String(save.steps))}${row('beetles caught',String(nBeetles()))}${row('cheese',String(save.cheese))}${CONT.map(c=>row(titleCase(CN[c]),nCollectedIn(c)+' / '+roster[c].length)).join('')}</dl><ul class="menu item-links">${mi('keep exploring','win:go',null,'the moss is still out there')}</ul>`;}
   ui.innerHTML=h;const host=ui.closest('[data-scene]')||ui.parentElement;if(host)host.dataset.scene=scene;
@@ -714,7 +738,7 @@ function meter(label,v){const n=Math.round(Math.max(0,Math.min(1,v))*10);return 
 
 /* ---------------- the pixel-art scene ---------------- */
 function drawTileAt(t,x,y,tx,ty){const base=OVER[t]?TL[G0]:null;if(base)ctx.drawImage(base,x,y);
-  let img_=TL[t];if(t===WATER)img_=TL[WATER][(frame>>5)&1];else if(t===BLDG)img_=TL[BLDG][((tx*7+ty*13)%5===0)?2:((tx+ty)&1)];ctx.drawImage(img_,x,y);}
+  let img_=TL[t];if(t===WATER)img_=TL[WATER][(frame>>5)&1];else if(t===BLDG)img_=TL[BLDG][(tx+ty)&1];ctx.drawImage(img_,x,y);}
 function drawWorld(){const ox=-cam.x|0,oy=-cam.y|0;const x0=Math.max(0,(cam.x/T)|0),y0=Math.max(0,(cam.y/T)|0);const VH=cv.height/T,VW=cv.width/T;
   for(let y=y0;y<Math.min(MH,y0+VH+1);y++)for(let x=x0;x<Math.min(MW,x0+VW+1);x++)drawTileAt(map[y][x],x*T+ox,y*T+oy,x,y);
   const mf=((frame>>4)&3)===0?1:0;for(const s of spots){if(s.x>=x0-1&&s.x<x0+VW+1&&s.y>=y0-1&&s.y<y0+VH+1)ctx.drawImage(MOSS[mf],s.x*T+ox,s.y*T+oy);}
@@ -722,13 +746,23 @@ function drawWorld(){const ox=-cam.x|0,oy=-cam.y|0;const x0=Math.max(0,(cam.x/T)
   const bob=(player.mx||player.my)&&((player.anim>>2)&1)?-1:0;ctx.drawImage(PL[player.dir],(player.px+ox)|0,(player.py+oy+bob)|0);
   const dx={left:-1,right:1}[player.dir]||0,dy={up:-1,down:1}[player.dir]||0;const tx=player.x+dx,ty=player.y+dy;
   if(!player.mx&&!player.my&&(spots.some(o=>o.x===tx&&o.y===ty)||beetles.some(o=>o.x===tx&&o.y===ty))){const bx=player.px+ox+5,by=player.py+oy-10+((frame>>3)&1);bevelOut(bx-2,by-2,10,11,C.paper);text('!',bx+1,by+1,C.red);}
-  ctx.globalAlpha=0.08;ctx.fillStyle='#0a246a';const cs=(frame*0.2)%(cv.width+120);ctx.beginPath();ctx.ellipse(cs-60,40,50,16,0,0,7);ctx.ellipse(cv.width-cs+30,130,40,14,0,0,7);ctx.fill();ctx.globalAlpha=1;
+  drawCloudShadows();
   const hh=cv.height,cx=cv.width/2;if(toast){withFont(F7,()=>{const w=tw(toast.t)+16;bevelOut(cx-w/2,hh-26,w,18,C.face);text(toast.t,cx-w/2+8,hh-20,toast.tier?TIER[toast.tier].col:C.ink);});}
   if(player.goal||player.path.length){const g=player.goal;if(g){rect(g.x*T+ox+7,g.y*T+oy-3+((frame>>3)&1),2,2,C.red);}}
   if(menuOpen){ctx.fillStyle='rgba(27,51,32,0.35)';ctx.fillRect(0,0,cv.width,cv.height);}}
 // on the map the canvas is as tall as the box it sits in, so no letterbox: 256 wide, 192..320 tall
 function fitWorld(){let ww=CW,hh=CH;if(state==='world'&&cv.clientWidth>0&&cv.clientHeight>0){const a=cv.clientWidth/cv.clientHeight;if(a>CW/CH)ww=Math.min(400,Math.round(CH*a));else hh=Math.min(320,Math.round(CW/a));}
   if(cv.width!==ww||cv.height!==hh){cv.width=ww;cv.height=hh;ctx.imageSmoothingEnabled=false;}}
+// shadows of clouds crossing the map: two fluffy ones and the face, each drifting at its own pace
+const SHADOWS=(()=>{const mk=(w,h,fn)=>{const c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d');g.fillStyle='#08183a';fn(g,w,h);return c;};
+  const cumulus=(seed,w,h)=>mk(w,h,(g)=>{const r=rng(seed);const base=h*0.8,s=h*0.55,n=4+(r()*3|0);g.beginPath();
+    for(let i=0;i<n;i++){const t=(i+0.5)/n;const px=w*0.12+t*w*0.76,pr=s*(0.45+0.55*Math.sin(t*Math.PI))*(0.85+r()*0.3);g.moveTo(px+pr,base-pr*0.8);g.arc(px,base-pr*0.8,pr,0,7);}
+    g.rect(w*0.12,base-s*0.3,w*0.76,s*0.3);g.fill();});
+  const face=(d)=>mk(d,d,(g)=>{const R=d/2;g.beginPath();g.arc(R,R,R,0,7);g.fill();g.globalCompositeOperation='destination-out';
+    for(const ex of [-0.40,0.40]){const ew=R*0.24;g.beginPath();g.roundRect(R+ex*R-ew/2,-4,ew,R*0.9+4,ew/2);g.fill();}
+    g.lineWidth=Math.max(1,R*0.06);g.beginPath();g.arc(R,R,R*0.84,Math.PI*0.034,Math.PI*0.966);g.stroke();});
+  return [{img:cumulus(11,110,44),y:26,v:0.22},{img:face(60),y:118,v:0.17},{img:cumulus(23,86,36),y:170,v:0.27}];})();
+function drawCloudShadows(){ctx.globalAlpha=0.1;for(let i=0;i<SHADOWS.length;i++){const sh=SHADOWS[i];const span=cv.width+sh.img.width+80;const x=((frame*sh.v+i*160)%span)-sh.img.width-40;ctx.drawImage(sh.img,x|0,(sh.y%cv.height)|0);}ctx.globalAlpha=1;}
 function drawLab(){drawSky(0,0,0.08);dots(0,0,W,H,'rgba(255,255,255,0.3)');
   rect(0,140,W,52,'#c8d4c0');for(let i=0;i<W;i+=16)for(let j=140;j<H;j+=16)if(((i+j)>>4)&1)rect(i,j,16,16,'#bccab4');
   bevelOut(150,96,96,52,'#a08060');rect(154,100,88,44,'#c8a880');ctx.drawImage(MOSS[0],160,92);ctx.drawImage(MOSS[1],200,92);
@@ -739,7 +773,7 @@ function drawLab(){drawSky(0,0,0.08);dots(0,0,W,H,'rgba(255,255,255,0.3)');
 function drawScene(){fitWorld();rect(0,0,cv.width,cv.height,C.paper);
   if(state==='world')drawWorld();
   else if(state==='title'||state==='intro')drawLab();
-  else if((state==='pet'||state==='petlapse')&&save.pet){const p=save.pet;const snap=state==='petlapse'?p.snaps[Math.min(lapse.i,p.snaps.length-1)]:null;drawJar(73,10,110,132,p,snap);}}
+  else if((state==='pet'||state==='petlapse')&&save.pet){const p=save.pet;const snap=state==='petlapse'?p.snaps[Math.min(lapse.i,p.snaps.length-1)]:null;drawJar(JAR.x,JAR.y,JAR.w,JAR.h,p,snap);}}
 
 /* ---------------- status + lifecycle ---------------- */
 let lastStatus='';
@@ -751,7 +785,7 @@ function statusText(){const n=nCollected()+'/'+SP.length;
   if(state==='enc')return enc.phase===0?'A: identify':enc.phase===1?'A: answer · X: ask a beetle, 1 cheese':'A: continue';
   if(state==='journal')return entry?'B: back to the list':'MossDex · L/R: region · A: open · B: back';
   if(state==='petpick')return naming?'A: name it · B: back':'GoodMoss · A: plant this cutting · B: back';
-  if(state==='pet')return 'GoodMoss · A: care · B: back';
+  if(state==='pet')return 'GoodMoss · A: do it · d-pad: pick · B: back';
   if(state==='petlapse')return 'time-lapse · A: back';
   if(state==='win')return 'every moss found · A: keep exploring';return '';}
 function pushStatus(){const t=statusText();if(t!==lastStatus){lastStatus=t;if(opts.onStatus)opts.onStatus(t);}}

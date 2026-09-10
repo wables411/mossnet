@@ -970,7 +970,6 @@ body {
 #view-quest[data-scene="world"] #quest-canvas { flex: 1 1 auto; height: auto; min-height: 0; }
 #view-quest[data-scene="world"] #quest-ui { flex: 0 0 auto; }
 #view-quest[data-scene="lab"] #quest-canvas { height: 42%; }
-#view-quest[data-scene="jar"] #quest-canvas { height: 48%; }
 #view-quest[data-scene="none"] #quest-canvas { display: none; }
 #quest-ui { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: none; padding: calc(var(--u) * 2) calc(var(--u) * 3); }
 #quest-ui::-webkit-scrollbar { display: none; }
@@ -1007,6 +1006,11 @@ body {
 .q-list .menu-item.q-collected::after { content: ' ✓'; }
 .menu-item.q-gone { text-decoration: line-through; color: var(--lcd-mid); }
 .q-meters dd { font-family: monospace; letter-spacing: 0.05em; }
+/* GoodMoss needs: label, dots, what it likes */
+.q-needs { display: grid; grid-template-columns: auto auto 1fr; gap: calc(var(--u) * 0.3) calc(var(--u) * 2); align-items: baseline; margin: calc(var(--u) * 0.6) 0; font-size: calc(var(--u) * 3.2); }
+.q-needs > span:nth-child(3n+1) { color: var(--lcd-mid); text-transform: uppercase; letter-spacing: 0.08em; font-size: calc(var(--u) * 2.8); }
+.q-dots { letter-spacing: 0.12em; }
+#view-quest[data-scene="jar"] #quest-canvas { height: 40%; }
 #quest-ui .tabs .tab { padding: calc(var(--u) * 0.4) calc(var(--u) * 1); }
 #quest-ui .item-links { margin-top: calc(var(--u) * 1.6); }
 #quest-ui .item-links .menu-item { padding-left: calc(var(--u) * 1.6); }

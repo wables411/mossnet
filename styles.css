@@ -393,6 +393,19 @@ body {
     color: var(--lcd);
 }
 
+/* Moss Quest: two DS panes stacked on one canvas, letterboxed on the LCD with square pixels */
+#view-quest { display: flex; align-items: center; justify-content: center; background: var(--lcd); }
+#quest-canvas {
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    object-fit: contain;
+    image-rendering: pixelated;
+    background: var(--lcd);
+    touch-action: none;
+    cursor: pointer;
+}
+
 .title-art {
     display: block;
     width: 44%;

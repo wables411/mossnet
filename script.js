@@ -17,7 +17,8 @@ const views = {
   info: document.getElementById('view-info'),
   video: document.getElementById('view-video'),
   chart: document.getElementById('view-chart'),
-  moss: document.getElementById('view-moss')
+  moss: document.getElementById('view-moss'),
+  quest: document.getElementById('view-quest')
 };
 const galleryGrid = document.getElementById('gallery-grid');
 const galleryMsg = document.getElementById('gallery-msg');
@@ -560,7 +561,7 @@ const leds = {
 
 // ---------- focus cursor ----------
 let activeView = 'title';
-const focusIndex = { title: 0, home: 0, gallery: 0, item: 0, info: 0, help: 0, remilia: 0, moss: 0 };
+const focusIndex = { title: 0, home: 0, gallery: 0, item: 0, info: 0, help: 0, remilia: 0, moss: 0, quest: 0 };
 let lastView = 'title';
 
 function shortAddress(address) {
@@ -629,8 +630,67 @@ function showView(name, { focus = 0, scroll = true } = {}) {
   if (name === 'chart' && !chartFrame.src && chartFrame.dataset.src) chartFrame.src = chartFrame.dataset.src;
   if (name === 'moss') requestAnimationFrame(() => { growMoss(); syncMossZooms(); });
   else window.mossGarden?.stop();
+  if (name === 'quest') startQuest();
+  else window.mossQuest?.stop();
   setFocus(focus == null ? focusIndex[name] || 0 : focus, { scroll });
 }
+
+// ---------- Moss Quest ----------
+// The game draws its two panes on the LCD and reports one status line; the handheld's buttons drive it.
+// quest.js and its species data are only fetched the first time the game is opened.
+const QUEST_SRC = 'quest.js?v=2636c193';
+const questCanvas = document.getElementById('quest-canvas');
+let questLoading = null;
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const el = document.createElement('script');
+    el.src = src;
+    el.onload = resolve;
+    el.onerror = () => reject(new Error(`could not load ${src}`));
+    document.head.appendChild(el);
+  });
+}
+
+// signed in on RemiliaNET: play as yourself, saves keyed by your handle. Otherwise a guest save on this device.
+async function questUser() {
+  const token = REMILIA.clientId ? await remiliaAccessToken() : null;
+  if (!token) return null;
+  try {
+    const me = await remiliaApi('/me');
+    const u = me.user || me;
+    return { handle: u.username || 'remilia', displayName: u.displayName || u.username || 'remilia', pfpUrl: u.pfpUrl || null, id: u.username || u.id || 'remilia', guest: false };
+  } catch (_) { return null; }
+}
+
+async function startQuest() {
+  setNote('loading the MossDex...');
+  try {
+    if (!window.mossQuest) { questLoading = questLoading || loadScript(QUEST_SRC); await questLoading; }
+    const user = await questUser();
+    if (activeView !== 'quest') return; // left before it loaded
+    leds.set('mem', 'on');
+    window.mossQuest.start(questCanvas, {
+      dataUrl: 'assets/quest/mossdex.json',
+      imgBase: 'assets/quest/',
+      user,
+      muted: !sound.enabled,
+      onStatus: (text) => { if (activeView === 'quest') setNote(text); }
+    });
+  } catch (error) {
+    setNote(`Moss Quest could not start: ${error.message}`);
+  }
+}
+
+function leaveQuest() { window.mossQuest?.stop(); leds.set('mem', 'off'); toHome(); }
+const questButton = (button) => () => { window.mossQuest?.press(button); sound.armed = false; };
+
+// holding a d-pad key walks; the click that follows still counts as one press
+document.querySelectorAll('#dpad button[data-dir]').forEach((btn) => {
+  const dir = btn.dataset.dir;
+  btn.addEventListener('pointerdown', () => { if (activeView === 'quest') window.mossQuest?.hold(dir, true); });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => btn.addEventListener(ev, () => window.mossQuest?.hold(dir, false)));
+});
 
 // ---------- moss garden ----------
 // the $MOSS chart grown as a block world: surface height is price, volume decides
@@ -1305,6 +1365,7 @@ async function showRemilia() {
 document.querySelectorAll('[data-action="gallery"]').forEach(el => el.addEventListener('click', () => openGallery('all', el.dataset.collection || collection.key)));
 document.querySelectorAll('[data-action="chart"]').forEach(el => el.addEventListener('click', () => showView('chart')));
 document.querySelectorAll('[data-action="garden"]').forEach(el => el.addEventListener('click', () => showView('moss', { focus: null })));
+document.querySelectorAll('[data-action="quest"]').forEach(el => el.addEventListener('click', () => showView('quest', { focus: null })));
 document.querySelectorAll('[data-action="remilia"]').forEach(el => el.addEventListener('click', showRemilia));
 galleryConnectBtn.addEventListener('click', async () => {
   if (await connectWallet()) openGallery('mine');
@@ -1380,6 +1441,9 @@ const ACTIONS = {
   info:    { ...always, up: () => scrollLcd('up'), down: () => scrollLcd('down'), b: closeInfo, x: closeInfo, y: toggleGreen, l: () => stepItem(-1), r: () => stepItem(1) },
   chart:   { ...always, b: toHome },
   moss:    { ...dirs, ...always, a: activate, b: toHome, l: () => zoomMossChart(-1, true), r: () => zoomMossChart(1, true) },
+  quest:   { up: questButton('up'), down: questButton('down'), left: questButton('left'), right: questButton('right'),
+             a: questButton('a'), b: questButton('b'), x: questButton('j'), l: questButton('left'), r: questButton('right'),
+             y: () => { toggleSound(); window.mossQuest?.setMuted(!sound.enabled); }, start: leaveQuest, select: openHelp },
   help:    { ...dirs, ...always, a: activate, b: closeHelp, select: closeHelp },
   remilia: { ...dirs, ...always, a: activate, b: toHome }
 };
@@ -1421,18 +1485,25 @@ lcd.addEventListener('click', (e) => {
   if (el && sound.armed) sound.open(Number(el.dataset.tokenId) || focusables().indexOf(el));
 });
 
+const KEYS = {
+  ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
+  Enter: 'a', ' ': 'a', z: 'a', Z: 'a', Escape: 'b', Backspace: 'b',
+  x: 'x', X: 'x', y: 'y', Y: 'y', q: 'l', Q: 'l', e: 'r', E: 'r', s: 'start', S: 'start', c: 'select', C: 'select'
+};
+const HELD_DIRS = new Set(['up', 'down', 'left', 'right']);
 document.addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   if (e.target.closest('.device') && !e.target.closest('.lcd') && (e.key === 'Enter' || e.key === ' ')) return; // physical buttons handle their own Enter
-  const keys = {
-    ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
-    Enter: 'a', ' ': 'a', z: 'a', Z: 'a', Escape: 'b', Backspace: 'b',
-    x: 'x', X: 'x', y: 'y', Y: 'y', q: 'l', Q: 'l', e: 'r', E: 'r', s: 'start', S: 'start', c: 'select', C: 'select'
-  };
-  const button = keys[e.key];
+  const button = KEYS[e.key];
   if (!button) return;
   e.preventDefault();
+  // in the game a held arrow keeps walking; the repeat presses below only nudge menus
+  if (activeView === 'quest' && HELD_DIRS.has(button)) { if (!e.repeat) window.mossQuest?.hold(button, true); if (e.repeat) return; }
   press(button);
+});
+document.addEventListener('keyup', (e) => {
+  const button = KEYS[e.key];
+  if (button && HELD_DIRS.has(button)) window.mossQuest?.hold(button, false);
 });
 
 renderWallet();

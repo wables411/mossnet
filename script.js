@@ -636,10 +636,12 @@ function showView(name, { focus = 0, scroll = true } = {}) {
 }
 
 // ---------- Moss Quest ----------
-// The game draws its two panes on the LCD and reports one status line; the handheld's buttons drive it.
-// quest.js and its species data are only fetched the first time the game is opened.
-const QUEST_SRC = 'quest.js?v=2636c193';
+// The game paints its pixel art (the map, the lab, the jar) on a canvas at the top of the LCD and renders the
+// rest of itself as the LCD's own HTML: menus, lists, tabs, photos. So the handheld's focus cursor, notes and
+// blips work on it like on every other screen. quest.js and its species data load the first time it is opened.
+const QUEST_SRC = 'quest.js?v=86885fa6';
 const questCanvas = document.getElementById('quest-canvas');
+const questUi = document.getElementById('quest-ui');
 let questLoading = null;
 
 function loadScript(src) {
@@ -673,9 +675,11 @@ async function startQuest() {
     window.mossQuest.start(questCanvas, {
       dataUrl: 'assets/quest/mossdex.json',
       imgBase: 'assets/quest/',
+      ui: questUi,
       user,
       muted: !sound.enabled,
-      onStatus: (text) => { if (activeView === 'quest') setNote(text); }
+      onStatus: (text) => { if (activeView === 'quest' && !focusedElement()?.dataset.note) setNote(text); },
+      onRender: (focus) => { if (activeView === 'quest') setFocus(focus || 0, { scroll: false }); }
     });
   } catch (error) {
     setNote(`Moss Quest could not start: ${error.message}`);
@@ -683,7 +687,14 @@ async function startQuest() {
 }
 
 function leaveQuest() { window.mossQuest?.stop(); leds.set('mem', 'off'); toHome(); }
-const questButton = (button) => () => { window.mossQuest?.press(button); sound.armed = false; };
+// the game takes the buttons it asks for (walking, dialogue, hints); the rest move and activate the LCD cursor
+const questButton = (button) => () => {
+  const q = window.mossQuest;
+  if (!q) return;
+  if (q.handles(button) || !focusables().length) { q.press(button); sound.armed = false; }
+  else if (button === 'a') activate();
+  else move(button);
+};
 
 // holding a d-pad key walks; the click that follows still counts as one press
 document.querySelectorAll('#dpad button[data-dir]').forEach((btn) => {
@@ -1497,8 +1508,8 @@ document.addEventListener('keydown', (e) => {
   const button = KEYS[e.key];
   if (!button) return;
   e.preventDefault();
-  // in the game a held arrow keeps walking; the repeat presses below only nudge menus
-  if (activeView === 'quest' && HELD_DIRS.has(button)) { if (!e.repeat) window.mossQuest?.hold(button, true); if (e.repeat) return; }
+  // on the game's map a held arrow keeps walking; the key repeat only nudges menus
+  if (activeView === 'quest' && HELD_DIRS.has(button) && window.mossQuest?.pad()) { if (!e.repeat) { press(button); window.mossQuest.hold(button, true); } return; }
   press(button);
 });
 document.addEventListener('keyup', (e) => {

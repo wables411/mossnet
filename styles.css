@@ -393,19 +393,6 @@ body {
     color: var(--lcd);
 }
 
-/* Moss Quest: two DS panes stacked on one canvas, letterboxed on the LCD with square pixels */
-#view-quest { display: flex; align-items: center; justify-content: center; background: var(--lcd); }
-#quest-canvas {
-    width: 100%;
-    height: 100%;
-    min-height: 0;
-    object-fit: contain;
-    image-rendering: pixelated;
-    background: var(--lcd);
-    touch-action: none;
-    cursor: pointer;
-}
-
 .title-art {
     display: block;
     width: 44%;
@@ -975,6 +962,47 @@ body {
 @media (pointer: coarse) and (orientation: landscape) and (max-height: 640px) {
     .device { width: min(96vw, calc((100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 2vh) * 1.72)); }
 }
+
+/* ---------- Moss Quest ---------- */
+/* pixel art on the canvas (map, lab, jar), sized by scene; the game's own HTML fills the rest of the LCD */
+#view-quest { display: flex; flex-direction: column; height: 100%; }
+#quest-canvas { flex: 0 0 auto; width: 100%; height: 0; object-fit: contain; image-rendering: pixelated; background: var(--lcd); touch-action: none; cursor: pointer; }
+#view-quest[data-scene="world"] #quest-canvas { height: 66%; }
+#view-quest[data-scene="lab"] #quest-canvas { height: 42%; }
+#view-quest[data-scene="jar"] #quest-canvas { height: 48%; }
+#view-quest[data-scene="none"] #quest-canvas { display: none; }
+#quest-ui { flex: 1 1 auto; min-height: 0; overflow-y: auto; scrollbar-width: none; padding: calc(var(--u) * 2) calc(var(--u) * 3); }
+#quest-ui::-webkit-scrollbar { display: none; }
+#quest-ui .menu { margin-top: calc(var(--u) * 1); }
+#quest-ui dl { display: grid; grid-template-columns: auto 1fr; gap: calc(var(--u) * 0.8) calc(var(--u) * 2); font-size: calc(var(--u) * 3.3); line-height: 1.2; margin: calc(var(--u) * 1) 0; }
+#quest-ui dt { color: var(--lcd-mid); text-transform: uppercase; letter-spacing: 0.08em; font-size: calc(var(--u) * 2.8); padding-top: calc(var(--u) * 0.3); white-space: nowrap; }
+#quest-ui dd { word-break: break-word; }
+.q-title { font-size: calc(var(--u) * 6.6); font-weight: 400; text-align: center; margin: calc(var(--u) * 1) 0 0; }
+.q-center { text-align: center; margin-top: calc(var(--u) * 0.6); }
+.q-who { display: flex; align-items: center; gap: calc(var(--u) * 2); margin: calc(var(--u) * 2) 0 calc(var(--u) * 1); }
+.q-who b { font-weight: 400; display: block; }
+.q-pfp { width: calc(var(--u) * 10); height: calc(var(--u) * 10); }
+.q-dialog { font-size: calc(var(--u) * 4.4); line-height: 1.15; margin-top: calc(var(--u) * 1.4); min-height: 6em; white-space: pre-wrap; }
+.q-stage { display: flex; justify-content: center; margin: 0 0 calc(var(--u) * 1.4); }
+.q-photo { display: block; width: 100%; max-width: calc(var(--u) * 56); aspect-ratio: 4 / 3; object-fit: cover; border: calc(var(--u) * 0.5) solid var(--lcd-dark); background: #fff; }
+.q-nophoto { display: grid; place-items: center; background: var(--lcd-mid); color: var(--lcd); letter-spacing: 0.2em; }
+.q-name { font-size: calc(var(--u) * 4.6); font-weight: 400; line-height: 1.1; }
+.q-author, .q-common { font-size: calc(var(--u) * 3.3); color: var(--lcd-mid); }
+.q-common { margin-top: calc(var(--u) * 0.4); }
+.q-card { margin-top: calc(var(--u) * 1); }
+.q-strip { display: flex; justify-content: space-between; align-items: baseline; gap: calc(var(--u) * 2); }
+.q-strip-title { letter-spacing: 0.1em; }
+.q-list .menu-item { white-space: pre; overflow: hidden; text-overflow: ellipsis; font-size: calc(var(--u) * 3.6); padding-top: calc(var(--u) * 0.3); padding-bottom: calc(var(--u) * 0.3); }
+.q-list .menu-item.q-unknown, .q-list .menu-item.q-seen { color: var(--lcd-mid); }
+.q-list .menu-item.q-seen::after { content: ' ·'; }
+.q-list .menu-item.q-collected::after { content: ' ✓'; }
+.menu-item.q-gone { text-decoration: line-through; color: var(--lcd-mid); }
+.q-meters dd { font-family: monospace; letter-spacing: 0.05em; }
+#quest-ui .tabs .tab { padding: calc(var(--u) * 0.4) calc(var(--u) * 1); }
+#quest-ui .item-links { margin-top: calc(var(--u) * 1.6); }
+#quest-ui .item-links .menu-item { padding-left: calc(var(--u) * 1.6); }
+#quest-ui .item-links .menu-item.focused::before { content: none; }
+/* ---------- end Moss Quest ---------- */
 
 /* ---------- RemiliaNET profile ---------- */
 .rn-head {

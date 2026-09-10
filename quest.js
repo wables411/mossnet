@@ -3,11 +3,11 @@
    The host owns login, keyboard and d-pad wiring, the sound toggle and the status line; this file owns everything drawn on the panes. */
 window.mossQuest=(function(){
 'use strict';
-/* ---------------- layout: two panes stacked on one canvas ---------------- */
-const PW=256,PH=192,T=16,GAP=4;
-const TOPY=0,BOTY=PH+GAP,CW=PW,CH=PH*2+GAP;
+/* ---------------- layout: one 256x192 pixel-art scene; the rest of the UI is HTML the host styles ---------------- */
+const PW=256,PH=192,T=16;
+const CW=PW,CH=PH;
 const W=PW,H=PH;
-let cv=null,ctx=null,opts={};
+let cv=null,ctx=null,ui=null,opts={};
 
 /* ---------------- colours ---------------- */
 const C={face:'#c6d19c',light:'#e4ebc4',shade:'#9fb07a',dark:'#587f3e',navy:'#1b3320',titleB:'#587f3e',ink:'#1b3320',muted:'#587f3e',
@@ -255,7 +255,7 @@ function syncKeys(){for(const k in tapT)if(tapT[k]>0)tapT[k]--;BTN_DIRS.forEach(
 // the canvas is letterboxed inside its box (object-fit: contain), so map the pointer through that box
 function bindPointer(c){c.addEventListener('pointerdown',e=>{ac();const r=c.getBoundingClientRect();const sc=Math.min(r.width/CW,r.height/CH);const ox=(r.width-CW*sc)/2,oy=(r.height-CH*sc)/2;
   const x=(e.clientX-r.left-ox)/sc,y=(e.clientY-r.top-oy)/sc;if(x<0||x>=CW||y<0||y>=CH)return;e.preventDefault();
-  click={x:x|0,y:(y-BOTY)|0,top:y<BOTY,topy:(y-TOPY)|0};});}
+  click={x:x|0,y:y|0,top:true,topy:y|0};});}
 const hit=k=>{const v=!!just[k];just[k]=false;return v;};
 const tap=(x,y,w,h)=>!!(click&&!click.top&&click.x>=x&&click.x<x+w&&click.y>=y&&click.y<y+h);
 
@@ -330,15 +330,15 @@ const INTRO=()=>[
  'WHEN IT IS DRY THEY CURL UP AND WAIT, SOMETIMES FOR YEARS. ONE DROP OF WATER AND THEY TURN GREEN AGAIN WITHIN MINUTES. ALMOST NOTHING ELSE ALIVE CAN DO THAT.',
  'AND THEY MATTER. MOSS HOLDS SOIL TOGETHER, SOAKS UP RAIN LIKE A SPONGE, AND THE PEAT BOGS BUILT BY SPHAGNUM MOSS STORE MORE CARBON THAN ALL THE FORESTS ON EARTH.',
  'I HAVE STUDIED THEM ALL MY LIFE. I BUILT THE MOSSDEX TO HOLD '+SP.length+' OF THE BEST DOCUMENTED SPECIES IN THE WORLD: A PHOTO, A NAME, A FAMILY, AND EVERY PLACE EACH ONE GROWS.',
- 'LAST NIGHT EVERY ENTRY VANISHED. LOST OR STOLEN, I DO NOT KNOW. I AM TOO OLD TO CROSS SEVEN CONTINENTS AGAIN. '+pname()+', I NEED YOU TO FIND THEM ALL.',
+ 'LAST NIGHT EVERY ENTRY VANISHED. LOST OR STOLEN, I DO NOT KNOW. I AM TOO OLD TO CROSS SEVEN CONTINENTS AGAIN. {NAME}, I NEED YOU TO FIND THEM ALL.',
  'HERE IS HOW A BRYOLOGIST LOOKS. FACE A GREEN TUFT AND PRESS A. STUDY THE PHOTO: THE LEAF SHAPE, HOW THE SHOOTS BRANCH, THE COLOUR, THE LITTLE CAPSULES ON STALKS. THEN PICK THE NAME. THE FAMILY IS YOUR CLUE.',
  'NAME IT RIGHT AND THE ENTRY RETURNS TO THE MOSSDEX. NAME IT WRONG AND THE MOSS SLIPS AWAY, BUT IT STAYS MARKED AS SEEN. EVERY MISTAKE TEACHES YOU A NAME.',
  'BEETLES LIVE AMONG THE MOSS. FACE ONE AND PRESS A TO CATCH IT FOR CHEESE. STUCK ON A NAME? PRESS B DURING A QUIZ TO SPEND ONE CHEESE, AND A BEETLE WILL RULE OUT TWO WRONG ANSWERS.',
  'EACH CONTINENT HAS ITS OWN MOSSES, FROM ANTARCTIC ROCK TO CITY PAVEMENTS. USE THE MAP TO TRAVEL. THE MOSSDEX SHOWS WHAT IS STILL MISSING IN EACH PLACE.',
  'ONCE YOU HAVE A SPECIES, PLANT A CUTTING IN GOODMOSS AND KEEP IT ALIVE. YOU WILL LEARN MORE FROM ONE LIVING MOSS THAN FROM ANY BOOK.',
- 'RECOVER ALL '+SP.length+' ENTRIES AND MY LIFE\'S WORK IS SAFE AGAIN. '+pname()+', YOUR MOSS QUEST BEGINS NOW!'];
+ 'RECOVER ALL '+SP.length+' ENTRIES AND MY LIFE\'S WORK IS SAFE AGAIN. {NAME}, YOUR MOSS QUEST BEGINS NOW!'];
 let intro={page:0,ch:0,ret:'region',pages:[]};
-function startIntro(ret){intro={page:0,ch:0,ret:ret||'region',pages:INTRO()};state='intro';snd('chime');}
+function startIntro(ret){intro={page:0,ch:0,ret:ret||'region',pages:INTRO().map(sentence)};state='intro';snd('chime');}
 
 
 /* ---------------- GoodMoss ---------------- */
@@ -491,126 +491,192 @@ function petAnim(p){if(pa.blink>0)pa.blink--;else if(Math.random()<.008)pa.blink
   for(let i=pa.beads.length-1;i>=0;i--){const b=pa.beads[i];b.y+=b.v;if(b.y>125)pa.beads.splice(i,1);}
   const b=pa.bug;if(b.hop>0)b.hop--;if(--b.t<=0){b.t=30+(Math.random()*50|0);b.x=Math.max(.05,Math.min(.95,b.x+(Math.random()-.5)*.3));b.hop=6;}}
 function petAge(p){const ms=Date.now()-p.born,d=Math.floor(ms/86400000),h=Math.floor(ms/3600000)%24;return d?d+'D '+h+'H':h+'H';}
-let petCur=0,pick={cur:0,top:0},lapse={i:0};
-function petAct(i){const p=save.pet;if(!p)return;if(p.dead&&i<6){snd('miss');toast={t:'IT IS GONE. START A NEW PET.',n:90};return;}
+
+/* ---------------- GoodMoss controls ---------------- */
+let petCur=0,pick={cur:0},lapse={i:0},naming=null;
+function petAct(i){const p=save.pet;if(!p)return;if(p.dead&&i<6){snd('miss');say('IT IS GONE. START A NEW PET.');return;}
   if(i===0||i===1){const was=p.dormant;p.hyd=i===0?Math.min(1,p.hyd+.3):1;p.log.unshift(i===0?'MISTED.':'SOAKED.');snd('ok');addBeads(i===0?6:12);
     if(was&&p.hyd>=.15){p.dormant=false;pa.wake=90;p.log.unshift('REVIVED! GREEN AGAIN WITHIN MINUTES.');snd('collect',p.key);}}
-  else if(i===2){const k=(LIGHTS.findIndex(l=>l[0]===p.light)+1)%3;p.light=LIGHTS[k][0];p.log.unshift('MOVED TO '+LIGHTS[k][1]+'.');snd('move',k);}
-  else if(i===3){const k=(LIDS.findIndex(l=>l[0]===p.air)+1)%3;p.air=LIDS[k][0];p.log.unshift('LID '+LIDS[k][1]+'.');snd('move',k);}
-  else if(i===4){if(save.cheese<1){snd('miss');toast={t:'SUBSTRATE COSTS 1 CHEESE',n:90};return;}save.cheese--;const k=(SUBS.indexOf(p.sub)+1)%4;p.sub=SUBS[k];p.growth=Math.max(.05,p.growth-.1);p.log.unshift('REPOTTED ON '+SUBS[k].toUpperCase()+'.');snd('ok');}
-  else if(i===5){if(p.snaps.length<2){snd('miss');toast={t:'NOTHING TO REPLAY YET',n:90};return;}lapse.i=0;state='petlapse';snd('ok');return;}
-  else if(i===6){p.last-=6*3600000;simPet(p,Date.now());snd('found');toast={t:'6 HOURS PASSED (TEST)',n:90};}
-  else if(i===7){if(confirmRel<=0){confirmRel=180;snd('miss');toast={t:'RELEASE '+p.name+'? PRESS AGAIN.',n:180};return;}confirmRel=0;save.pet=null;snd('back');openPick();return;}
-  if(p.log.length>8)p.log.length=8;persist();}
+  else if(i===2){const k=(LIGHTS.findIndex(l=>l[0]===p.light)+1)%3;p.light=LIGHTS[k][0];p.log.unshift('MOVED TO '+LIGHTS[k][1]+'.');}
+  else if(i===3){const k=(LIDS.findIndex(l=>l[0]===p.air)+1)%3;p.air=LIDS[k][0];p.log.unshift('LID '+LIDS[k][1]+'.');}
+  else if(i===4){if(save.cheese<1){snd('miss');say('SUBSTRATE COSTS 1 CHEESE');return;}save.cheese--;const k=(SUBS.indexOf(p.sub)+1)%4;p.sub=SUBS[k];p.growth=Math.max(.05,p.growth-.1);p.log.unshift('REPOTTED ON '+SUBS[k].toUpperCase()+'.');snd('ok');}
+  else if(i===5){if(p.snaps.length<2){snd('miss');say('NOTHING TO REPLAY YET');return;}lapse.i=0;go('petlapse');return;}
+  else if(i===6){p.last-=6*3600000;simPet(p,Date.now());snd('found');say('6 HOURS PASSED (TEST)');}
+  else if(i===7){if(confirmRel<=0){confirmRel=180;snd('miss');say('RELEASE '+p.name+'? PRESS AGAIN.');return;}confirmRel=0;save.pet=null;snd('back');openPick();return;}
+  if(p.log.length>8)p.log.length=8;persist();dirty();}
 function pickList(){return SP.filter(s=>save.collected[s.key]);}
-function openPick(){if(!pickList().length){snd('miss');toast={t:'COLLECT A MOSS FIRST, THEN PLANT IT',n:150};state='world';return;}state='petpick';pick={cur:0,top:0};snd('ok');}
-function plantPick(){const sp=pickList()[pick.cur];let name=null;try{name=prompt('Name your pet moss ('+sp.name+'):',PETNAMES[(Math.random()*PETNAMES.length)|0]);}catch(e){}
-  if(name===null)name=undefined;save.pet=newPet(sp,name);save.pet.log=['PLANTED '+sp.name.toUpperCase()+' ON '+save.pet.sub.toUpperCase()+'.'];persist();snd('collect',sp.id);state='pet';petCur=0;}
-function openPet(){if(save.pet){simPet(save.pet,Date.now());persist();state='pet';petCur=0;snd('ok');}else openPick();}
-const PBTN=i=>[8+(i%2)*124,70+((i/2)|0)*25,116,22];
-function petLabels(p){return ['MIST','SOAK','LIGHT: '+LIGHTS.find(l=>l[0]===p.light)[1],'LID: '+LIDS.find(l=>l[0]===p.air)[1],'SUBSTRATE: '+p.sub.toUpperCase(),'TIME-LAPSE','FAST-FWD 6H (TEST)','NEW PET'];}
-function drawPetTop(p,snap){drawJar(28,26,110,132,p,snap);const sp=petSp(p),pr=prefs(sp);
-  bevelOut(0,0,W,12,C.face);text('GOODMOSS',4,3,C.navy);textR(snap?'TIME-LAPSE '+new Date(snap.t).toLocaleDateString('en-GB',{day:'2-digit',month:'short'}):FORMS[pr.form].label,W-4,3,C.muted);
-  photo(sp,158,18,88,66);text(wrap(sp.name,22)[0],158,88,C.navy);
-  const st=[['HYDRATION',snap?snap.w:p.hyd,C.accent],['LIGHT FIT',1-Math.abs(pr.light-p.light),C.gold],['AIR',p.air,C.lav],['HEALTH',snap?snap.h:p.health,C.mint],['GROWTH',snap?snap.g:p.growth,C.green]];
-  st.forEach(([l,v,c],i)=>{const y=100+i*14;text(l,158,y,C.muted);bar(158,y+6,88,7,v,c);});
-  const mm=petMood(snap?Object.assign({},p,{hyd:snap.w,health:snap.h,growth:snap.g,algae:snap.a,spor:snap.s,dormant:snap.w<.15,dead:snap.h<=0}):p);
-  ctx.fillStyle='rgba(255,255,255,0.75)';ctx.fillRect(0,H-14,W,14);rect(0,H-14,W,1,C.white);textC(mm[0],W/2,H-9,mm[1]);}
+function openPick(){if(!pickList().length){snd('miss');say('COLLECT A MOSS FIRST, THEN PLANT IT');go('world');return;}naming=null;go('petpick');}
+function plantPick(sp,name){save.pet=newPet(sp,name);save.pet.log=['PLANTED '+sp.name.toUpperCase()+' ON '+save.pet.sub.toUpperCase()+'.'];persist();snd('collect',sp.id);petCur=0;naming=null;go('pet');}
+function openPet(){if(save.pet){simPet(save.pet,Date.now());persist();petCur=0;go('pet');}else openPick();}
+function petLabels(p){return [['mist','a fine spray, the way rain arrives'],['soak','fill the jar to the brim'],['light: '+LIGHTS.find(l=>l[0]===p.light)[1].toLowerCase(),'shade, a window, or full sun'],['lid: '+LIDS.find(l=>l[0]===p.air)[1].toLowerCase(),'open, vented, or closed'],
+  ['substrate: '+p.sub,'rock, bark, soil or peat · costs one cheese'],['time-lapse','replay the jar so far'],['fast-forward 6h','a test button: six hours pass'],['new pet','release '+p.name+' and plant another cutting']];}
 
 /* ---------------- states ---------------- */
-let state='title',cur=0,enc=null,jr={filter:0,cur:0,top:0,hold:0},toast=null,chimed=false;
+let state='title',cur=0,enc=null,jr={filter:0,cur:0},entry=null,toast=null,chimed=false,menuOpen=false,confirmNew=0,confirmRel=0,uiDirty=true,sig='';
 const REG=()=>save.region;
-const ROWS=11,ROWH=14;
-function enterRegion(c){snd('ok');save.region=c;persist();genMap(c);state='world';toast={t:'WELCOME TO '+CN[c],n:120};ambientFor(CONT.indexOf(c));}
-function openJournal(){snd('ok');state='journal';jr.filter=CONT.indexOf(REG())+1;jr.cur=jr.top=0;}
 let JF=9;function jlist(){return jr.filter===0?SP:jr.filter===JF-1?SP.filter(s=>save.collected[s.key]):roster[CONT[jr.filter-1]];}
-function startEnc(i){snd('found');const sp=spots[i].sp||pickSpecies(REG());img(sp);enc={spot:i,sp,opts:choices(sp,REG()),cur:0,phase:0,ok:false,gone:[],hinted:false};state='enc';}
-function toRegion(){if(!save.introDone)startIntro('region');else{snd('ok');state='region';cur=0;}}
-function titleOpts(){const o=[];if(nCollected()||save.region)o.push('CONTINUE');o.push(o.length?'NEW GAME':'BEGIN');return o;}
-let confirmNew=0,confirmRel=0; // second press within three seconds confirms an erase; no native dialogs on the handheld
-function titleAct(opt){
-  if(opt==='CONTINUE'){if(save.region&&save.introDone)enterRegion(save.region);else toRegion();}
-  else if(opt==='BEGIN'){toRegion();}
-  else if(opt==='NEW GAME'){if(nCollected()&&confirmNew<=0){confirmNew=180;snd('miss');toast={t:'THIS ERASES YOUR MOSSDEX. PRESS A AGAIN.',n:180};return;}confirmNew=0;save=fresh();persist();toRegion();cur=0;}
-}
-const TBTN=(i)=>[40,60+i*28,176,22];
-const MENU=['MOSSDEX','GOODMOSS','MAP','TUTORIAL','CLOSE'];
-function useHint(){if(enc.hinted||save.cheese<1){snd('miss');toast={t:enc.hinted?'THE BEETLE ALREADY HELPED':'NO CHEESE. CATCH A BEETLE FIRST',n:120};return;}
+function go(st){state=st;dirty();}
+function dirty(){uiDirty=true;if(ui&&SP&&running)render();}
+function say(t,n){toast={t,n:n||150};dirty();}
+function enterRegion(c){snd('ok');save.region=c;persist();genMap(c);menuOpen=false;toast={t:'WELCOME TO '+CN[c],n:120};ambientFor(CONT.indexOf(c));go('world');}
+function openJournal(){entry=null;jr.filter=CONT.indexOf(REG())+1;jr.cur=0;go('journal');}
+function startEnc(i){snd('found');const sp=spots[i].sp||pickSpecies(REG());img(sp);enc={spot:i,sp,opts:choices(sp,REG()),cur:0,phase:0,ok:false,gone:[],hinted:false};go('enc');}
+function toRegion(){if(!save.introDone)startIntro('region');else go('region');}
+function titleOpts(){const o=[];if(nCollected()||save.region)o.push(['continue','pick up where you left off','title:continue']);o.push(o.length?['new game','start over with an empty MossDex','title:new']:['begin','Professor Chaga is waiting','title:begin']);return o;}
+function titleAct(opt){if(!chimed){snd('chime');chimed=true;}
+  if(opt==='title:continue'){if(save.region&&save.introDone)enterRegion(save.region);else toRegion();}
+  else if(opt==='title:begin')toRegion();
+  else if(opt==='title:new'){if(nCollected()&&confirmNew<=0){confirmNew=180;snd('miss');say('THIS ERASES YOUR MOSSDEX. PRESS AGAIN.',180);return;}confirmNew=0;save=fresh();persist();toRegion();}}
+const MENU=[['MossDex','the 1000 species, and which ones you have','menu:mossdex'],['GoodMoss','plant a cutting and keep it alive','menu:goodmoss'],['map','travel to another continent','menu:map'],['tutorial','Professor Chaga, again','menu:tutorial'],['close','back to the moss','menu:close']];
+function useHint(){if(enc.hinted||save.cheese<1){snd('miss');say(enc.hinted?'THE BEETLE ALREADY HELPED':'NO CHEESE. CATCH A BEETLE FIRST',120);return;}
   save.cheese--;enc.hinted=true;const wrong=enc.opts.map((o,i)=>i).filter(i=>enc.opts[i]!==enc.sp);for(let k=wrong.length-1;k>0;k--){const j=(Math.random()*(k+1))|0;[wrong[k],wrong[j]]=[wrong[j],wrong[k]];}
-  enc.gone=wrong.slice(0,2);if(enc.gone.includes(enc.cur))enc.cur=enc.opts.findIndex((o,i)=>!enc.gone.includes(i));persist();snd('beetle');}
-function encMove(d){for(let k=0;k<4;k++){enc.cur=(enc.cur+d+4)%4;if(!enc.gone.includes(enc.cur))break;}snd('move',enc.cur);}
+  enc.gone=wrong.slice(0,2);persist();snd('beetle');dirty();}
+function answer(i){if(enc.phase!==1||enc.gone.includes(i))return;const ok=enc.opts[i]===enc.sp;enc.ok=ok;enc.cur=i;enc.phase=2;save.seen[enc.sp.key]=1;save.last=enc.sp.key;
+  if(ok)save.collected[enc.sp.key]=Date.now();persist();snd(ok?'collect':'miss',enc.sp.id);dirty();}
+function encDone(){respawnSpot(enc.spot);toast=null;if(nCollected()>=SP.length){snd('win');go('win');}else go('world');}
+function finishIntro(){save.introDone=true;persist();snd('ok');if(intro.ret==='world'&&map)go('world');else go('region');}
 
+// which buttons the game wants for itself right now; the host's focus cursor takes the rest
+function handles(b){
+  if(b==='b')return true;
+  if(state==='world')return !menuOpen;
+  if(state==='intro'||state==='petlapse'||state==='win')return true;
+  if(state==='journal')return b==='left'||b==='right'||b==='j'||(entry&&b==='a');
+  if(state==='enc')return enc.phase===2&&b==='a';
+  if(state==='pet'||state==='petpick')return b==='j';
+  return false;}
+const pad=()=>state==='world'&&!menuOpen;
+
+// the game's own input, for the states it handles. Menus, lists and buttons are clicked by the host.
 function update(){frame++;if(amb.on&&!muted&&state!=='title')ambient();if(confirmNew>0)confirmNew--;if(confirmRel>0)confirmRel--;
-  if(toast&&state!=='enc'&&--toast.n<=0)toast=null;
-  if(state==='title'){const o=titleOpts();if(cur>=o.length)cur=0;
-    if(hit('up')){cur=(cur+o.length-1)%o.length;snd('move',cur);}if(hit('down')){cur=(cur+1)%o.length;snd('move',cur);}
-    o.forEach((_,i)=>{const [x,y,w,h]=TBTN(i);if(tap(x,y,w,h)){cur=i;just.a=true;}});
-    if(hit('a')){if(!chimed){snd('chime');chimed=true;}titleAct(o[cur]);}}
-  else if(state==='intro'){const pg=intro.pages[intro.page];if(intro.ch<pg.length){intro.ch+=2;if(frame%3===0)snd('talk',intro.ch);}
-    const back=hit('b')||tap(132,164,76,22);const next=!back&&(hit('a')||(click&&!click.top));
-    if(next){if(intro.ch<pg.length){intro.ch=pg.length;}else if(intro.page<intro.pages.length-1){intro.page++;intro.ch=0;snd('move',intro.page);}else{finishIntro();}}
-    if(back){if(intro.page>0){intro.page--;intro.ch=intro.pages[intro.page].length;snd('back');}else snd('miss');}}
-  else if(state==='region'){if(hit('up')){cur=(cur+CONT.length-1)%CONT.length;snd('move',cur);}if(hit('down')){cur=(cur+1)%CONT.length;snd('move',cur);}
-    CONT.forEach((_,i)=>{if(tap(8,6+i*23,240,21)){cur=i;just.a=true;}});
-    if(hit('a'))enterRegion(CONT[cur]);if(hit('b')&&save.region&&map){state='world';snd('back');}}
+  if(toast&&--toast.n<=0){toast=null;dirty();}
+  if(state==='intro'){const pg=intro.pages[intro.page];if(intro.ch<pg.length){intro.ch+=2;if(frame%3===0)snd('talk',intro.ch);const d=ui&&ui.querySelector('#q-dialog');if(d)d.textContent=pg.slice(0,intro.ch);}
+    if(hit('a')||(click&&click.top)){if(intro.ch<pg.length){intro.ch=pg.length;const d=ui&&ui.querySelector('#q-dialog');if(d)d.textContent=pg;}else if(intro.page<intro.pages.length-1){intro.page++;intro.ch=0;snd('move',intro.page);dirty();}else finishIntro();}
+    if(hit('b')){if(intro.page>0){intro.page--;intro.ch=intro.pages[intro.page].length;snd('back');dirty();}else snd('miss');}}
+  else if(state==='region'){if(hit('b')&&save.region&&map){snd('back');go('world');}}
   else if(state==='world'){stepBeetles();
-    if(tap(8,150,76,32))openJournal();else if(tap(90,150,76,32))openPet();else if(tap(172,150,76,32)){snd('ok');state='region';cur=CONT.indexOf(REG());}
-    if(click&&click.top&&state==='world')tapWorld();
-    if(!player.mx&&!player.my&&state==='world'){
-      if(hit('j'))openJournal();
-      else if(hit('b')){state='menu';cur=0;snd('move',0);}
-      else{
-        if(hit('a')){player.path=[];if(interactAhead()){click=null;return;}}
-        if(keys.up||keys.down||keys.left||keys.right){player.path=[];player.goal=null;}
-        let dx=0,dy=0;if(keys.up){dy=-1;player.dir='up';}else if(keys.down){dy=1;player.dir='down';}else if(keys.left){dx=-1;player.dir='left';}else if(keys.right){dx=1;player.dir='right';}
-        if(!dx&&!dy&&!player.path.length&&player.goal){const g=player.goal;player.goal=null;if(Math.abs(g.x-player.x)+Math.abs(g.y-player.y)===1){faceTowards(g.x,g.y);if(interactAhead()){click=null;return;}}}
-        if(!dx&&!dy&&player.path.length){const d=player.path.shift();player.dir=d;dx={left:-1,right:1}[d]||0;dy={up:-1,down:1}[d]||0;}
-        if(dx||dy){const nx=player.x+dx,ny=player.y+dy;if(nx>=0&&ny>=0&&nx<MW&&ny<MH&&WALK[map[ny][nx]]&&!spots.some(o=>o.x===nx&&o.y===ny)&&!beetles.some(o=>o.x===nx&&o.y===ny)){player.x=nx;player.y=ny;player.mx=-dx*T;player.my=-dy*T;save.steps++;snd('step',save.steps);}}}
-    }else if(player.mx||player.my){const v=2;if(player.mx)player.mx+=player.mx<0?v:-v;if(player.my)player.my+=player.my<0?v:-v;player.anim++;}
-    player.px=player.x*T+player.mx;player.py=player.y*T+player.my;
-    cam.x=Math.max(0,Math.min(MW*T-W,player.px-W/2+8));cam.y=Math.max(0,Math.min(MH*T-H,player.py-H/2+8));}
-  else if(state==='menu'){if(hit('up')){cur=(cur+MENU.length-1)%MENU.length;snd('move',cur);}if(hit('down')){cur=(cur+1)%MENU.length;snd('move',cur);}
-    MENU.forEach((_,i)=>{if(tap(48,22+i*30,160,26)){cur=i;just.a=true;}});
-    if(hit('b')){state='world';snd('back');}if(hit('a')){const m=MENU[cur];if(m==='MOSSDEX')openJournal();else if(m==='GOODMOSS')openPet();else if(m==='MAP'){snd('ok');state='region';cur=CONT.indexOf(REG());}else if(m==='TUTORIAL')startIntro('world');else{state='world';snd('back');}}}
-  else if(state==='enc'){
-    if(enc.phase===0){if(hit('a')||(click&&!click.top)){enc.phase=1;snd('move',1);}}
-    else if(enc.phase===1){if(hit('up'))encMove(-1);if(hit('down'))encMove(1);
-      enc.opts.forEach((_,i)=>{if(tap(8,8+i*40,240,36)&&!enc.gone.includes(i)){enc.cur=i;just.a=true;}});
-      if(hit('b')||tap(8,170,240,18))useHint();
-      if(toast&&--toast.n<=0)toast=null;
-      if(hit('a')){const ok=enc.opts[enc.cur]===enc.sp;enc.ok=ok;enc.phase=2;save.seen[enc.sp.key]=1;save.last=enc.sp.key;
-        if(ok)save.collected[enc.sp.key]=Date.now();persist();snd(ok?'collect':'miss',enc.sp.id);}}
-    else if(enc.phase===2&&(hit('a')||hit('b')||(click&&!click.top))){respawnSpot(enc.spot);toast=null;state=nCollected()>=SP.length?'win':'world';if(state==='win')snd('win');}}
-  else if(state==='pet'){const p=save.pet;if(!p){openPick();}else{if(frame%120===0){simPet(p,Date.now());persist();}
-    petAnim(p);if(click&&click.top){pa.bounce=20;snd('chirp');}
-    if(hit('up')){petCur=(petCur+6)%8;snd('move',petCur);}if(hit('down')){petCur=(petCur+2)%8;snd('move',petCur);}if(hit('left')){petCur=(petCur+7)%8;snd('move',petCur);}if(hit('right')){petCur=(petCur+1)%8;snd('move',petCur);}
-    for(let i=0;i<8;i++){const [x,y,w,h]=PBTN(i);if(tap(x,y,w,h)){petCur=i;just.a=true;}}
-    if(hit('a'))petAct(petCur);if(hit('b')||hit('j')||tap(0,H-16,W,16)){state='world';snd('back');}}}
-  else if(state==='petpick'){const L=pickList();
-    if(hit('up')){pick.cur=Math.max(0,pick.cur-1);snd('move',pick.cur);}if(hit('down')){pick.cur=Math.min(L.length-1,pick.cur+1);snd('move',pick.cur);}
-    for(let i=0;i<ROWS;i++)if(tap(0,22+i*ROWH,W,ROWH)&&pick.top+i<L.length){if(pick.cur===pick.top+i)just.a=true;pick.cur=pick.top+i;snd('move',pick.cur);}
-    if(pick.cur<pick.top)pick.top=pick.cur;if(pick.cur>=pick.top+ROWS)pick.top=pick.cur-ROWS+1;
-    if(hit('a'))plantPick();if(hit('b')||tap(0,H-16,W,16)){state='world';snd('back');}}
-  else if(state==='petlapse'){const p=save.pet;if(frame%4===0)lapse.i++;if(!p||lapse.i>=p.snaps.length+15||hit('a')||hit('b')||click){state='pet';}}
+    if(menuOpen){if(hit('b')){menuOpen=false;snd('back');dirty();}}
+    else{if(click&&click.top)tapWorld();
+      if(!player.mx&&!player.my){
+        if(hit('j'))openJournal();
+        else if(hit('b')){menuOpen=true;snd('move',0);dirty();}
+        else{
+          if(hit('a')){player.path=[];if(interactAhead()){click=null;return;}}
+          if(keys.up||keys.down||keys.left||keys.right){player.path=[];player.goal=null;}
+          let dx=0,dy=0;if(keys.up){dy=-1;player.dir='up';}else if(keys.down){dy=1;player.dir='down';}else if(keys.left){dx=-1;player.dir='left';}else if(keys.right){dx=1;player.dir='right';}
+          if(!dx&&!dy&&!player.path.length&&player.goal){const g=player.goal;player.goal=null;if(Math.abs(g.x-player.x)+Math.abs(g.y-player.y)===1){faceTowards(g.x,g.y);if(interactAhead()){click=null;return;}}}
+          if(!dx&&!dy&&player.path.length){const d=player.path.shift();player.dir=d;dx={left:-1,right:1}[d]||0;dy={up:-1,down:1}[d]||0;}
+          if(dx||dy){const nx=player.x+dx,ny=player.y+dy;if(nx>=0&&ny>=0&&nx<MW&&ny<MH&&WALK[map[ny][nx]]&&!spots.some(o=>o.x===nx&&o.y===ny)&&!beetles.some(o=>o.x===nx&&o.y===ny)){player.x=nx;player.y=ny;player.mx=-dx*T;player.my=-dy*T;save.steps++;snd('step',save.steps);}}}
+      }else if(player.mx||player.my){const v=2;if(player.mx)player.mx+=player.mx<0?v:-v;if(player.my)player.my+=player.my<0?v:-v;player.anim++;}
+      player.px=player.x*T+player.mx;player.py=player.y*T+player.my;
+      cam.x=Math.max(0,Math.min(MW*T-W,player.px-W/2+8));cam.y=Math.max(0,Math.min(MH*T-H,player.py-H/2+8));}}
+  else if(state==='enc'){if(enc.phase===1&&hit('b'))useHint();else if(enc.phase===2&&(hit('a')||hit('b')))encDone();else if(enc.phase===0&&hit('b')){/* no fleeing: face it */snd('miss');}}
+  else if(state==='pet'){const p=save.pet;if(!p){openPick();}else{if(frame%120===0){simPet(p,Date.now());persist();dirty();}petAnim(p);if(click&&click.top){pa.bounce=20;snd('chirp');}
+    if(hit('b')||hit('j')){snd('back');go('world');}}}
+  else if(state==='petpick'){if(hit('b')||hit('j')){if(naming){naming=null;dirty();}else{snd('back');go('world');}}}
+  else if(state==='petlapse'){const p=save.pet;if(frame%4===0){lapse.i++;const f=ui&&ui.querySelector('#q-frame');if(f&&p)f.textContent='frame '+(Math.min(lapse.i,p.snaps.length-1)+1)+' / '+p.snaps.length;}if(!p||lapse.i>=p.snaps.length+15||hit('a')||hit('b')||click)go('pet');}
   else if(state==='journal'){const L=jlist();
-    if(hit('left')||tap(0,0,40,20)){jr.filter=(jr.filter+JF-1)%JF;jr.cur=jr.top=0;snd('move',jr.filter);}
-    if(hit('right')||tap(W-40,0,40,20)){jr.filter=(jr.filter+1)%JF;jr.cur=jr.top=0;snd('move',jr.filter);}
-    if(hit('up')){jr.cur=Math.max(0,jr.cur-1);snd('move',jr.cur);}if(hit('down')){jr.cur=Math.min(L.length-1,jr.cur+1);snd('move',jr.cur);}
-    jr.hold=(keys.up||keys.down)?jr.hold+1:0;
-    if(jr.hold>10&&frame%3===0){if(keys.up)jr.cur=Math.max(0,jr.cur-1);if(keys.down)jr.cur=Math.min(L.length-1,jr.cur+1);}
-    for(let i=0;i<ROWS;i++)if(tap(0,22+i*ROWH,W,ROWH)&&jr.top+i<L.length){jr.cur=jr.top+i;snd('move',jr.cur);}
-    if(tap(0,H-16,W,16)){state='world';snd('back');}
-    if(jr.cur<jr.top)jr.top=jr.cur;if(jr.cur>=jr.top+ROWS)jr.top=jr.cur-ROWS+1;
-    if(hit('b')||hit('j')){state='world';snd('back');}}
-  else if(state==='win'){if(hit('a')||click)state='world';}
+    if(hit('left')){jr.filter=(jr.filter+JF-1)%JF;jr.cur=0;entry=null;snd('move',jr.filter);dirty();}
+    if(hit('right')){jr.filter=(jr.filter+1)%JF;jr.cur=0;entry=null;snd('move',jr.filter);dirty();}
+    if(entry&&hit('a')){entry=null;dirty();}
+    if(hit('b')||hit('j')){if(entry){entry=null;snd('back');dirty();}else{snd('back');go('world');}}}
+  else if(state==='win'){if(hit('a')||hit('b')||click)go('world');}
+  else if(state==='title'){if(hit('b'))snd('miss');}
   click=null;
 }
-function finishIntro(){save.introDone=true;persist();snd('ok');if(intro.ret==='world'&&map)state='world';else{state='region';cur=0;}}
 
-/* ---------------- draw: top pane ---------------- */
+// clicks on the game's own HTML: the host's A button clicks the focused item, a mouse or finger clicks it directly
+function act(name,arg){
+  if(name.startsWith('title:'))titleAct(name);
+  else if(name==='region:go')enterRegion(arg);
+  else if(name==='world:menu'){menuOpen=true;dirty();}
+  else if(name==='menu:mossdex'){menuOpen=false;openJournal();}
+  else if(name==='menu:goodmoss'){menuOpen=false;openPet();}
+  else if(name==='menu:map'){menuOpen=false;go('region');}
+  else if(name==='menu:tutorial'){menuOpen=false;startIntro('world');dirty();}
+  else if(name==='menu:close'){menuOpen=false;dirty();}
+  else if(name==='enc:identify'){enc.phase=1;dirty();}
+  else if(name==='enc:answer')answer(Number(arg));
+  else if(name==='enc:hint')useHint();
+  else if(name==='enc:continue')encDone();
+  else if(name==='dex:open'){const s=SP.find(x=>String(x.key)===String(arg));if(s){entry=s;jr.cur=jlist().indexOf(s);dirty();}}
+  else if(name==='dex:back'){entry=null;dirty();}
+  else if(name==='dex:filter'){jr.filter=(jr.filter+Number(arg)+JF)%JF;jr.cur=0;entry=null;dirty();}
+  else if(name==='pet:act')petAct(Number(arg));
+  else if(name==='pet:pick'){const s=SP.find(x=>String(x.key)===String(arg));if(s){naming=s;dirty();}}
+  else if(name==='pet:name'&&naming)plantPick(naming,arg==='*'?undefined:arg);
+  else if(name==='pet:cancel'){naming=null;dirty();}
+  else if(name==='pet:back'){snd('back');go('world');}
+  else if(name==='win:go')go('world');
+}
+
+/* ---------------- the HTML side, in the host's own vocabulary ---------------- */
+const esc=t=>String(t==null?'':t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const mi=(label,actn,arg,note,cls)=>`<li><button type="button" class="menu-item focusable${cls?' '+cls:''}" data-act="${actn}"${arg!=null?` data-arg="${esc(arg)}"`:''}${note?` data-note="${esc(note)}"`:''}>${esc(label)}</button></li>`;
+const heading=t=>`<li class="menu-heading">${esc(t)}</li>`;
+const note=t=>`<li class="menu-note">${esc(t)}</li>`;
+const msg=t=>t?`<p class="lcd-msg">${esc(t)}</p>`:'';
+const row=(k,v)=>`<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`;
+const photoEl=(sp,hidden)=>sp&&sp.image&&!hidden?`<img class="q-photo" src="${esc((opts.imgBase||'')+sp.image.file)}" alt="${esc(sp.name)}">`:`<div class="q-photo q-nophoto">${hidden?'???':'no photo'}</div>`;
+const low=t=>String(t||'').toLowerCase();
+const PROPER={mossdex:'MossDex',goodmoss:'GoodMoss',chaga:'Chaga',gbif:'GBIF',inaturalist:'iNaturalist',antarctic:'Antarctic',antarctica:'Antarctica',sphagnum:'Sphagnum',remilianet:'RemiliaNET'};
+function sentence(t){const name=(user&&(user.displayName||user.handle))||'Explorer';t=String(t||'').toLowerCase();
+  t=t.replace(/(^|[.!?]\s+)([a-z])/g,(m,a,b)=>a+b.toUpperCase()).replace(/\bi\b/g,'I').replace(/[a-z]+/gi,w=>PROPER[w.toLowerCase()]||w);
+  return t.replace(/\{name\}/g,name);}
+const titleCase=t=>String(t||'').toLowerCase().replace(/\b[a-z]/g,c=>c.toUpperCase());
+const cap=t=>{t=String(t||'');return t.charAt(0).toUpperCase()+t.slice(1).toLowerCase();};
+const regionList=sp=>sp.regions.map(r=>titleCase(CN[r])).join(', ');
+const status=sp=>save.collected[sp.key]?'collected':save.seen[sp.key]?'seen':'unknown';
+function speciesCard(sp,k){const known_=k==null?known(sp):k;return `<div class="q-card"><div class="q-stage">${photoEl(sp,!known_)}</div>
+  <h2 class="q-name">${esc(known_?sp.name:'?????')}${known_&&sp.author?` <span class="q-author">${esc(sp.author)}</span>`:''}</h2>
+  ${known_&&sp.common?`<p class="q-common">${esc(sp.common)}</p>`:''}
+  <dl>${row('no.',String(sp.id).padStart(4,'0'))}${row('family',known_?sp.family||'?':'?')}${row('order',known_?sp.order||'?':'?')}${row('found in',regionList(sp))}${row('records',sp.records.toLocaleString('en-US')+' on GBIF')}${known_&&sp.image?row('photo',sp.image.by+' · '+lic(sp.image.license)):''}${row('status',status(sp))}</dl></div>`;}
+
+function render(){if(!ui)return;let h='',focus=0,scene='none';const u=user||GUEST;
+  if(state==='title'){scene='lab';h=`<h1 class="q-title">moss quest</h1><p class="lcd-note q-center">${esc(SP.length)} species · seven continents · one MossDex</p>
+    <div class="q-who">${u.pfpUrl?`<img class="rn-pfp q-pfp" src="${esc(u.pfpUrl)}" alt="">`:''}<div><b>${esc(u.displayName||u.handle)}</b><span class="rn-handle">${u.guest?'guest · saved on this device':'@'+esc(u.handle)+' · RemiliaNET'}${nCollected()?' · '+nCollected()+' / '+SP.length+' logged · '+save.cheese+' cheese':''}</span></div></div>
+    ${msg(toast&&toast.t)}<ul class="menu">${titleOpts().map(o=>mi(o[0],o[2],null,o[1])).join('')}</ul>`;}
+  else if(state==='intro'){scene='lab';const pg=intro.pages[intro.page];h=`<div class="lcd-header"><span class="lcd-header-title">PROF. CHAGA</span><span class="item-meta">page ${intro.page+1} / ${intro.pages.length}</span></div><p class="q-dialog" id="q-dialog">${esc(pg.slice(0,intro.ch))}</p>`;}
+  else if(state==='region'){h=`<div class="lcd-header"><span class="lcd-header-title">WHERE TO?</span><span class="item-meta">${nCollected()} / ${SP.length}</span></div><ul class="menu">`+
+    CONT.map((c,i)=>{const R=roster[c],g=nCollectedIn(c);return mi(`${titleCase(CN[c])} · ${g}/${R.length}`,'region:go',c,low(THEMES[c].blurb)+' · '+new Set(R.map(s=>s.family)).size+' families');}).join('')+'</ul>';
+    focus=Math.max(0,CONT.indexOf(save.region));}
+  else if(state==='world'){scene='world';const c=REG(),R=roster[c],g=nCollectedIn(c);const last=SP.find(s=>s.key===save.last);
+    if(menuOpen){h=`<ul class="menu">${heading(titleCase(CN[c]))}${MENU.map(m=>mi(m[0],m[2],null,m[1])).join('')}</ul>`;}
+    else{h=`<div class="q-strip"><span class="q-strip-title">${esc(titleCase(CN[c]))}</span><span class="item-meta">${g} / ${R.length} here · ${nCollected()} / ${SP.length} · cheese ${save.cheese}</span></div>`+
+      (last?`<p class="lcd-note">last found: <b>${esc(last.name)}</b>${last.common?', '+esc(low(last.common)):''} · ${save.collected[last.key]?'in the MossDex':'seen only'}</p>`:`<p class="lcd-note">walk up to a moss tuft, face it and press A. catch beetles for cheese.</p>`);}}
+  else if(state==='enc'){const sp=enc.sp;
+    if(enc.phase===0){h=`<div class="q-stage">${photoEl(sp)}</div><h2 class="q-name">a wild moss appears!</h2><dl>${row('family',sp.family||'?')}${row('found in',regionList(sp))}${row('records',sp.records.toLocaleString('en-US'))}${row('status',save.collected[sp.key]?'already in the MossDex':save.seen[sp.key]?'seen before. remember it?':'new species!')}</dl>
+      <ul class="menu item-links">${mi('identify','enc:identify',null,'look closely, then pick the name')}</ul>`;}
+    else if(enc.phase===1){h=`<div class="q-stage">${photoEl(sp)}</div><h2 class="q-name">what species is it? <span class="item-meta">family ${esc(sp.family||'?')}</span></h2>${msg(toast&&toast.t)}<ul class="menu">`+
+      enc.opts.map((o,i)=>{const gone=enc.gone.includes(i);return mi(o.name,'enc:answer',i,gone?'a beetle ruled this one out':o.family===sp.family?'same family':'a different family',gone?'q-gone':'');}).join('')+
+      `</ul><ul class="menu item-links">${mi(enc.hinted?'the beetle has spoken':`ask a beetle · 1 cheese, you have ${save.cheese}`,'enc:hint',null,'a beetle rules out two wrong names')}</ul>`;focus=enc.cur;}
+    else{h=`<h2 class="q-name">${enc.ok?'correct! '+esc(idstr(sp).toLowerCase()):'not quite...'}</h2>${speciesCard(sp,true)}<p class="lcd-msg">${enc.ok?'this entry is back in the MossDex.':'it slipped away, but it is marked as seen. find it again and name it to collect.'}</p>
+      <ul class="menu item-links">${mi('continue','enc:continue',null,'back to the moss')}</ul>`;}}
+  else if(state==='journal'){const L=jlist();const name=jr.filter===0?'all regions':jr.filter===JF-1?'collected':low(CN[CONT[jr.filter-1]]);const got=L.filter(s=>save.collected[s.key]).length;
+    if(entry){h=`<div class="lcd-header"><span class="lcd-header-title">MOSSDEX</span><span class="item-meta">${esc(name)} · ${jr.cur+1} / ${L.length}</span></div>${speciesCard(entry)}<ul class="menu item-links">${mi('back to the list','dex:back',null,'B: back')}</ul>`;}
+    else{h=`<div class="lcd-header"><span class="lcd-header-title">MOSSDEX</span><nav class="tabs"><button type="button" class="tab" data-act="dex:filter" data-arg="-1">◀</button><span class="tab active">${esc(name)} · ${got}/${L.length}</span><button type="button" class="tab" data-act="dex:filter" data-arg="1">▶</button></nav></div>`+
+      (L.length?`<ul class="menu q-list">`+L.map(s=>{const st=status(s);return mi(`${String(s.id).padStart(4,'0')}  ${st==='unknown'?'-----':s.name}`,'dex:open',s.key,st==='collected'?'in the MossDex':st==='seen'?'seen, not yet named':'not found yet','q-'+st);}).join('')+'</ul>':`<p class="lcd-msg">${jr.filter===JF-1?'nothing collected yet':'nothing here'}</p>`);
+      focus=jr.cur;}}
+  else if(state==='petpick'){const L=pickList();
+    if(naming){h=`<div class="lcd-header"><span class="lcd-header-title">NAME IT</span></div>${speciesCard(naming)}<ul class="menu">${heading('a name for your moss')}${PETNAMES.map(n=>mi(low(n),'pet:name',n,'plant '+naming.name+' as '+low(n))).join('')}${mi('surprise me','pet:name','*','a random name')}${mi('back','pet:cancel',null,'choose another cutting')}</ul>`;}
+    else{h=`<div class="lcd-header"><span class="lcd-header-title">PLANT A CUTTING</span><span class="item-meta">${L.length} collected</span></div><p class="lcd-note">mosses have no roots. they drink from the air and go dormant, not dead, when they dry. keep light, water and air near what the species knows from the wild and it will fruit.</p><ul class="menu q-list">`+
+      L.map(s=>{const pr=prefs(s);return mi(s.name,'pet:pick',s.key,`grows as a ${FORMS[pr.form].label.toLowerCase()} · likes ${word(pr.moist,'dryish','moist','wet')}, ${word(pr.light,'shade','half shade','sun')} · on ${pr.sub}`);}).join('')+'</ul>';focus=pick.cur;}}
+  else if(state==='pet'&&save.pet){scene='jar';const p=save.pet,sp=petSp(p),pr=prefs(sp);const mm=petMood(p);
+    h=`<div class="lcd-header"><span class="lcd-header-title">${esc(p.name)}</span><span class="item-meta">${esc(low(petAge(p)))} old · ${esc(FORMS[pr.form].label.toLowerCase())}</span></div><p class="lcd-msg">${esc(low(mm[0]))}</p>
+      <dl class="q-meters">${meter('hydration',p.hyd)}${meter('light fit',1-Math.abs(pr.light-p.light))}${meter('air',p.air)}${meter('health',p.health)}${meter('growth',p.growth)}</dl>
+      ${p.log[0]?`<p class="lcd-note">${esc(low(p.log[0]))}</p>`:''}${msg(toast&&toast.t)}
+      <ul class="menu">${petLabels(p).map((l,i)=>mi(l[0],'pet:act',i,l[1])).join('')}</ul><p class="lcd-note">spores ${p.spores} · fruited ${p.fruited}× · cheese ${save.cheese} · ${esc(sp.name)}</p>`;focus=petCur;}
+  else if(state==='petlapse'&&save.pet){scene='jar';const p=save.pet;h=`<div class="lcd-header"><span class="lcd-header-title">TIME-LAPSE</span><span class="item-meta" id="q-frame">frame 1 / ${p.snaps.length}</span></div><p class="lcd-note">the jar so far, replayed. A: back to the jar</p>`;}
+  else if(state==='win'){h=`<h1 class="q-title">you did it!</h1><p class="lcd-msg">every moss collected. a bryologist is born.</p><dl>${row('steps walked',String(save.steps))}${row('beetles caught',String(nBeetles()))}${row('cheese',String(save.cheese))}${CONT.map(c=>row(titleCase(CN[c]),nCollectedIn(c)+' / '+roster[c].length)).join('')}</dl><ul class="menu item-links">${mi('keep exploring','win:go',null,'the moss is still out there')}</ul>`;}
+  ui.innerHTML=h;const host=ui.closest('[data-scene]')||ui.parentElement;if(host)host.dataset.scene=scene;
+  if(opts.onRender)opts.onRender(focus);
+  if(opts.onStatus)opts.onStatus(statusText());lastStatus=statusText();uiDirty=false;}
+function meter(label,v){const n=Math.round(Math.max(0,Math.min(1,v))*10);return row(label,'█'.repeat(n)+'░'.repeat(10-n));}
+
+/* ---------------- the pixel-art scene ---------------- */
 function drawTileAt(t,x,y){const base=OVER[t]?TL[G0]:null;if(base)ctx.drawImage(base,x,y);
   let img_=TL[t];if(t===WATER)img_=TL[WATER][(frame>>5)&1];else if(t===BLDG)img_=TL[BLDG][((x/T+y/T)|0)&1];ctx.drawImage(img_,x,y);}
-function drawWorldTop(){const ox=-cam.x|0,oy=-cam.y|0;const x0=Math.max(0,(cam.x/T)|0),y0=Math.max(0,(cam.y/T)|0);
+function drawWorld(){const ox=-cam.x|0,oy=-cam.y|0;const x0=Math.max(0,(cam.x/T)|0),y0=Math.max(0,(cam.y/T)|0);
   for(let y=y0;y<Math.min(MH,y0+VH+1);y++)for(let x=x0;x<Math.min(MW,x0+VW+1);x++)drawTileAt(map[y][x],x*T+ox,y*T+oy);
   const mf=((frame>>4)&3)===0?1:0;for(const s of spots){if(s.x>=x0-1&&s.x<x0+VW+1&&s.y>=y0-1&&s.y<y0+VH+1)ctx.drawImage(MOSS[mf],s.x*T+ox,s.y*T+oy);}
   for(const b of beetles){if(b.x>=x0-1&&b.x<x0+VW+1&&b.y>=y0-1&&b.y<y0+VH+1)ctx.drawImage(b.spr[(frame>>3)&1],b.x*T+ox,b.y*T+oy);}
@@ -618,190 +684,50 @@ function drawWorldTop(){const ox=-cam.x|0,oy=-cam.y|0;const x0=Math.max(0,(cam.x
   const dx={left:-1,right:1}[player.dir]||0,dy={up:-1,down:1}[player.dir]||0;const tx=player.x+dx,ty=player.y+dy;
   if(!player.mx&&!player.my&&(spots.some(o=>o.x===tx&&o.y===ty)||beetles.some(o=>o.x===tx&&o.y===ty))){const bx=player.px+ox+5,by=player.py+oy-10+((frame>>3)&1);bevelOut(bx-2,by-2,10,11,C.paper);text('!',bx+1,by+1,C.red);}
   ctx.globalAlpha=0.08;ctx.fillStyle='#0a246a';const cs=(frame*0.2)%(W+120);ctx.beginPath();ctx.ellipse(cs-60,40,50,16,0,0,7);ctx.ellipse(W-cs+30,130,40,14,0,0,7);ctx.fill();ctx.globalAlpha=1;
-  if(toast){const w=tw(toast.t)+16;bevelOut(W/2-w/2,H-26,w,18,C.face);text(toast.t,W/2-w/2+8,H-20,toast.tier?TIER[toast.tier].col:C.ink);}
+  if(toast){withFont(F7,()=>{const w=tw(toast.t)+16;bevelOut(W/2-w/2,H-26,w,18,C.face);text(toast.t,W/2-w/2+8,H-20,toast.tier?TIER[toast.tier].col:C.ink);});}
   if(player.goal||player.path.length){const g=player.goal;if(g){rect(g.x*T+ox+7,g.y*T+oy-3+((frame>>3)&1),2,2,C.red);}}
-}
-function drawEncTop(){const sp=enc.sp;drawSky(0,0,0.1);dots(0,0,W,H,'rgba(255,255,255,0.35)');
-  photo(sp,32,10,192,144);ctx.fillStyle='rgba(255,255,255,0.7)';ctx.fillRect(24,160,208,28);rect(24,160,208,1,C.white);rect(24,187,208,1,C.shade);
-  if(enc.phase===0)textC('A WILD MOSS APPEARS!',W/2,169,C.navy,2);
-  else if(enc.phase===1){textC('WHAT SPECIES IS IT?',W/2,165,C.navy,2);textC('FAMILY '+(sp.family||'?'),W/2,179,C.muted,1);}
-  else{textC(enc.ok?'CORRECT!  '+idstr(sp):'NOT QUITE...',W/2,164,enc.ok?C.green:C.red,2);textC(wrap(sp.name,60)[0],W/2,179,C.ink,1);}
-}
-function drawEntryTop(s){rect(0,0,W,H,C.paper);dots(0,0,W,H);titlebar(0,0,W,12,'MOSSDEX ENTRY');
-  if(!s){textC('NOTHING HERE YET',W/2,90,C.muted);return;}
-  const k=known(s);textR(save.collected[s.key]?'COLLECTED':k?'SEEN':'UNKNOWN',W-38,4,save.collected[s.key]?C.mint:C.lav2);
-  photo(s,8,24,128,96,!k);
-  let y=22;const nm=k?s.name:'?????';
-  wrap(nm,28).slice(0,2).forEach(l=>{text(l,144,y,C.navy,1);y+=7;});
-  if(k&&s.author){wrap(s.author,28).slice(0,1).forEach(l=>{text(l,144,y,C.muted,1);y+=7;});}
-  if(k&&s.common){y+=2;wrap(s.common,28).slice(0,2).forEach(l=>{text(l,144,y,C.green,1);y+=7;});}
-  y+=3;text('FAMILY',144,y,C.muted);text(k?(s.family||'?'):'?',172,y,C.ink);y+=7;text('ORDER',144,y,C.muted);text(k?(s.order||'?'):'?',172,y,C.ink);y+=9;
-  text('REGIONS',144,y,C.muted);y+=7;text(s.regions.map(r=>CA[r]).join(' '),144,y,C.ink);y+=9;
-  text('RECORDS',144,y,C.muted);text(s.records.toLocaleString('en-US'),176,y,C.ink);y+=7;
-  text(idstr(s),8,14,C.muted);
-  y=128;if(k&&s.image){wrap('PHOTO: '+s.image.by+' ('+lic(s.image.license)+')',60).slice(0,2).forEach(l=>{text(l,8,y,C.muted);y+=7;});}
-  groove(8,H-16,W-16,1);text('SOURCE: GBIF.ORG',8,H-10,C.muted);
-  if(k)textR(s.regions.length>=5?'COSMOPOLITAN':s.regions.length===1?'REGIONAL ENDEMIC':'WIDESPREAD',W-8,H-10,C.green);
-}
-function drawIntroTop(){drawSky(0,0,0.08);dots(0,0,W,H,'rgba(255,255,255,0.3)');
-  // lab floor
+  if(menuOpen){ctx.fillStyle='rgba(27,51,32,0.35)';ctx.fillRect(0,0,W,H);}}
+function drawLab(){drawSky(0,0,0.08);dots(0,0,W,H,'rgba(255,255,255,0.3)');
   rect(0,140,W,52,'#c8d4c0');for(let i=0;i<W;i+=16)for(let j=140;j<H;j+=16)if(((i+j)>>4)&1)rect(i,j,16,16,'#bccab4');
   bevelOut(150,96,96,52,'#a08060');rect(154,100,88,44,'#c8a880');ctx.drawImage(MOSS[0],160,92);ctx.drawImage(MOSS[1],200,92);
   photo(null,178,104,40,30,true);
   ctx.save();ctx.translate(40,60);ctx.scale(3,3);ctx.drawImage(PROF,0,0);ctx.restore();
-  const bob=(frame>>4)&1;ctx.drawImage(MOSS[bob],20,150);ctx.drawImage(MOSS[1-bob],120,160);
-  bevelOut(0,0,W,12,C.face);text('MOSS RESEARCH LAB',4,3,C.navy);textR('PAGE '+(intro.page+1)+'/'+intro.pages.length,W-4,3,C.muted);
-}
-function drawTop(){
-  if(state==='title'){rect(0,0,W,H,C.paper);dots(0,0,W,H,C.grid);
-    rect(46,20,164,154,C.navy);rect(48,22,160,150,C.light);dots(50,24,156,146,C.grid);
-    withFont(F7,()=>{textC('PROFESSOR CHAGA PRESENTS',W/2,30,C.muted,1);textC('THE QUEST TO FIND ALL THE MOSS',W/2,72,C.muted,1);});textCS('MOSS QUEST',W/2,42,C.ink,C.paper2,3);
-    emblem(W/2,116,30,C.muted,C.light);emblem(W/2,116,30,'rgba(27,51,32,0.25)','rgba(0,0,0,0)');
-    withFont(F7,()=>textC(SP.length+' SPECIES  -  7 REGIONS',W/2,152,C.ink,1));
-    [[6,150],[232,156],[120,176],[20,20],[236,26]].forEach(([x,y],i)=>ctx.drawImage(MOSS[(frame>>4)+i&1],x,y));
-    if(toast){const w=tw(toast.t)+16;bevelOut(W/2-w/2,H-24,w,18,C.face);text(toast.t,W/2-w/2+8,H-18,C.red);}}
-  else if(state==='intro')drawIntroTop();
-  else if(state==='region'){drawSky(0,0,0.1);dots(0,0,W,H,'rgba(255,255,255,0.3)');
-    const c=CONT[cur],th=THEMES[c];const r=panelBox(16,8,224,176,'REGION: '+CN[c]);
-    textCS(CN[c],W/2,r.y+6,C.navy,C.lav2,2);wrap(th.blurb,54).slice(0,2).forEach((l,i)=>textC(l,W/2,r.y+22+i*7,C.muted));
-    const Rr=roster[c],g=nCollectedIn(c);textC(g+' / '+Rr.length+' COLLECTED',W/2,r.y+40,C.ink);bar(40,r.y+50,176,10,g/(Rr.length||1));
-    const fams=new Set(Rr.map(s=>s.family)).size;textC(fams+' FAMILIES',W/2,r.y+66,C.muted);
-    const top=Rr.slice().sort((a,b)=>(b.regionCounts[c]||0)-(a.regionCounts[c]||0)).slice(0,3);text('MOST RECORDED HERE:',40,r.y+80,C.muted);
-    top.forEach((s,i)=>text((save.collected[s.key]?s.name:'?????'),40,r.y+90+i*8,C.ink));
-    text('BEETLES: '+th.beetles.map(b=>b.name).slice(0,3).join(', ').slice(0,52),40,r.y+118,C.muted);
-    groove(r.x+8,r.y+r.h-22,r.w-16,1);textC('TOTAL '+nCollected()+' / '+SP.length,W/2,r.y+r.h-14,C.muted);}
-  else if(state==='world'||state==='menu')drawWorldTop();
-  else if(state==='enc')drawEncTop();
-  else if(state==='journal')drawEntryTop(jlist()[jr.cur]);
-  else if(state==='pet'&&save.pet)drawPetTop(save.pet);
-  else if(state==='petlapse'&&save.pet){const p=save.pet;const snap=p.snaps[Math.min(lapse.i,p.snaps.length-1)];drawPetTop(p,snap);}
-  else if(state==='petpick'){const L=pickList(),s=L[pick.cur];rect(0,0,W,H,C.paper);dots(0,0,W,H);titlebar(0,0,W,12,'CHOOSE A CUTTING');
-    if(s){const pr=prefs(s);photo(s,8,22,128,96);wrap(s.name,28).slice(0,2).forEach((l,i)=>text(l,144,24+i*7,C.navy));if(s.common)text(wrap(s.common,28)[0],144,40,C.green);
-      text('FAMILY '+(s.family||'?'),144,52,C.ink);text('GROWS AS',144,66,C.muted);wrap(FORMS[pr.form].label,26).forEach((l,i)=>text(l,144,74+i*7,C.ink));
-      text('LIKES',144,92,C.muted);text(word(pr.moist,'DRYISH','MOIST','WET')+', '+word(pr.light,'SHADE','HALF SHADE','SUN'),144,100,C.ink);text('ON '+pr.sub.toUpperCase(),144,108,C.ink);
-      text('MOSSES HAVE NO ROOTS. THEY DRINK FROM THE AIR AND',8,128,C.muted);text('SURFACE, AND GO DORMANT, NOT DEAD, WHEN THEY DRY.',8,136,C.muted);
-      text('KEEP LIGHT, WATER AND AIR NEAR WHAT THE SPECIES',8,148,C.muted);text('KNOWS FROM THE WILD AND IT WILL FRUIT.',8,156,C.muted);}}
-  else if(state==='win'){drawSky(0,0,0.2);const r=panelBox(24,30,208,130,'ACHIEVEMENT UNLOCKED');
-    emblem(W/2,r.y+26,16,C.gold,C.white);textCS('YOU DID IT!',W/2,r.y+48,C.navy,C.lav2,3);textC('EVERY MOSS COLLECTED',W/2,r.y+78,C.ink);textC(SP.length+' / '+SP.length,W/2,r.y+90,C.ink,2);textC('A BRYOLOGIST IS BORN',W/2,r.y+108,C.muted);}
-}
+  const bob=(frame>>4)&1;ctx.drawImage(MOSS[bob],20,150);ctx.drawImage(MOSS[1-bob],120,160);}
+function drawScene(){rect(0,0,W,H,C.paper);
+  if(state==='world')drawWorld();
+  else if(state==='title'||state==='intro')drawLab();
+  else if((state==='pet'||state==='petlapse')&&save.pet){const p=save.pet;const snap=state==='petlapse'?p.snaps[Math.min(lapse.i,p.snaps.length-1)]:null;drawJar(73,10,110,132,p,snap);}}
 
-/* ---------------- draw: bottom pane ---------------- */
-function drawBottom(){rect(0,0,W,H,C.face);
-  if(state==='title'){const r=panelBox(16,8,224,176,'WELCOME');
-    const o=titleOpts();const u=user||GUEST;
-    withFont(F7,()=>{
-    pfp(r.x+8,r.y+6,24);text((u.displayName||u.handle).slice(0,28),r.x+38,r.y+6,C.navy);text(u.guest?'GUEST - SAVED ON THIS DEVICE':'@'+u.handle+'  REMILIANET',r.x+38,r.y+16,C.muted);
-    if(nCollected())text(nCollected()+' / '+SP.length+' LOGGED   '+save.cheese+' CHEESE',r.x+38,r.y+26,C.ink);
-    o.forEach((s,i)=>{const [x,y,w,h]=TBTN(i);wbtn(x,y,w,h,s,i===cur,1);});
-    groove(r.x+6,r.y+r.h-26,r.w-12,1);textC('A: OK   B: MENU   X: MOSSDEX',W/2,r.y+r.h-20,C.muted);textC('DATA: GBIF.ORG   PHOTOS: CC LICENSED',W/2,r.y+r.h-10,C.muted);});}
-  else if(state==='intro'){const r=panelBox(8,8,240,150,'PROF. CHAGA');const pg=intro.pages[intro.page];const shown=pg.slice(0,intro.ch);
-    withFont(F7,()=>{wrap(shown,36).slice(0,12).forEach((l,i)=>text(l,r.x+8,r.y+8+i*10,C.ink,1));
-    if(intro.ch>=pg.length&&((frame>>4)&1))text('>',r.x+r.w-12,r.y+r.h-12,C.navy,1);
-    wbtn(48,164,76,22,'A: NEXT',true,1);wbtn(132,164,76,22,'B: BACK',intro.page>0,1);});}
-  else if(state==='region'){CONT.forEach((c,i)=>{const y=6+i*23,sel=i===cur;bevelOut(8,y,240,21);if(sel)selrow(11,y+3,234,15);
-    text(CN[c],16,y+8,sel?C.white:C.ink,1);const Rr=roster[c],g=nCollectedIn(c);textR(g+'/'+Rr.length,240,y+8,sel?C.white:C.ink);bar(140,y+6,60,9,g/(Rr.length||1),sel?C.mint:C.navy);});
-    textC('A: GO   B: BACK',W/2,H-8,C.muted);}
-  else if(state==='world'||state==='menu'){const c=REG();
-    const r=panelBox(8,6,240,56,'REGION');
-    text(CN[c],r.x+6,r.y+4,C.navy,2);const Rr=roster[c],g=nCollectedIn(c);text(g+' / '+Rr.length+' HERE',r.x+6,r.y+20,C.ink);bar(r.x+6,r.y+30,r.w-12,9,g/(Rr.length||1));
-    textR(nCollected()+' / '+SP.length+' TOTAL',r.x+r.w-6,r.y+20,C.muted);
-    const r2=panelBox(8,68,240,76,'LAST FOUND');const last=SP.find(s=>s.key===save.last);
-    if(last){photo(last,r2.x+6,r2.y+6,64,48);wrap(last.name,36).slice(0,2).forEach((l,i)=>text(l,r2.x+78,r2.y+6+i*7,C.navy));if(last.common)text(wrap(last.common,36)[0],r2.x+78,r2.y+22,C.green);text((last.family||'').slice(0,22),r2.x+78,r2.y+31,C.muted);text(save.collected[last.key]?'IN MOSSDEX':'SEEN ONLY',r2.x+78,r2.y+39,save.collected[last.key]?C.green:C.red);}
-    else{text('WALK UP TO A MOSS TUFT AND PRESS A.',r2.x+6,r2.y+18,C.ink);text('FACE IT FIRST. LOOK FOR THE !',r2.x+6,r2.y+28,C.muted);text('CATCH BEETLES FOR CHEESE.',r2.x+6,r2.y+40,C.muted);}
-    bevelIn(r2.x+76,r2.y+r2.h-12,r2.w-82,10,C.face);text('CHEESE '+save.cheese+'   BEETLES '+nBeetles(),r2.x+80,r2.y+r2.h-9,C.ink);
-    wbtn(8,150,76,32,'MOSSDEX',false,1);wbtn(90,150,76,32,save.pet?save.pet.name:'GOODMOSS',false,1);wbtn(172,150,76,32,'MAP',false,1);
-    if(state==='menu'){bevelOut(44,16,168,160,C.face);MENU.forEach((m,i)=>wbtn(48,22+i*30,160,26,m,cur===i,2));}}
-  else if(state==='enc'){const sp=enc.sp;
-    if(enc.phase===0){const r=panelBox(8,6,240,116,'FIELD NOTES');
-      text('FAMILY',r.x+6,r.y+6,C.muted);text(sp.family||'?',r.x+6,r.y+14,C.navy,2);
-      text('REGIONS',r.x+6,r.y+34,C.muted);text(sp.regions.map(x=>CA[x]).join('  '),r.x+6,r.y+42,C.ink,2);
-      text('GBIF RECORDS',r.x+6,r.y+62,C.muted);text(sp.records.toLocaleString('en-US'),r.x+6,r.y+70,C.ink,2);
-      text(save.collected[sp.key]?'ALREADY IN THE MOSSDEX':save.seen[sp.key]?'SEEN BEFORE - REMEMBER IT?':'NEW SPECIES!',r.x+6,r.y+90,save.collected[sp.key]?C.muted:C.green);
-      wbtn(48,140,160,32,'IDENTIFY',true,2);}
-    else if(enc.phase===1){enc.opts.forEach((o,i)=>{const y=8+i*40,sel=i===enc.cur,gone=enc.gone.includes(i);bevelOut(8,y,240,36);if(sel)selrow(11,y+3,234,30);
-      const L=wrap(o.name,56);const col=gone?C.shade:sel?C.white:C.ink;text(L[0],16,y+(L.length>1?8:14),col,1);if(L[1])text(L[1],16,y+18,col,1);
-      if(gone)rect(14,y+17,tw(L[0])+4,1,C.red);else textR(o.family===sp.family?'SAME FAMILY':'',240,y+26,sel?C.lav2:C.muted);});
-      wbtn(8,170,240,18,enc.hinted?'THE BEETLE HAS SPOKEN':'B: ASK A BEETLE  (1 CHEESE, YOU HAVE '+save.cheese+')',false,1);
-      if(toast){bevelOut(20,150,216,16,C.paper);textC(toast.t,W/2,155,C.red);}}
-    else{const r=panelBox(8,6,240,142,enc.ok?'ENTRY RECOVERED':'IT SLIPPED AWAY');
-      wrap(sp.name+(sp.author?' '+sp.author:''),56).slice(0,2).forEach((l,i)=>text(l,r.x+6,r.y+6+i*8,C.navy));
-      if(sp.common)text(wrap(sp.common,56)[0],r.x+6,r.y+26,C.green);
-      text('FAMILY '+(sp.family||'?')+'   ORDER '+(sp.order||'?'),r.x+6,r.y+40,C.ink);
-      text('FOUND IN: '+sp.regions.map(x=>CN[x]).join(', ').slice(0,52),r.x+6,r.y+52,C.ink);
-      text(enc.ok?'THIS ENTRY IS BACK IN THE MOSSDEX.':'IT IS NOW MARKED AS SEEN IN THE MOSSDEX.',r.x+6,r.y+72,C.muted);
-      text(enc.ok?'':'FIND IT AGAIN AND NAME IT TO COLLECT.',r.x+6,r.y+80,C.muted);
-      if(sp.image)text('PHOTO: '+sp.image.by+' ('+lic(sp.image.license)+')',r.x+6,r.y+100,C.muted);
-      wbtn(48,156,160,28,'CONTINUE',true,2);}}
-  else if(state==='pet'&&save.pet){const p=save.pet;const r=panelBox(8,6,240,60,'PET TAG');
-    text(p.name,r.x+6,r.y+4,C.navy,2);textR(petAge(p)+' OLD',r.x+r.w-6,r.y+4,C.muted);text(wrap(petSp(p).name,40)[0],r.x+6,r.y+18,C.ink);
-    text('SPORES '+p.spores+'   FRUITED '+p.fruited+'X   CHEESE '+save.cheese,r.x+6,r.y+27,C.muted);
-    if(p.log[0])text(wrap(p.log[0],56)[0],r.x+6,r.y+36,p.dead?C.red:C.green);
-    petLabels(p).forEach((l,i)=>{const [x,y,w,h]=PBTN(i);wbtn(x,y,w,h,l,petCur===i,1);});
-    bevelOut(0,H-16,W,16);textC('ARROWS: PICK   A: DO   B: BACK   TAP TO CLOSE',W/2,H-10,C.ink);}
-  else if(state==='petlapse'&&save.pet){const p=save.pet;const r=panelBox(8,6,240,150,'TIME-LAPSE');const i=Math.min(lapse.i,p.snaps.length-1),sn=p.snaps[i];
-    text(p.name,r.x+6,r.y+4,C.navy,2);text('FRAME '+(i+1)+' / '+p.snaps.length,r.x+6,r.y+20,C.muted);if(sn)text(new Date(sn.t).toLocaleString('en-GB'),r.x+6,r.y+30,C.ink);
-    bar(r.x+6,r.y+44,r.w-12,8,(i+1)/p.snaps.length,C.navy);
-    bevelIn(r.x+6,r.y+58,r.w-12,60,C.paper2);const n=p.snaps.length;for(let k=0;k<n;k++){const px=(r.x+8+(k/(n-1||1))*(r.w-16))|0;const s2=p.snaps[k];rect(px,(r.y+116-s2.g*54)|0,1,1,C.green);rect(px,(r.y+116-s2.h*54)|0,1,1,C.mint);rect(px,(r.y+116-s2.w*54)|0,1,1,C.accent);}
-    text('GROWTH',r.x+8,r.y+120,C.green);text('HEALTH',r.x+48,r.y+120,C.mint);text('WATER',r.x+88,r.y+120,C.accent);
-    wbtn(48,164,160,22,'A: BACK TO JAR',true,1);}
-  else if(state==='petpick'){const L=pickList();titlebar(0,0,W,20,'',true,true);textC('PLANT A CUTTING',W/2,7,C.white,2);textR(L.length+' COLLECTED',W-6,8,C.titleB);
-    bevelIn(0,20,W,H-36,C.paper);
-    for(let i=0;i<ROWS;i++){const k=pick.top+i;if(k>=L.length)break;const s=L[k],y=22+i*ROWH,sel=k===pick.cur;if(sel)selrow(2,y,W-4,ROWH);else if(i&1)rect(2,y,W-4,ROWH,C.paper2);
-      text(String(s.id).padStart(4,'0'),6,y+4,sel?C.titleB:C.muted);text(wrap(s.name,40)[0],32,y+4,sel?C.white:C.ink);textR(prefs(s).form.toUpperCase(),W-6,y+4,sel?C.lav2:C.muted);}
-    bevelOut(0,H-16,W,16);textC('A: PLANT THIS ONE   B: BACK',W/2,H-10,C.ink);}
-  else if(state==='journal'){const L=jlist();const name=jr.filter===0?'ALL REGIONS':jr.filter===JF-1?'COLLECTED':CN[CONT[jr.filter-1]];const got=L.filter(s=>save.collected[s.key]).length;
-    titlebar(0,0,W,20,'',true,true);text('<',6,7,C.white,2);textR('>',W-6,7,C.white,2);textC(name,W/2,7,C.white,2);textR(got+'/'+L.length,W-22,8,C.titleB);
-    bevelIn(0,20,W,H-36,C.paper);
-    for(let i=0;i<ROWS;i++){const k=jr.top+i;if(k>=L.length)break;const s=L[k],y=22+i*ROWH,sel=k===jr.cur;
-      if(sel)selrow(2,y,W-4,ROWH);else if(i&1)rect(2,y,W-4,ROWH,C.paper2);
-      text(String(s.id).padStart(4,'0'),6,y+4,sel?C.titleB:C.muted);
-      const nm=save.collected[s.key]?s.name:save.seen[s.key]?s.name:'-----';text(wrap(nm,46)[0],32,y+4,sel?C.white:save.collected[s.key]?C.ink:C.muted);
-      if(save.collected[s.key])rect(W-12,y+4,6,6,C.mint);else if(save.seen[s.key])rect(W-12,y+4,6,6,C.gold);}
-    if(!L.length)textC(jr.filter===JF-1?'NOTHING COLLECTED YET':'NOTHING HERE',W/2,90,C.muted);
-    bevelOut(0,H-16,W,16);textC('LEFT/RIGHT: REGION / COLLECTED   B: BACK   TAP HERE TO CLOSE',W/2,H-10,C.ink);}
-  else if(state==='win'){const r=panelBox(8,8,240,176,'STATISTICS');text('STEPS WALKED',r.x+6,r.y+6,C.muted);text(String(save.steps),r.x+6,r.y+14,C.ink,2);
-    text('BEETLES CAUGHT '+nBeetles()+'   CHEESE '+save.cheese,r.x+6,r.y+30,C.ink);
-    text('BY REGION',r.x+6,r.y+44,C.muted);CONT.forEach((c,i)=>{text(CN[c],r.x+6,r.y+54+i*12,C.ink);textR(nCollectedIn(c)+'/'+roster[c].length,r.x+r.w-6,r.y+54+i*12,C.ink);});
-    textC('PRESS A TO KEEP EXPLORING',W/2,r.y+r.h-12,C.muted);}
-}
-
-/* ---------------- compose + status ---------------- */
-function draw(){rect(0,0,CW,CH,C.paper);
-  ctx.save();ctx.translate(0,TOPY);ctx.beginPath();ctx.rect(0,0,PW,PH);ctx.clip();rect(0,0,W,H,C.sky);drawTop();ctx.restore();
-  rect(0,PH,PW,GAP,C.navy);
-  ctx.save();ctx.translate(0,BOTY);ctx.beginPath();ctx.rect(0,0,PW,PH);ctx.clip();drawBottom();ctx.restore();
-  pushStatus();}
-// one line for the host's status strip, in the host's own words: what the buttons do here, and where you are
+/* ---------------- status + lifecycle ---------------- */
 let lastStatus='';
-function statusText(){const n=nCollected()+'/'+SP.length;const reg=save.region?CN[save.region]:'';
+function statusText(){const n=nCollected()+'/'+SP.length;
   if(state==='title')return 'A: ok · '+n+' logged';
   if(state==='intro')return 'Prof. Chaga · A: next · B: back';
-  if(state==='region')return 'A: travel · B: back · '+n+' logged';
-  if(state==='world')return reg+' · '+n+' · d-pad: walk · A: look · B: menu · X: MossDex';
-  if(state==='menu')return 'A: ok · B: close';
-  if(state==='enc')return enc&&enc.phase===0?'name it · A: answer · B: beetle hint, 1 cheese':'A: continue';
-  if(state==='journal')return 'MossDex · L/R: filter · d-pad: browse · B: back';
-  if(state==='petpick')return 'GoodMoss · A: plant this cutting · B: back';
-  if(state==='pet'||state==='petlapse')return 'GoodMoss · d-pad + A: care · B: back';
+  if(state==='region')return 'A: travel · B: back';
+  if(state==='world')return menuOpen?'A: ok · B: close':titleCase(CN[REG()])+' · '+n+' · d-pad: walk · A: look · B: menu · X: MossDex';
+  if(state==='enc')return enc.phase===0?'A: identify':enc.phase===1?'A: answer · B: ask a beetle':'A: continue';
+  if(state==='journal')return entry?'B: back to the list':'MossDex · L/R: region · A: open · B: back';
+  if(state==='petpick')return naming?'A: name it · B: back':'GoodMoss · A: plant this cutting · B: back';
+  if(state==='pet')return 'GoodMoss · A: care · B: back';
+  if(state==='petlapse')return 'time-lapse · A: back';
   if(state==='win')return 'every moss found · A: keep exploring';return '';}
 function pushStatus(){const t=statusText();if(t!==lastStatus){lastStatus=t;if(opts.onStatus)opts.onStatus(t);}}
-
-/* ---------------- lifecycle ---------------- */
 let raf=0,running=false;
-function loop(){if(!running)return;syncKeys();update();for(const k in just)just[k]=false;draw();raf=requestAnimationFrame(loop);}
-function start(canvas,o){opts=o||{};cv=canvas;ctx=cv.getContext('2d');cv.width=CW;cv.height=CH;ctx.imageSmoothingEnabled=false;
+function loop(){if(!running)return;syncKeys();update();for(const k in just)just[k]=false;if(uiDirty)render();drawScene();pushStatus();raf=requestAnimationFrame(loop);}
+function start(canvas,o){opts=o||{};cv=canvas;ctx=cv.getContext('2d');cv.width=CW;cv.height=CH;ctx.imageSmoothingEnabled=false;ui=opts.ui||null;
   if(!cv.__mossQuest){cv.__mossQuest=true;bindPointer(cv);}
-  const go=()=>{if(!SP)loadData(opts.data);setUser(opts.user||GUEST);setMute(!!opts.muted);for(const k in held)held[k]=false;
-    if(state!=='title'&&save.region)ambientFor(CONT.indexOf(save.region));lastStatus='';running=true;cancelAnimationFrame(raf);raf=requestAnimationFrame(loop);};
-  if(SP||opts.data)go();else fetch(opts.dataUrl||'mossdex.json').then(r=>r.json()).then(d=>{loadData(d);go();});
+  if(ui&&!ui.__mossQuest){ui.__mossQuest=true;ui.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if(el&&ui.contains(el))act(el.dataset.act,el.dataset.arg);});}
+  const begin=()=>{if(!SP)loadData(opts.data);setUser(opts.user||GUEST);setMute(!!opts.muted);for(const k in held)held[k]=false;
+    if(state!=='title'&&save.region)ambientFor(CONT.indexOf(save.region));lastStatus='';running=true;dirty();cancelAnimationFrame(raf);raf=requestAnimationFrame(loop);};
+  if(SP||opts.data)begin();else fetch(opts.dataUrl||'mossdex.json').then(r=>r.json()).then(d=>{loadData(d);begin();});
   return api;}
 function stop(){running=false;cancelAnimationFrame(raf);amb.on=false;if(AC&&AC.state==='running')AC.suspend();}
-const api={start,stop,press:pressKey,hold:holdKey,setMuted:setMute,setUser,get state(){return state;},get user(){return user;}};
+const api={start,stop,press:pressKey,hold:holdKey,handles,pad,setMuted:setMute,setUser,act,get state(){return state;},get user(){return user;}};
 
 window.MQ={get map(){return map;},get spots(){return spots;},get beetles(){return beetles;},get player(){return player;},get state(){return state;},get save(){return save;},get enc(){return enc;},get user(){return user;},
-  setUser,go(c){enterRegion(c);draw();},intro(){startIntro('world');draw();},pet(){openPet();draw();},ff(h){if(save.pet){save.pet.last-=h*3600000;simPet(save.pet,Date.now());persist();draw();}},
-  tick(n){for(let i=0;i<(n||1);i++){update();for(const k in just)just[k]=false;}draw();},
-  press(k,n){for(let i=0;i<(n||1);i++){just[k]=true;keys[k]=true;update();keys[k]=false;for(const q in just)just[q]=false;for(let f=0;f<10;f++)update();}draw();},start,stop,
-  tapAt(x,y){click={x,y,top:false};update();draw();},tapTop(x,y){click={x,y:0,top:true,topy:y};update();draw();}};
+  setUser,go(c){enterRegion(c);},intro(){startIntro('world');dirty();},pet(){openPet();},ff(h){if(save.pet){save.pet.last-=h*3600000;simPet(save.pet,Date.now());persist();dirty();}},act,
+  tick(n){for(let i=0;i<(n||1);i++){syncKeys();update();for(const k in just)just[k]=false;}if(uiDirty)render();drawScene();},
+  press(k,n){for(let i=0;i<(n||1);i++){pressKey(k);syncKeys();update();for(const q in just)just[q]=false;for(let f=0;f<10;f++){syncKeys();update();}}if(uiDirty)render();drawScene();},
+  tapAt(x,y){click={x,y,top:true,topy:y};update();drawScene();}};
 return api;
 })();

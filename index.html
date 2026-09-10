@@ -19,7 +19,7 @@
     media-src 'self';
     ">
     <title>moss quest</title>
-    <link rel="stylesheet" href="styles.css?v=0b408a36">
+    <link rel="stylesheet" href="styles.css?v=42c79da3">
     <link rel="icon" href="assets/favicon.ico" type="image/x-icon">
     <link rel="apple-touch-icon" href="assets/icon-192.png">
     <link rel="manifest" href="manifest.webmanifest">
@@ -179,9 +179,10 @@
                         <video id="beetle-video" src="assets/mossbeetle.mp4" playsinline preload="none"></video>
                     </section>
 
-                    <!-- Moss Quest: the game, two DS panes stacked on the LCD (quest.js, loaded when opened) -->
-                    <section id="view-quest" class="view view-full hidden" data-note="d-pad: walk · A: ok · B: menu · X: MossDex · START: leave">
-                        <canvas id="quest-canvas" width="256" height="388" aria-label="Moss Quest"></canvas>
+                    <!-- Moss Quest: pixel art on the canvas, the rest of the game in the LCD's own HTML (quest.js, loaded when opened) -->
+                    <section id="view-quest" class="view view-full hidden" data-scene="none" data-note="d-pad: walk · A: ok · B: menu · X: MossDex · START: leave">
+                        <canvas id="quest-canvas" width="256" height="192" aria-label="Moss Quest"></canvas>
+                        <div id="quest-ui"></div>
                     </section>
 
                     <!-- moss chart: the $MOSS chart grown as a block world -->
@@ -238,6 +239,6 @@
 </main>
 
 <script src="moss.js?v=82361ef5"></script>
-<script src="script.js?v=1dab935b" type="module"></script>
+<script src="script.js?v=499c228f" type="module"></script>
 </body>
 </html>

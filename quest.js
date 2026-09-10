@@ -538,10 +538,11 @@ function drawPot(x,y,w,h,p,snap){const q=snap?{hyd:snap.w,health:snap.h,fit:p.fi
   px(tx-4,ty+1,C.lav,3,3);px(tx-4,ty+5,C.lav,3,3);px(tx-2,ty+4,C.lav2,2,1);
   return info;}
 function drawJar(x,y,w,h,p,snap){return drawPot(x,y,w,h,p,snap);}
-const JAR={x:58,y:16,w:140,h:158};
+let JAR={x:58,y:16,w:140,h:158};
+function jarRect(){const h=Math.max(100,cv.height-36),w=Math.max(90,Math.min(cv.width-44,Math.round(h*0.9)));JAR={x:(cv.width-w)>>1,y:18,w,h};}
 function addBeads(n){for(let k=0;k<n;k++)pa.beads.push({x:JAR.x+6+Math.random()*(JAR.w-12),y:JAR.y+10+Math.random()*30,v:.15+Math.random()*.35});}
 function petAnim(p){if(pa.blink>0)pa.blink--;else if(Math.random()<.008)pa.blink=6;if(pa.wake>0)pa.wake--;if(pa.bounce>0)pa.bounce--;
-  for(let i=pa.beads.length-1;i>=0;i--){const b=pa.beads[i];b.y+=b.v;if(b.y>125)pa.beads.splice(i,1);}
+  for(let i=pa.beads.length-1;i>=0;i--){const b=pa.beads[i];b.y+=b.v;if(b.y>JAR.y+JAR.h*0.7)pa.beads.splice(i,1);}
   const b=pa.bug;if(b.hop>0)b.hop--;if(--b.t<=0){b.t=30+(Math.random()*50|0);b.x=Math.max(.05,Math.min(.95,b.x+(Math.random()-.5)*.3));b.hop=6;}}
 function petAge(p){const ms=Date.now()-p.born,d=Math.floor(ms/86400000),h=Math.floor(ms/3600000)%24;return d?d+'D '+h+'H':h+'H';}
 
@@ -763,16 +764,11 @@ function render(){if(!ui)return;let h='',focus=0,scene='none';const u=user||GUES
     else{h=`<div class="lcd-header"><span class="lcd-header-title">PLANT A CUTTING</span><span class="item-meta">${L.length} collected</span></div><p class="lcd-note">mosses have no roots. they drink from the air and go dormant, not dead, when they dry. keep light, water and air near what the species knows from the wild and it will fruit.</p><ul class="menu q-list">`+
       L.map(s=>{const pr=prefs(s);return mi(s.name,'pet:pick',s.key,`grows as a ${FORMS[pr.form].label.toLowerCase()} · likes ${word(pr.moist,'dryish','moist','wet')}, ${word(pr.light,'shade','half shade','sun')} · on ${pr.sub}`);}).join('')+'</ul>';focus=pick.cur;}}
   else if(state==='pet'&&save.pet){scene='jar';const p=save.pet,sp=petSp(p),pr=prefs(sp);const acts=petLabels(p).filter(a=>a[3]!=='dev'||opts.dev);
-    const btn=a=>mi(a[0],'pet:act',a[2],a[1]);
+    const btn=a=>mi(a[0],'pet:act',a[2],a[1]);const need=(l,v)=>`<span class="q-need"><b>${l}</b>${pips(v,5)}</span>`;
     h=`<div class="lcd-header"><span class="lcd-header-title">${esc(p.name)}</span><span class="item-meta">${esc(sp.name)} · ${esc(low(petAge(p)))} old</span></div>
-      <p class="lcd-msg">${esc(petAdvice(p))}</p>
-      <div class="q-needs"><span>water</span><span class="q-dots">${pips(p.hyd,5)}</span><span class="item-meta">likes ${word(pr.moist,'dryish','moist','wet')}</span>
-        <span>light</span><span class="q-dots">${pips(p.light,5)}</span><span class="item-meta">likes ${word(pr.light,'shade','half shade','sun')}</span>
-        <span>air</span><span class="q-dots">${pips(p.air,5)}</span><span class="item-meta">${p.air<.35?'lid closed':p.air<.7?'lid vented':'lid open'}</span>
-        <span>growth</span><span class="q-dots">${pips(p.growth,5)}</span><span class="item-meta">health ${pips(p.health,5)}${p.spores?' · spores '+p.spores:''}</span></div>
-      <ul class="menu item-links">${acts.slice(0,2).map(btn).join('')}${btn(acts.find(a=>a[2]===4))}</ul>
-      <ul class="menu item-links">${btn(acts.find(a=>a[2]===2))}${btn(acts.find(a=>a[2]===3))}${acts.filter(a=>a[2]>=5).map(btn).join('')}</ul>
-      ${p.log[0]&&!/^(MISTED|SOAKED|MOVED|LID|REPOTTED)/.test(p.log[0])?`<p class="lcd-note">${esc(low(p.log[0]))}</p>`:''}${msg(toast&&toast.t)}`;focus=petCur;}
+      <div class="q-needs-row">${need('water',p.hyd)}${need('light',p.light)}${need('air',p.air)}${need('growth',p.growth)}${need('health',p.health)}</div>
+      <p class="lcd-msg q-advice">${esc(petAdvice(p))}${p.spores?' · spores '+p.spores:''}</p>
+      <ul class="menu item-links q-petacts">${acts.map(btn).join('')}</ul>${msg(toast&&toast.t)}`;focus=petCur;}
   else if(state==='petlapse'&&save.pet){scene='jar';const p=save.pet;h=`<div class="lcd-header"><span class="lcd-header-title">TIME-LAPSE</span><span class="item-meta" id="q-frame">frame 1 / ${p.snaps.length}</span></div><p class="lcd-note">the jar so far, replayed. A: back to the jar</p>`;}
   else if(state==='beetle'&&card){h=`<div class="q-stage">${beetleImg(card.kind.name)}</div><h2 class="q-name">caught a ${esc(low(card.kind.name))}!</h2>
       <dl>${row('tier',cap(card.kind.tier))}${row('cheese','+'+card.cheese+' · you have '+save.cheese)}${row('caught',card.count+'×')}${row('from','Beetleboy · beetle.wiki')}</dl>
@@ -808,8 +804,8 @@ function drawWorld(){const ox=-cam.x|0,oy=-cam.y|0;const x0=Math.max(0,(cam.x/T)
   if(player.goal||player.path.length){const g=player.goal;if(g){rect(g.x*T+ox+7,g.y*T+oy-3+((frame>>3)&1),2,2,C.red);}}
   if(menuOpen){ctx.fillStyle='rgba(27,51,32,0.35)';ctx.fillRect(0,0,cv.width,cv.height);}}
 // on the map the canvas is as tall as the box it sits in, so no letterbox: 256 wide, 192..320 tall
-function fitWorld(){let ww=CW,hh=CH;if(state==='world'&&cv.clientWidth>0&&cv.clientHeight>0){const a=cv.clientWidth/cv.clientHeight;if(a>CW/CH)ww=Math.min(400,Math.round(CH*a));else hh=Math.min(320,Math.round(CW/a));}
-  if(cv.width!==ww||cv.height!==hh){cv.width=ww;cv.height=hh;ctx.imageSmoothingEnabled=false;}}
+function fitWorld(){let ww=CW,hh=CH;if((state==='world'||state==='pet'||state==='petlapse')&&cv.clientWidth>0&&cv.clientHeight>0){const a=cv.clientWidth/cv.clientHeight;if(a>CW/CH)ww=Math.min(400,Math.round(CH*a));else hh=Math.min(320,Math.round(CW/a));}
+  if(cv.width!==ww||cv.height!==hh){cv.width=ww;cv.height=hh;ctx.imageSmoothingEnabled=false;}jarRect();}
 // shadows of clouds crossing the map: two fluffy ones and the face, each drifting at its own pace
 const SHADOWS=(()=>{const mk=(w,h,fn)=>{const c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d');g.fillStyle='#08183a';fn(g,w,h);return c;};
   const cumulus=(seed,w,h)=>mk(w,h,(g)=>{const r=rng(seed);const base=h*0.8,s=h*0.55,n=4+(r()*3|0);g.beginPath();

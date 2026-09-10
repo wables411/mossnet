@@ -1025,7 +1025,13 @@ body {
 .q-needs { display: grid; grid-template-columns: auto auto 1fr; gap: calc(var(--u) * 0.3) calc(var(--u) * 2); align-items: baseline; margin: calc(var(--u) * 0.6) 0; font-size: calc(var(--u) * 3.2); }
 .q-needs > span:nth-child(3n+1) { color: var(--lcd-mid); text-transform: uppercase; letter-spacing: 0.08em; font-size: calc(var(--u) * 2.8); }
 .q-dots { letter-spacing: 0.12em; }
-#view-quest[data-scene="jar"] #quest-canvas { height: 40%; }
+#view-quest[data-scene="jar"] #quest-canvas { height: 50%; }
+#view-quest[data-scene="jar"] #quest-ui { padding-top: calc(var(--u) * 1); }
+.q-needs-row { display: flex; flex-wrap: wrap; gap: calc(var(--u) * 0.2) calc(var(--u) * 2.4); margin: calc(var(--u) * 0.8) 0 0; font-size: calc(var(--u) * 3.2); letter-spacing: 0.1em; }
+.q-need b { font-weight: 400; color: var(--lcd-mid); text-transform: uppercase; letter-spacing: 0.08em; font-size: calc(var(--u) * 2.8); margin-right: calc(var(--u) * 0.8); }
+#quest-ui .q-advice { margin: calc(var(--u) * 0.8) 0 0; font-size: calc(var(--u) * 3.3); line-height: 1.2; }
+#quest-ui .q-petacts { margin-top: calc(var(--u) * 1); gap: calc(var(--u) * 0.8); }
+#quest-ui .q-petacts .menu-item { padding: calc(var(--u) * 0.3) calc(var(--u) * 1.2); font-size: calc(var(--u) * 3.2); }
 #quest-ui .tabs .tab { padding: calc(var(--u) * 0.4) calc(var(--u) * 1); }
 #quest-ui .item-links { margin-top: calc(var(--u) * 1.6); }
 #quest-ui .item-links .menu-item { padding-left: calc(var(--u) * 1.6); }

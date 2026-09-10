@@ -77,7 +77,7 @@ function mkSky(w,h,seed,top,bot,n){const c=document.createElement('canvas');c.wi
       g.fillStyle='rgba(150,180,220,0.55)';g.beginPath();g.arc(x,cy+3,R,0,7);g.fill();
       g.fillStyle='rgba(255,255,255,0.97)';g.beginPath();g.arc(x,cy,R,0,7);g.fill();
       g.save();g.globalCompositeOperation='destination-out';
-      for(const ex of [-0.40,0.40]){const ew=R*0.24,eh=R*1.9;g.beginPath();g.roundRect(x+ex*R-ew/2,cy-R-4,ew,eh,ew/2);g.fill();}
+      for(const ex of [-0.40,0.40]){const ew=R*0.24,eh=R*0.9+4;g.beginPath();g.roundRect(x+ex*R-ew/2,cy-R-4,ew,eh,ew/2);g.fill();}
       g.lineWidth=Math.max(1,R*0.05);g.beginPath();g.arc(x,cy,R*0.84,Math.PI*0.034,Math.PI*0.966);g.stroke();
       g.restore();}
     g.save();g.globalCompositeOperation='destination-over';g.fillStyle=gr;g.fillRect(0,0,w,h);g.restore();}

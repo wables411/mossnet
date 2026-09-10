@@ -235,10 +235,19 @@ const GUEST={handle:'GUEST',displayName:'Explorer',pfpUrl:null,id:'guest',guest:
 const pname=()=>norm((user&&(user.displayName||user.handle))||'EXPLORER').slice(0,18);
 
 /* ---------------- save ---------------- */
-const fresh=()=>({collected:{},seen:{},region:null,steps:0,last:null,cheese:0,beetles:{},pity:0,introDone:false,pet:null});
+const SAVE_V=2;
+const fresh=()=>({v:SAVE_V,collected:{},seen:{},region:null,steps:0,last:null,cheese:0,beetles:{},pity:0,introDone:false,pet:null});
 let save=fresh();
 const saveKey=()=>'mossquest.save.'+(user?(user.id||user.handle):'guest');
-function loadSave(){save=fresh();try{const s=localStorage.getItem(saveKey())||(user&&user.guest?localStorage.getItem('mossquest.save'):null);if(s)save=Object.assign(save,JSON.parse(s));}catch(e){}}
+function loadSave(){save=fresh();try{const s=localStorage.getItem(saveKey())||(user&&user.guest?localStorage.getItem('mossquest.save'):null);if(s)save=Object.assign(save,JSON.parse(s));}catch(e){}pruneSave();}
+// species come and go between data builds; a save may only point at what exists now
+function pruneSave(){if(!SP)return;const have=new Set(SP.map(x=>String(x.key)));let dropped=0;
+  for(const k of Object.keys(save.collected))if(!have.has(k)){delete save.collected[k];dropped++;}
+  for(const k of Object.keys(save.seen))if(!have.has(k))delete save.seen[k];
+  if(save.last!=null&&!have.has(String(save.last)))save.last=null;
+  if(save.pet&&!have.has(String(save.pet.key))){save.pet=null;dropped++;}
+  if(!CONT.includes(save.region))save.region=null;
+  if(save.v!==SAVE_V||dropped){save.v=SAVE_V;persist();}}
 function persist(){try{localStorage.setItem(saveKey(),JSON.stringify(save));}catch(e){}}
 const nCollected=()=>Object.keys(save.collected).length;
 const nCollectedIn=c=>roster[c].filter(s=>save.collected[s.key]).length;
@@ -288,7 +297,7 @@ function respawnSpot(i){const pool=spots.pool;for(let k=0;k<50;k++){const [x,y]=
   if(Math.abs(x-player.x)+Math.abs(y-player.y)<3||occupied(x,y))continue;spots[i]={x,y,sp:pickSpecies(REG())};return;}spots.splice(i,1);}
 function pickSpecies(cont){const Rr=roster[cont];let tot=0;const w=Rr.map(s=>{const c=s.regionCounts[cont]||1;const v=(save.collected[s.key]?1:12)*(0.4+Math.min(1,Math.log10(c+1)/4));tot+=v;return v;});
   let r=Math.random()*tot;for(let i=0;i<Rr.length;i++){r-=w[i];if(r<=0)return Rr[i];}return Rr[Rr.length-1];}
-function choices(sp,cont){const Rr=roster[cont].filter(s=>s!==sp);const pool=Rr.length>=3?Rr:SP.filter(s=>s!==sp);const same=pool.filter(s=>s.family===sp.family);
+function choices(sp,cont){const Rr=roster[cont].filter(s=>s!==sp);const pool=Rr.length>=3?Rr:SP.filter(s=>s!==sp);let same=pool.filter(s=>s.family===sp.family);if(!same.length)same=pool.filter(s=>s.order&&s.order===sp.order);
   const out=[sp];let guard=0;while(out.length<4&&guard++<200){const from=(same.length&&Math.random()<.5)?same:pool;const c=from[(Math.random()*from.length)|0];if(!out.includes(c))out.push(c);}
   for(let i=out.length-1;i>0;i--){const j=(Math.random()*(i+1))|0;[out[i],out[j]]=[out[j],out[i]];}return out;}
 
@@ -333,7 +342,7 @@ const INTRO=()=>[
  'LAST NIGHT EVERY ENTRY VANISHED. LOST OR STOLEN, I DO NOT KNOW. I AM TOO OLD TO CROSS SEVEN CONTINENTS AGAIN. {NAME}, I NEED YOU TO FIND THEM ALL.',
  'HERE IS HOW A BRYOLOGIST LOOKS. FACE A GREEN TUFT AND PRESS A. STUDY THE PHOTO: THE LEAF SHAPE, HOW THE SHOOTS BRANCH, THE COLOUR, THE LITTLE CAPSULES ON STALKS. THEN PICK THE NAME. THE FAMILY IS YOUR CLUE.',
  'NAME IT RIGHT AND THE ENTRY RETURNS TO THE MOSSDEX. NAME IT WRONG AND THE MOSS SLIPS AWAY, BUT IT STAYS MARKED AS SEEN. EVERY MISTAKE TEACHES YOU A NAME.',
- 'BEETLES LIVE AMONG THE MOSS. FACE ONE AND PRESS A TO CATCH IT FOR CHEESE. STUCK ON A NAME? PRESS B DURING A QUIZ TO SPEND ONE CHEESE, AND A BEETLE WILL RULE OUT TWO WRONG ANSWERS.',
+ 'BEETLES LIVE AMONG THE MOSS. FACE ONE AND PRESS A TO CATCH IT FOR CHEESE. STUCK ON A NAME? PRESS X DURING A QUIZ TO SPEND ONE CHEESE, AND A BEETLE WILL RULE OUT TWO WRONG ANSWERS.',
  'EACH CONTINENT HAS ITS OWN MOSSES, FROM ANTARCTIC ROCK TO CITY PAVEMENTS. USE THE MAP TO TRAVEL. THE MOSSDEX SHOWS WHAT IS STILL MISSING IN EACH PLACE.',
  'ONCE YOU HAVE A SPECIES, PLANT A CUTTING IN GOODMOSS AND KEEP IT ALIVE. YOU WILL LEARN MORE FROM ONE LIVING MOSS THAN FROM ANY BOOK.',
  'RECOVER ALL '+SP.length+' ENTRIES AND MY LIFE\'S WORK IS SAFE AGAIN. {NAME}, YOUR MOSS QUEST BEGINS NOW!'];
@@ -509,10 +518,10 @@ function openPick(){if(!pickList().length){snd('miss');say('COLLECT A MOSS FIRST
 function plantPick(sp,name){save.pet=newPet(sp,name);save.pet.log=['PLANTED '+sp.name.toUpperCase()+' ON '+save.pet.sub.toUpperCase()+'.'];persist();snd('collect',sp.id);petCur=0;naming=null;go('pet');}
 function openPet(){if(save.pet){simPet(save.pet,Date.now());persist();petCur=0;go('pet');}else openPick();}
 function petLabels(p){return [['mist','a fine spray, the way rain arrives'],['soak','fill the jar to the brim'],['light: '+LIGHTS.find(l=>l[0]===p.light)[1].toLowerCase(),'shade, a window, or full sun'],['lid: '+LIDS.find(l=>l[0]===p.air)[1].toLowerCase(),'open, vented, or closed'],
-  ['substrate: '+p.sub,'rock, bark, soil or peat · costs one cheese'],['time-lapse','replay the jar so far'],['fast-forward 6h','a test button: six hours pass'],['new pet','release '+p.name+' and plant another cutting']];}
+  ['substrate: '+p.sub,'rock, bark, soil or peat · costs one cheese'],['time-lapse','replay the jar so far'],['fast-forward 6h','a test button: six hours pass','dev'],['new pet','release '+p.name+' and plant another cutting']];}
 
 /* ---------------- states ---------------- */
-let state='title',cur=0,enc=null,jr={filter:0,cur:0},entry=null,toast=null,chimed=false,menuOpen=false,confirmNew=0,confirmRel=0,uiDirty=true,sig='';
+let state='title',cur=0,enc=null,jr={filter:0,cur:0},entry=null,toast=null,chimed=false,menuOpen=false,confirmNew=0,confirmRel=0,uiDirty=true,screenSig='';
 const REG=()=>save.region;
 let JF=9;function jlist(){return jr.filter===0?SP:jr.filter===JF-1?SP.filter(s=>save.collected[s.key]):roster[CONT[jr.filter-1]];}
 function go(st){state=st;dirty();}
@@ -542,7 +551,7 @@ function handles(b){
   if(state==='world')return !menuOpen;
   if(state==='intro'||state==='petlapse'||state==='win')return true;
   if(state==='journal')return b==='left'||b==='right'||b==='j'||(entry&&b==='a');
-  if(state==='enc')return enc.phase===2&&b==='a';
+  if(state==='enc')return (enc.phase===2&&b==='a')||(enc.phase===1&&b==='j');
   if(state==='pet'||state==='petpick')return b==='j';
   return false;}
 const pad=()=>state==='world'&&!menuOpen;
@@ -570,7 +579,7 @@ function update(){frame++;if(amb.on&&!muted&&state!=='title')ambient();if(confir
       }else if(player.mx||player.my){const v=2;if(player.mx)player.mx+=player.mx<0?v:-v;if(player.my)player.my+=player.my<0?v:-v;player.anim++;}
       player.px=player.x*T+player.mx;player.py=player.y*T+player.my;
       cam.x=Math.max(0,Math.min(MW*T-W,player.px-W/2+8));cam.y=Math.max(0,Math.min(MH*T-H,player.py-H/2+8));}}
-  else if(state==='enc'){if(enc.phase===1&&hit('b'))useHint();else if(enc.phase===2&&(hit('a')||hit('b')))encDone();else if(enc.phase===0&&hit('b')){/* no fleeing: face it */snd('miss');}}
+  else if(state==='enc'){if(enc.phase===1&&hit('j'))useHint();else if(enc.phase===2&&(hit('a')||hit('b')))encDone();else if(hit('b')){/* no fleeing: face it */snd('miss');}}
   else if(state==='pet'){const p=save.pet;if(!p){openPick();}else{if(frame%120===0){simPet(p,Date.now());persist();dirty();}petAnim(p);if(click&&click.top){pa.bounce=20;snd('chirp');}
     if(hit('b')||hit('j')){snd('back');go('world');}}}
   else if(state==='petpick'){if(hit('b')||hit('j')){if(naming){naming=null;dirty();}else{snd('back');go('world');}}}
@@ -608,6 +617,7 @@ function act(name,arg){
   else if(name==='pet:cancel'){naming=null;dirty();}
   else if(name==='pet:back'){snd('back');go('world');}
   else if(name==='win:go')go('world');
+  else if(name==='sys:retry')start(cv,opts);
 }
 
 /* ---------------- the HTML side, in the host's own vocabulary ---------------- */
@@ -615,7 +625,7 @@ const esc=t=>String(t==null?'':t).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;',
 const mi=(label,actn,arg,note,cls)=>`<li><button type="button" class="menu-item focusable${cls?' '+cls:''}" data-act="${actn}"${arg!=null?` data-arg="${esc(arg)}"`:''}${note?` data-note="${esc(note)}"`:''}>${esc(label)}</button></li>`;
 const heading=t=>`<li class="menu-heading">${esc(t)}</li>`;
 const note=t=>`<li class="menu-note">${esc(t)}</li>`;
-const msg=t=>t?`<p class="lcd-msg">${esc(t)}</p>`:'';
+const msg=t=>t?`<p class="lcd-msg">${esc(sentence(t))}</p>`:'';
 const row=(k,v)=>`<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`;
 const photoEl=(sp,hidden)=>sp&&sp.image&&!hidden?`<img class="q-photo" src="${esc((opts.imgBase||'')+sp.image.file)}" alt="${esc(sp.name)}">`:`<div class="q-photo q-nophoto">${hidden?'???':'no photo'}</div>`;
 const low=t=>String(t||'').toLowerCase();
@@ -646,9 +656,9 @@ function render(){if(!ui)return;let h='',focus=0,scene='none';const u=user||GUES
       (last?`<p class="lcd-note">last found: <b>${esc(last.name)}</b>${last.common?', '+esc(low(last.common)):''} · ${save.collected[last.key]?'in the MossDex':'seen only'}</p>`:`<p class="lcd-note">walk up to a moss tuft, face it and press A. catch beetles for cheese.</p>`);}}
   else if(state==='enc'){const sp=enc.sp;
     if(enc.phase===0){h=`<div class="q-stage">${photoEl(sp)}</div><h2 class="q-name">a wild moss appears!</h2><dl>${row('family',sp.family||'?')}${row('found in',regionList(sp))}${row('records',sp.records.toLocaleString('en-US'))}${row('status',save.collected[sp.key]?'already in the MossDex':save.seen[sp.key]?'seen before. remember it?':'new species!')}</dl>
-      <ul class="menu item-links">${mi('identify','enc:identify',null,'look closely, then pick the name')}</ul>`;}
+      <ul class="menu item-links">${mi('identify','enc:identify',null,'A: look closely, then pick the name')}</ul>`;}
     else if(enc.phase===1){h=`<div class="q-stage">${photoEl(sp)}</div><h2 class="q-name">what species is it? <span class="item-meta">family ${esc(sp.family||'?')}</span></h2>${msg(toast&&toast.t)}<ul class="menu">`+
-      enc.opts.map((o,i)=>{const gone=enc.gone.includes(i);return mi(o.name,'enc:answer',i,gone?'a beetle ruled this one out':o.family===sp.family?'same family':'a different family',gone?'q-gone':'');}).join('')+
+      enc.opts.map((o,i)=>{const gone=enc.gone.includes(i);return gone?`<li><button type="button" class="menu-item q-gone" disabled>${esc(o.name)}</button></li>`:mi(o.name,'enc:answer',i,'A: answer');}).join('')+
       `</ul><ul class="menu item-links">${mi(enc.hinted?'the beetle has spoken':`ask a beetle · 1 cheese, you have ${save.cheese}`,'enc:hint',null,'a beetle rules out two wrong names')}</ul>`;focus=enc.cur;}
     else{h=`<h2 class="q-name">${enc.ok?'correct! '+esc(idstr(sp).toLowerCase()):'not quite...'}</h2>${speciesCard(sp,true)}<p class="lcd-msg">${enc.ok?'this entry is back in the MossDex.':'it slipped away, but it is marked as seen. find it again and name it to collect.'}</p>
       <ul class="menu item-links">${mi('continue','enc:continue',null,'back to the moss')}</ul>`;}}
@@ -665,11 +675,13 @@ function render(){if(!ui)return;let h='',focus=0,scene='none';const u=user||GUES
     h=`<div class="lcd-header"><span class="lcd-header-title">${esc(p.name)}</span><span class="item-meta">${esc(low(petAge(p)))} old · ${esc(FORMS[pr.form].label.toLowerCase())}</span></div><p class="lcd-msg">${esc(low(mm[0]))}</p>
       <dl class="q-meters">${meter('hydration',p.hyd)}${meter('light fit',1-Math.abs(pr.light-p.light))}${meter('air',p.air)}${meter('health',p.health)}${meter('growth',p.growth)}</dl>
       ${p.log[0]?`<p class="lcd-note">${esc(low(p.log[0]))}</p>`:''}${msg(toast&&toast.t)}
-      <ul class="menu">${petLabels(p).map((l,i)=>mi(l[0],'pet:act',i,l[1])).join('')}</ul><p class="lcd-note">spores ${p.spores} · fruited ${p.fruited}× · cheese ${save.cheese} · ${esc(sp.name)}</p>`;focus=petCur;}
+      <ul class="menu">${petLabels(p).map((l,i)=>l[2]==='dev'&&!opts.dev?'':mi(l[0],'pet:act',i,l[1])).join('')}</ul><p class="lcd-note">spores ${p.spores} · fruited ${p.fruited}× · cheese ${save.cheese} · ${esc(sp.name)}</p>`;focus=petCur;}
   else if(state==='petlapse'&&save.pet){scene='jar';const p=save.pet;h=`<div class="lcd-header"><span class="lcd-header-title">TIME-LAPSE</span><span class="item-meta" id="q-frame">frame 1 / ${p.snaps.length}</span></div><p class="lcd-note">the jar so far, replayed. A: back to the jar</p>`;}
   else if(state==='win'){h=`<h1 class="q-title">you did it!</h1><p class="lcd-msg">every moss collected. a bryologist is born.</p><dl>${row('steps walked',String(save.steps))}${row('beetles caught',String(nBeetles()))}${row('cheese',String(save.cheese))}${CONT.map(c=>row(titleCase(CN[c]),nCollectedIn(c)+' / '+roster[c].length)).join('')}</dl><ul class="menu item-links">${mi('keep exploring','win:go',null,'the moss is still out there')}</ul>`;}
   ui.innerHTML=h;const host=ui.closest('[data-scene]')||ui.parentElement;if(host)host.dataset.scene=scene;
-  if(opts.onRender)opts.onRender(focus);
+  // the same screen redrawn (a timer, a toast, a hint) keeps the cursor where the player left it: null asks the host to reuse its index
+  const sg=[state,menuOpen,enc&&enc.phase,entry&&entry.key,naming&&naming.key,jr.filter].join('|');const keep=sg===screenSig;screenSig=sg;
+  if(opts.onRender)opts.onRender(keep?null:focus);
   if(opts.onStatus)opts.onStatus(statusText());lastStatus=statusText();uiDirty=false;}
 function meter(label,v){const n=Math.round(Math.max(0,Math.min(1,v))*10);return row(label,'█'.repeat(n)+'░'.repeat(10-n));}
 
@@ -705,7 +717,7 @@ function statusText(){const n=nCollected()+'/'+SP.length;
   if(state==='intro')return 'Prof. Chaga · A: next · B: back';
   if(state==='region')return 'A: travel · B: back';
   if(state==='world')return menuOpen?'A: ok · B: close':titleCase(CN[REG()])+' · '+n+' · d-pad: walk · A: look · B: menu · X: MossDex';
-  if(state==='enc')return enc.phase===0?'A: identify':enc.phase===1?'A: answer · B: ask a beetle':'A: continue';
+  if(state==='enc')return enc.phase===0?'A: identify':enc.phase===1?'A: answer · X: ask a beetle, 1 cheese':'A: continue';
   if(state==='journal')return entry?'B: back to the list':'MossDex · L/R: region · A: open · B: back';
   if(state==='petpick')return naming?'A: name it · B: back':'GoodMoss · A: plant this cutting · B: back';
   if(state==='pet')return 'GoodMoss · A: care · B: back';
@@ -718,13 +730,15 @@ function start(canvas,o){opts=o||{};cv=canvas;ctx=cv.getContext('2d');cv.width=C
   if(!cv.__mossQuest){cv.__mossQuest=true;bindPointer(cv);}
   if(ui&&!ui.__mossQuest){ui.__mossQuest=true;ui.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if(el&&ui.contains(el))act(el.dataset.act,el.dataset.arg);});}
   const begin=()=>{if(!SP)loadData(opts.data);setUser(opts.user||GUEST);setMute(!!opts.muted);for(const k in held)held[k]=false;
-    if(state!=='title'&&save.region)ambientFor(CONT.indexOf(save.region));lastStatus='';running=true;dirty();cancelAnimationFrame(raf);raf=requestAnimationFrame(loop);};
-  if(SP||opts.data)begin();else fetch(opts.dataUrl||'mossdex.json').then(r=>r.json()).then(d=>{loadData(d);begin();});
+    if(state!=='title'&&save.region)ambientFor(CONT.indexOf(save.region));lastStatus='';running=true;if(opts.notice){toast={t:opts.notice,n:400};opts.notice=null;}dirty();cancelAnimationFrame(raf);raf=requestAnimationFrame(loop);};
+  const fail=e=>{if(opts.onStatus)opts.onStatus('the MossDex could not load');if(ui){ui.innerHTML=`<p class="lcd-msg">the MossDex could not load: ${esc(e&&e.message||e)}</p><ul class="menu item-links"><li><button type="button" class="menu-item focusable" data-act="sys:retry" data-note="fetch the species data again">try again</button></li></ul>`;if(opts.onRender)opts.onRender(0);}};
+  if(SP||opts.data)begin();else fetch(opts.dataUrl||'mossdex.json').then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}).then(d=>{loadData(d);begin();}).catch(fail);
+  if(opts.dev&&!window.MQ)window.MQ=DEBUG;
   return api;}
 function stop(){running=false;cancelAnimationFrame(raf);amb.on=false;if(AC&&AC.state==='running')AC.suspend();}
 const api={start,stop,press:pressKey,hold:holdKey,handles,pad,setMuted:setMute,setUser,act,get state(){return state;},get user(){return user;}};
 
-window.MQ={get map(){return map;},get spots(){return spots;},get beetles(){return beetles;},get player(){return player;},get state(){return state;},get save(){return save;},get enc(){return enc;},get user(){return user;},
+const DEBUG={get map(){return map;},get spots(){return spots;},get beetles(){return beetles;},get player(){return player;},get state(){return state;},get save(){return save;},get enc(){return enc;},get user(){return user;},
   setUser,go(c){enterRegion(c);},intro(){startIntro('world');dirty();},pet(){openPet();},ff(h){if(save.pet){save.pet.last-=h*3600000;simPet(save.pet,Date.now());persist();dirty();}},act,
   tick(n){for(let i=0;i<(n||1);i++){syncKeys();update();for(const k in just)just[k]=false;}if(uiDirty)render();drawScene();},
   press(k,n){for(let i=0;i<(n||1);i++){pressKey(k);syncKeys();update();for(const q in just)just[q]=false;for(let f=0;f<10;f++){syncKeys();update();}}if(uiDirty)render();drawScene();},

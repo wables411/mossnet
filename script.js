@@ -639,7 +639,7 @@ function showView(name, { focus = 0, scroll = true } = {}) {
 // The game paints its pixel art (the map, the lab, the jar) on a canvas at the top of the LCD and renders the
 // rest of itself as the LCD's own HTML: menus, lists, tabs, photos. So the handheld's focus cursor, notes and
 // blips work on it like on every other screen. quest.js and its species data load the first time it is opened.
-const QUEST_SRC = 'quest.js?v=86885fa6';
+const QUEST_SRC = 'quest.js?v=b4789fbb';
 const questCanvas = document.getElementById('quest-canvas');
 const questUi = document.getElementById('quest-ui');
 let questLoading = null;
@@ -655,14 +655,19 @@ function loadScript(src) {
 }
 
 // signed in on RemiliaNET: play as yourself, saves keyed by your handle. Otherwise a guest save on this device.
+let questNotice = null;
 async function questUser() {
+  questNotice = null;
   const token = REMILIA.clientId ? await remiliaAccessToken() : null;
   if (!token) return null;
   try {
     const me = await remiliaApi('/me');
     const u = me.user || me;
     return { handle: u.username || 'remilia', displayName: u.displayName || u.username || 'remilia', pfpUrl: u.pfpUrl || null, id: u.username || u.id || 'remilia', guest: false };
-  } catch (_) { return null; }
+  } catch (error) {
+    questNotice = `RemiliaNET did not answer (${error.message}). playing as a guest for now.`;
+    return null;
+  }
 }
 
 async function startQuest() {
@@ -677,9 +682,12 @@ async function startQuest() {
       imgBase: 'assets/quest/',
       ui: questUi,
       user,
+      notice: questNotice,
       muted: !sound.enabled,
+      dev: ['127.0.0.1', 'localhost'].includes(location.hostname),
       onStatus: (text) => { if (activeView === 'quest' && !focusedElement()?.dataset.note) setNote(text); },
-      onRender: (focus) => { if (activeView === 'quest') setFocus(focus || 0, { scroll: false }); }
+      // null: the same screen was redrawn, keep the cursor where it is
+      onRender: (focus) => { if (activeView === 'quest') setFocus(focus == null ? (focusIndex.quest || 0) : focus, { scroll: false }); }
     });
   } catch (error) {
     setNote(`Moss Quest could not start: ${error.message}`);

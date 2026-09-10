@@ -997,6 +997,9 @@ body {
 /* beetle cards: Beetleboy's renders on the LCD, uncaught ones as shadows */
 .q-beetle { display: block; width: calc(var(--u) * 30); height: calc(var(--u) * 30); object-fit: contain; image-rendering: auto; }
 .q-beetle.q-dim { filter: brightness(0) opacity(0.35); }
+.q-stage.q-duo { align-items: flex-end; gap: calc(var(--u) * 3); }
+.q-beetle.q-girl { width: calc(var(--u) * 24); height: calc(var(--u) * 35); }
+.q-duo .q-beetle:not(.q-girl) { width: calc(var(--u) * 18); height: calc(var(--u) * 18); }
 /* the name grid: letters the d-pad can walk, done spans two */
 .q-keys { grid-template-columns: repeat(7, 1fr); gap: calc(var(--u) * 0.6); margin-top: calc(var(--u) * 1); }
 .q-keys .menu-item { text-align: center; padding: calc(var(--u) * 0.4) 0; border: calc(var(--u) * 0.35) solid var(--lcd-dark); font-size: calc(var(--u) * 3.6); }
@@ -1033,7 +1036,7 @@ body {
 .q-regions .menu-item.q-here::after { content: ' ·'; color: var(--lcd-mid); }
 #quest-tune { position: absolute; inset: 0; width: 100%; height: 100%; display: none; opacity: 0.6; pointer-events: none; z-index: 5; image-rendering: pixelated; }
 #view-quest.q-tune #quest-tune { display: block; }
-#view-quest.q-tune > :not(#quest-tune) { animation: q-roll 0.28s steps(6) both; }
+#view-quest.q-tune > :not(#quest-tune) { animation: q-roll 0.18s steps(4) both; }
 @keyframes q-roll { 0% { transform: translateY(-16%) scaleY(1.08); filter: brightness(1.7) contrast(1.5); } 35% { transform: translateY(9%) scaleY(0.95); filter: brightness(0.6); } 70% { transform: translateY(-3%); filter: brightness(1.25); } 100% { transform: none; filter: none; } }
 @media (prefers-reduced-motion: reduce) { #view-quest.q-tune > :not(#quest-tune) { animation: none; } #view-quest.q-tune #quest-tune { display: none; } }
 #view-quest[data-scene="jar"] #quest-ui { padding-top: calc(var(--u) * 1); }

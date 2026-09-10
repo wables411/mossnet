@@ -716,7 +716,7 @@ const titleCase=t=>String(t||'').toLowerCase().replace(/\b[a-z]/g,c=>c.toUpperCa
 const cap=t=>{t=String(t||'');return t.charAt(0).toUpperCase()+t.slice(1).toLowerCase();};
 const regionList=sp=>sp.regions.map(r=>titleCase(CN[r])).join(', ');
 const status=sp=>save.collected[sp.key]?'collected':save.seen[sp.key]?'seen':'unknown';
-function beetleImg(name,dim){const f=BEETLE_IMG[name];if(f)return `<img class="q-beetle${dim?' q-dim':''}" src="${esc((opts.imgBase||'')+'beetles/'+f+'.png')}" alt="${esc(name)}">`;
+function beetleImg(name,dim,girl){const f=BEETLE_IMG[name];if(f)return `<img class="q-beetle${girl?' q-girl':''}${dim?' q-dim':''}" src="${esc((opts.imgBase||'')+'beetles/'+f+(girl?'_card.webp':'.png'))}" alt="${esc(name)}">`;
   const b=theme&&theme.beetles.find(x=>x.name===name)||[SKULLBUG,WIDOW,XMAS,CANDY].find(x=>x.name===name);const bm=name.includes('MIDGE')?MIDGEBM:BEETLEBM;const k=b||{col:'#2a2a2a',hi:'#ffffff'};
   const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');g.imageSmoothingEnabled=false;g.drawImage(sprite(bm[0],{'1':k.col,'3':k.hi,g:k.col,d:k.hi}),0,0,16,16,0,0,64,64);return `<img class="q-beetle${dim?' q-dim':''}" src="${c.toDataURL()}" alt="${esc(name)}">`;}
 const beetleHome=name=>{const rs=CONT.filter(c=>THEMES[c].beetles.some(b=>b.name===name)).map(c=>titleCase(CN[c]));const bk=BEETLE_BOOK.find(x=>x[0]===name);
@@ -772,15 +772,15 @@ function render(){if(!ui)return;let h='',focus=0,scene='none';const u=user||GUES
     if(petMenu){h+=`<ul class="menu">${mi('back to the moss','pet:back',null,'leave the jar, it keeps growing')}${mi('release '+low(p.name),'pet:release',null,'let it go and plant another cutting')}${mi('stay','pet:menu',null,'close this')}</ul>`;focus=0;}
     else{h+=`<ul class="menu item-links q-petacts">${acts.map(btn).join('')}</ul>${msg(toast&&toast.t)}`;focus=petCur;}}
   else if(state==='petlapse'&&save.pet){scene='jar';const p=save.pet;h=`<div class="lcd-header"><span class="lcd-header-title">TIME-LAPSE</span><span class="item-meta" id="q-frame">frame 1 / ${p.snaps.length}</span></div><p class="lcd-note">the jar so far, replayed. A: back to the jar</p>`;}
-  else if(state==='beetle'&&card){h=`<div class="q-stage">${beetleImg(card.kind.name)}</div><h2 class="q-name">caught a ${esc(low(card.kind.name))}!</h2>
-      <dl>${row('tier',cap(card.kind.tier))}${row('cheese','+'+card.cheese+' · you have '+save.cheese)}${row('caught',card.count+'×')}${row('from','Beetleboy · beetle.wiki')}</dl>
+  else if(state==='beetle'&&card){h=`<div class="q-stage q-duo">${beetleImg(card.kind.name,false,true)}${beetleImg(card.kind.name)}</div><h2 class="q-name">caught a ${esc(low(card.kind.name))}!</h2>
+      <dl>${row('tier',cap(card.kind.tier))}${row('cheese','+'+card.cheese+' · you have '+save.cheese)}${row('caught',card.count+'×')}</dl>
       <ul class="menu item-links">${mi('continue','beetle:done',null,'back to the moss')}</ul>`;}
   else if(state==='beetles'){const have=BEETLE_BOOK.filter(b=>save.beetles[b[0]]).length;
-    if(bsel){const n=save.beetles[bsel[0]]||0;h=`<div class="lcd-header"><span class="lcd-header-title">BEETLES</span><span class="item-meta">${have} / ${BEETLE_BOOK.length}</span></div><div class="q-stage">${beetleImg(bsel[0],!n)}</div><h2 class="q-name">${esc(low(bsel[0]))}</h2>
-      <dl>${row('tier',cap(bsel[1])+' · '+TIER[bsel[1]].cheese+' cheese')}${row('found',beetleHome(bsel[0]))}${row('caught',n?n+'×':'not yet')}${bsel[2]==='craft'?row('in Beetleboy','a crafted beetle. here it lives in the wild'):''}${row('from','Beetleboy · beetle.wiki')}</dl>
+    if(bsel){const n=save.beetles[bsel[0]]||0;h=`<div class="lcd-header"><span class="lcd-header-title">BEETLES</span><span class="item-meta">${have} / ${BEETLE_BOOK.length}</span></div><div class="q-stage q-duo">${beetleImg(bsel[0],!n,true)}${beetleImg(bsel[0],!n)}</div><h2 class="q-name">${esc(low(bsel[0]))}</h2>
+      <dl>${row('tier',cap(bsel[1])+' · '+TIER[bsel[1]].cheese+' cheese')}${row('found',beetleHome(bsel[0]))}${row('caught',n?n+'×':'not yet')}${bsel[2]==='craft'?row('in Beetleboy','a crafted beetle. here it lives in the wild'):''}</dl>
       <ul class="menu item-links">${mi('back to the book','beetle:back',null,'B: back')}</ul>`;}
     else{h=`<div class="lcd-header"><span class="lcd-header-title">BEETLES</span><span class="item-meta">${have} / ${BEETLE_BOOK.length} caught</span></div><ul class="menu q-list">`+
-      BEETLE_BOOK.map(b=>{const n=save.beetles[b[0]]||0;return mi(`${titleCase(b[0])}${n?'  ·  '+n+'×':''}`,'beetle:open',b[0],cap(b[1])+' · '+beetleHome(b[0]),n?'q-collected':'q-unknown');}).join('')+'</ul>';}}
+      BEETLE_BOOK.map(b=>{const n=save.beetles[b[0]]||0;return mi(`${titleCase(b[0])}${n?'  ·  '+n+'×':''}`,'beetle:open',b[0],cap(b[1])+' · '+beetleHome(b[0]),n?'q-collected':'q-unknown');}).join('')+'</ul><p class="lcd-note">the beetles and their cards belong to Beetleboy · beetle.wiki</p>';}}
   else if(state==='win'){h=`<h1 class="q-title">you did it!</h1><p class="lcd-msg">every moss collected. a bryologist is born.</p><dl>${row('steps walked',String(save.steps))}${row('beetles caught',String(nBeetles()))}${row('cheese',String(save.cheese))}${CONT.map(c=>row(titleCase(CN[c]),nCollectedIn(c)+' / '+roster[c].length)).join('')}</dl><ul class="menu item-links">${mi('keep exploring','win:go',null,'the moss is still out there')}</ul>`;}
   ui.innerHTML=h;const host=ui.closest('[data-scene]')||ui.parentElement;if(host)host.dataset.scene=scene;
   ui.querySelectorAll('canvas[data-char]').forEach(c=>{c.getContext('2d').drawImage(charPortrait(c.dataset.char),0,0);});
@@ -846,8 +846,8 @@ let lastStatus='',lastPage='',tuneT=0,tuneEl=null,tuneTimer=0;
 const calm=()=>window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 function tune(){const host=ui&&(ui.closest('[data-scene]')||ui.parentElement);if(!host||calm())return;
   if(!tuneEl){tuneEl=document.createElement('canvas');tuneEl.id='quest-tune';tuneEl.width=96;tuneEl.height=72;host.appendChild(tuneEl);}
-  tuneT=8;drawTune();host.classList.add('q-tune');clearTimeout(tuneTimer);tuneTimer=setTimeout(()=>{host.classList.remove('q-tune');tuneT=0;},300);snd('tune');}
-function drawTune(){if(!tuneEl)return;const g=tuneEl.getContext('2d'),w=tuneEl.width,h=tuneEl.height,d=tuneT/8;g.clearRect(0,0,w,h);
+  tuneT=5;drawTune();host.classList.add('q-tune');clearTimeout(tuneTimer);tuneTimer=setTimeout(()=>{host.classList.remove('q-tune');tuneT=0;},200);snd('tune');}
+function drawTune(){if(!tuneEl)return;const g=tuneEl.getContext('2d'),w=tuneEl.width,h=tuneEl.height,d=tuneT/5;g.clearRect(0,0,w,h);
   for(let y=0;y<h;y++){const bar=((y+frame*5)%29)<3;for(let x=0;x<w;x++){const v=Math.random();if(v<0.12*d+(bar?0.5:0))g.fillStyle=C.light;else if(v<0.30*d)g.fillStyle=C.ink;else continue;g.fillRect(x,y,1,1);}}
   const sy=(frame*11)%h;g.fillStyle='rgba(228,235,196,0.55)';g.fillRect(0,sy,w,2);}
 function statusText(){const n=nCollected()+'/'+SP.length;

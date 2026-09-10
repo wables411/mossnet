@@ -1026,6 +1026,16 @@ body {
 .q-needs > span:nth-child(3n+1) { color: var(--lcd-mid); text-transform: uppercase; letter-spacing: 0.08em; font-size: calc(var(--u) * 2.8); }
 .q-dots { letter-spacing: 0.12em; }
 #view-quest[data-scene="jar"] #quest-canvas { height: 50%; }
+#view-quest { position: relative; }
+#view-quest[data-scene="map"] #quest-canvas { height: 50%; }
+.q-regions { grid-template-columns: repeat(2, 1fr); gap: calc(var(--u) * 0.2) calc(var(--u) * 2); }
+.q-regions .menu-item { padding-top: calc(var(--u) * 0.3); padding-bottom: calc(var(--u) * 0.3); }
+.q-regions .menu-item.q-here::after { content: ' ·'; color: var(--lcd-mid); }
+#quest-tune { position: absolute; inset: 0; width: 100%; height: 100%; display: none; opacity: 0.6; pointer-events: none; z-index: 5; image-rendering: pixelated; }
+#view-quest.q-tune #quest-tune { display: block; }
+#view-quest.q-tune > :not(#quest-tune) { animation: q-roll 0.28s steps(6) both; }
+@keyframes q-roll { 0% { transform: translateY(-16%) scaleY(1.08); filter: brightness(1.7) contrast(1.5); } 35% { transform: translateY(9%) scaleY(0.95); filter: brightness(0.6); } 70% { transform: translateY(-3%); filter: brightness(1.25); } 100% { transform: none; filter: none; } }
+@media (prefers-reduced-motion: reduce) { #view-quest.q-tune > :not(#quest-tune) { animation: none; } #view-quest.q-tune #quest-tune { display: none; } }
 #view-quest[data-scene="jar"] #quest-ui { padding-top: calc(var(--u) * 1); }
 .q-needs-row { display: flex; flex-wrap: wrap; gap: calc(var(--u) * 0.2) calc(var(--u) * 2.4); margin: calc(var(--u) * 0.8) 0 0; font-size: calc(var(--u) * 3.2); letter-spacing: 0.1em; }
 .q-need b { font-weight: 400; color: var(--lcd-mid); text-transform: uppercase; letter-spacing: 0.08em; font-size: calc(var(--u) * 2.8); margin-right: calc(var(--u) * 0.8); }

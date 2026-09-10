@@ -639,7 +639,7 @@ function showView(name, { focus = 0, scroll = true } = {}) {
 // The game paints its pixel art (the map, the lab, the jar) on a canvas at the top of the LCD and renders the
 // rest of itself as the LCD's own HTML: menus, lists, tabs, photos. So the handheld's focus cursor, notes and
 // blips work on it like on every other screen. quest.js and its species data load the first time it is opened.
-const QUEST_SRC = 'quest.js?v=b4789fbb';
+const QUEST_SRC = 'quest.js?v=b5039534';
 const questCanvas = document.getElementById('quest-canvas');
 const questUi = document.getElementById('quest-ui');
 let questLoading = null;
@@ -699,9 +699,17 @@ function leaveQuest() { window.mossQuest?.stop(); leds.set('mem', 'off'); toHome
 const questButton = (button) => () => {
   const q = window.mossQuest;
   if (!q) return;
-  if (q.handles(button) || !focusables().length) { q.press(button); sound.armed = false; }
-  else if (button === 'a') activate();
-  else move(button);
+  if (q.handles(button)) { q.press(button); sound.armed = false; return; }
+  if (button === 'a') { if (focusables().length) activate(); else { q.press('a'); sound.armed = false; } return; }
+  // up/down step the cursor; when there is nothing further to step to, they scroll the screen instead
+  const before = focusIndex.quest;
+  if (focusables().length) move(button);
+  if ((button === 'up' || button === 'down') && (focusIndex.quest === before || !focusables().length)) {
+    const step = questUi.clientHeight * 0.6;
+    const was = questUi.scrollTop;
+    questUi.scrollTop = was + (button === 'down' ? step : -step);
+    if (questUi.scrollTop !== was) sound.tick();
+  }
 };
 
 // holding a d-pad key walks; the click that follows still counts as one press
@@ -976,6 +984,7 @@ function linkItem(label, href, note) {
   return li;
 }
 
+let itemLoadTimer = 0;
 function openItem(token) {
   const walletAddress = getConnectedAddress();
   const mine = isOwnedBy(token, walletAddress);
@@ -983,7 +992,12 @@ function openItem(token) {
   itemIndex = visibleTokens.indexOf(token);
   fillInfo(token);
   applyGreen();
+  clearTimeout(itemLoadTimer);
+  itemStage.classList.remove('loading');
+  itemImage.onload = itemImage.onerror = () => { clearTimeout(itemLoadTimer); itemStage.classList.remove('loading'); };
   itemImage.src = token.large || token.thumbnail || (token.image ? sized(ipfsToHttp(token.image), 1024) : 'assets/placeholder.png');
+  // only show the bar when the picture actually keeps us waiting
+  if (!itemImage.complete) itemLoadTimer = setTimeout(() => { if (!itemImage.complete) itemStage.classList.add('loading'); }, 120);
   itemImage.alt = token.name;
   itemName.textContent = token.name;
   itemCount.textContent = itemIndex >= 0 ? `${itemIndex + 1} / ${visibleTokens.length}` : '';

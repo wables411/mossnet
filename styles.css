@@ -967,7 +967,8 @@ body {
 /* pixel art on the canvas (map, lab, jar), sized by scene; the game's own HTML fills the rest of the LCD */
 #view-quest { display: flex; flex-direction: column; height: 100%; }
 #quest-canvas { flex: 0 0 auto; width: 100%; height: 0; object-fit: contain; image-rendering: pixelated; background: var(--lcd); touch-action: none; cursor: pointer; }
-#view-quest[data-scene="world"] #quest-canvas { height: 66%; }
+#view-quest[data-scene="world"] #quest-canvas { flex: 1 1 auto; height: auto; min-height: 0; }
+#view-quest[data-scene="world"] #quest-ui { flex: 0 0 auto; }
 #view-quest[data-scene="lab"] #quest-canvas { height: 42%; }
 #view-quest[data-scene="jar"] #quest-canvas { height: 48%; }
 #view-quest[data-scene="none"] #quest-canvas { display: none; }
@@ -984,7 +985,15 @@ body {
 .q-pfp { width: calc(var(--u) * 10); height: calc(var(--u) * 10); }
 .q-dialog { font-size: calc(var(--u) * 4.4); line-height: 1.15; margin-top: calc(var(--u) * 1.4); min-height: 6em; white-space: pre-wrap; }
 .q-stage { display: flex; justify-content: center; margin: 0 0 calc(var(--u) * 1.4); }
-.q-photo { display: block; width: 100%; max-width: calc(var(--u) * 56); aspect-ratio: 4 / 3; object-fit: cover; border: calc(var(--u) * 0.5) solid var(--lcd-dark); background: #fff; }
+.q-photo { display: block; width: 100%; max-width: calc(var(--u) * 46); aspect-ratio: 4 / 3; object-fit: cover; border: calc(var(--u) * 0.5) solid var(--lcd-dark); background: #fff; }
+.q-quiz .q-photo { max-width: calc(var(--u) * 36); }
+.q-result { display: flex; gap: calc(var(--u) * 2); align-items: flex-start; }
+.q-result .q-photo { flex: 0 0 calc(var(--u) * 28); width: calc(var(--u) * 28); }
+.q-result .q-name { font-size: calc(var(--u) * 4); }
+/* the gallery: a thin bar along the bottom of the picture while the next token's image is still on its way */
+.item-stage.loading::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: calc(var(--u) * 0.7); background: linear-gradient(90deg, var(--lcd-dark) 0 35%, transparent 35% 100%) 0 0 / 200% 100%; animation: item-loading 0.9s linear infinite; }
+@keyframes item-loading { from { background-position: 200% 0; } to { background-position: -100% 0; } }
+@media (prefers-reduced-motion: reduce) { .item-stage.loading::after { animation: none; background: var(--lcd-mid); } }
 .q-nophoto { display: grid; place-items: center; background: var(--lcd-mid); color: var(--lcd); letter-spacing: 0.2em; }
 .q-name { font-size: calc(var(--u) * 4.6); font-weight: 400; line-height: 1.1; }
 .q-author, .q-common { font-size: calc(var(--u) * 3.3); color: var(--lcd-mid); }
@@ -1002,6 +1011,7 @@ body {
 #quest-ui .item-links { margin-top: calc(var(--u) * 1.6); }
 #quest-ui .item-links .menu-item { padding-left: calc(var(--u) * 1.6); }
 #quest-ui .item-links .menu-item.focused::before { content: none; }
+.lcd-link { color: inherit; text-decoration: underline; text-underline-offset: 0.12em; }
 /* ---------- end Moss Quest ---------- */
 
 /* ---------- RemiliaNET profile ---------- */

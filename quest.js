@@ -65,12 +65,22 @@ function panelBox(x,y,w,h,title){const r=win(x,y,w,h,title);rect(r.x,r.y,r.w,r.h
 function rng(seed){let a=seed>>>0;return()=>{a=(a+0x6D2B79F5)>>>0;let t=a;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return((t^(t>>>14))>>>0)/4294967296;};}
 function mkSky(w,h,seed,top,bot,n){const c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d');
   const gr=g.createLinearGradient(0,0,0,h);gr.addColorStop(0,top);gr.addColorStop(1,bot);g.fillStyle=gr;g.fillRect(0,0,w,h);
-  const r=rng(seed);for(let k=0;k<n;k++){const cx=r()*w,cy=h*0.15+r()*h*0.6,s=10+r()*22,puffs=5+(r()*6|0);
-    for(const dx of [0,-w,w]){g.fillStyle='rgba(190,210,240,0.35)';g.beginPath();g.ellipse(cx+dx,cy+s*0.45,s*1.3,s*0.35,0,0,7);g.fill();}
-    for(let p=0;p<puffs;p++){const px=cx+(r()-0.5)*s*2.4,py=cy+(r()-0.5)*s*0.9,pr=s*(0.5+r()*0.6);
-      for(const dx of [0,-w,w]){if(px+dx+pr<0||px+dx-pr>w)continue;
-        const rg=g.createRadialGradient(px+dx,py,pr*0.2,px+dx,py,pr);rg.addColorStop(0,'rgba(255,255,255,0.95)');rg.addColorStop(0.7,'rgba(255,255,255,0.75)');rg.addColorStop(1,'rgba(255,255,255,0)');
-        g.fillStyle=rg;g.beginPath();g.arc(px+dx,py,pr,0,7);g.fill();}}}
+  const r=rng(seed);for(let k=0;k<n;k++){const cx=r()*w,base=h*0.2+r()*h*0.55,s=12+r()*22,puffs=3+(r()*4|0);
+    // a cumulus: puffs sit on a flat base, the biggest in the middle
+    const P=[];for(let p=0;p<puffs;p++){const t=(p+0.5)/puffs;const px=cx+(t-0.5)*s*2.2,pr=s*(0.45+0.5*Math.sin(t*Math.PI))*(0.85+r()*0.3);P.push([px,base-pr*0.8,pr]);}
+    const draw=(dx,dy,col,shrink)=>{g.fillStyle=col;g.beginPath();for(const [px,py,pr] of P){if(px+dx+pr<0||px+dx-pr>w)continue;g.moveTo(px+dx+pr-shrink,py+dy);g.arc(px+dx,py+dy,Math.max(1,pr-shrink),0,7);}
+      const x0=P[0][0]-P[0][2]+shrink+dx,x1=P[P.length-1][0]+P[P.length-1][2]-shrink+dx;g.rect(x0,base-s*0.3+dy,x1-x0,s*0.3-shrink);g.fill();};
+    for(const dx of [0,-w,w]){draw(dx,3,'rgba(150,180,220,0.55)',0);draw(dx,0,'rgba(255,255,255,0.96)',0);draw(dx,-2,'rgba(255,255,255,1)',s*0.3);}}
+  // one cloud is a face: a disc, two slot eyes, a thin smile, all cut from the cloud so the sky shows through
+  {const R=14+r()*8,cx=r()*w,cy=h*0.18+r()*h*0.4;
+    for(const dx of [0,-w,w]){const x=cx+dx;if(x+R<0||x-R>w)continue;
+      g.fillStyle='rgba(150,180,220,0.55)';g.beginPath();g.arc(x,cy+3,R,0,7);g.fill();
+      g.fillStyle='rgba(255,255,255,0.97)';g.beginPath();g.arc(x,cy,R,0,7);g.fill();
+      g.save();g.globalCompositeOperation='destination-out';
+      for(const ex of [-0.42,0.42]){const ew=R*0.24,eh=R*0.9;g.beginPath();g.roundRect(x+ex*R-ew/2,cy-R-1,ew,eh+R*0.1,ew/2);g.fill();}
+      g.lineWidth=Math.max(1,R*0.09);g.beginPath();g.arc(x,cy-R*0.15,R*0.72,Math.PI*0.15,Math.PI*0.85);g.stroke();
+      g.restore();}
+    g.save();g.globalCompositeOperation='destination-over';g.fillStyle=gr;g.fillRect(0,0,w,h);g.restore();}
   return c;}
 let frame=0;
 const SKY=mkSky(PW*2,PH,7,'#4f93de','#d6ebfb',14);
@@ -101,8 +111,10 @@ const BEETLEBM=[['................','................','....0......0....','.....
                 ['................','................','...0........0...','....0......0....','......0000......','.....011110.....','....01111110....','..0.0111111110..','....01311110.0..','..0.01131110....','....01113110.0..','..0.01111110....','.....011110.....','.....000000.....','...0........0...','................']];
 const MIDGEBM=[['................','................','................','................','......d.d.......','.....dd.dd......','......0g0.......','.....0ggg0......','......0g0.......','.....0.0.0......','................','................','................','................','................','................'],
                ['................','................','................','................','.....d...d......','.....dd0dd......','......0g0.......','.....0ggg0......','......0g0.......','....0..0..0.....','................','................','................','................','................','................']];
-const PROFBM=['........00000000........','......00wwwwwwww00......','.....0wwwwwwwwwwww0.....','....0wwwwwwwwwwwwww0....','....0wwbbbbbbbbbbww0....','....0wbbbbbbbbbbbbw0....','....0bb00bbbb00bbb0.....','....0bb0gb0bb0gb0b0.....','....0bbb00bbbb00bb0.....','....0bbbbbbbbbbbbb0.....','.....0bbbb0000bbb0......','......0bbbbbbbbb0.......','.......0bbbbbbb0........','......00kksskk00........','....0kkkkssskkkkk0......','...0kkkkksssskkkkk0.....','..0kkkkkksssskkkkkk0....','..0kkbkkkksskkkkbkk0....','..0kbb0kkkkkkkk0bbk0....','..0kbhhkkkkkkkkk0bk0....','..0k0hh0kkkkkkkkk0k0....','..000000kkkkkkkk0000....','.......0tttttttt0.......','.......000000000........'];
-const PROF=sprite(PROFBM,null,24);
+const PROFBM=['........................','........................','....FFFFFFFFFFFFFFFF....','....AAAAAAAAAAAAAAAE....','....AAAAAAAAAAAAAAAE....','....AAkkkkkAAkkkkkAE....','....AkilwlikkilwlikE....','....BklwiiikklwiiikE....','....BkiippikkiippikE....','....BkiippikkiippikE....','....BBkkkkkBBkkkkkBE....','....BtBBBBBBtBBBBBBE....','....CtCCCCCCtCCCCCCE....','....CtCCCCCCtCCCCCCE....','....CCCCCCCCCCCCCCCE....','....CCCCCCCCCCCCCCCE....','....CCCCCCCCCCCCCCCE....','....CCCCCCCCCCCCCCCE....','....DDDDDDDDDDDDDDDE....','....DDDDDDDDDDDDDDDE....','....DDDDDDDDDDDDDDDE....','....DDDDDDDDDDDDDDDE....','....DDDDDDDDDDDDDDDE....','....EEEEEEEEEEEEEEEE....'];
+const PROFBM2=['........................','........................','....FFFFFFFFFFFFFFFF....','....AAAAAAAAAAAAAAAE....','....AAAAAAAAAAAAAAAE....','....AAAAAAAAAAAAAAAE....','....AAAAAAAAAAAAAAAE....','....BBBBBBBBBBBBBBBE....','....BkkkkkkkkkkkkkkE....','....BkBBBBBkkBBBBBkE....','....BBBBBBBBBBBBBBBE....','....BBBBBBBBBBBBBBBE....','....CCCCCCCCCCCCCCCE....','....CCCCCCCCCCCCCCCE....','....CCCCCCCCCCCCCCCE....','....CCCCCCCCCCCCCCCE....','....CCCCCCCCCCCCCCCE....','....CCCCCCCCCCCCCCCE....','....DDDDDDDDDDDDDDDE....','....DDDDDDDDDDDDDDDE....','....DDDDDDDDDDDDDDDE....','....DDDDDDDDDDDDDDDE....','....DDDDDDDDDDDDDDDE....','....EEEEEEEEEEEEEEEE....'];
+const PROFPAL={A:'#a9d6f2',B:'#bfd6cf',C:'#b7c27a',D:'#8fa24c',E:'#6f8a3c',F:'#e6f4fb',k:'#0c1420',i:'#3a8fe0',l:'#8ed0ff',p:'#08111c',w:'#ffffff',t:'#79bdf3'};
+const PROF=sprite(PROFBM,PROFPAL,24),PROF2=sprite(PROFBM2,PROFPAL,24);
 const PLROWS={
  down:['.....000000.....','....0cccccc0....','...0cccccccc0...','..0cccccccccc0..','..0000000000000.','...0bbbbbbbb0...','...0bgbbbbgb0...','...0bbbbbbbb0...','....0bbbbbb0....','....00eeee00....','...0eeeeeeee0...','..0beeeeeeeeb0..','..0.0eeeeee0.0..','....0ffffff0....','....0ff00ff0....','....00....00....'],
  up:['.....000000.....','....0cccccc0....','...0cccccccc0...','..0cccccccccc0..','..0cccccccccc0..','...0gggggggg0...','...0gggggggg0...','...0bggggggb0...','....0bbbbbb0....','....00eeee00....','...0eeeeeeee0...','..0beeeeeeeeb0..','..0.0eeeeee0.0..','....0ffffff0....','....0ff00ff0....','....00....00....'],
@@ -179,8 +191,9 @@ function buildTiles(th){const [g,gd,gl]=th.ground,[h,hd,hl]=th.ground2,[w,wl,wd]
   tl[ROCK]=sprite(ROCKBM,{'5':ra,'6':rb,'7':rc});tl[MTN]=sprite(MTNBM,{'5':ma,'6':mb,'7':mb,'d':mc});
   const tc=(cols)=>({'1':cols[0],'2':cols[1],'3':cols[2],'4':cols[3]});
   tl[TREE]=sprite(TREEBM[th.tree],tc(th.treeCol));tl[TREE2]=th.tree2?sprite(TREEBM[th.tree2],tc(th.tree2Col)):tl[TREE];tl[TREE3]=th.tree3?sprite(TREEBM[th.tree3],tc(th.tree3Col)):tl[TREE];
-  const bl=th.bldg;tl[BLDG]=[0,1].map(v=>tile(bl.wall,q=>{q(0,0,bl.roof,16,4);q(0,4,'#1a1a2e',16,1);q(0,0,'#1a1a2e',1,16);q(15,0,'#1a1a2e',1,16);
-    for(let y=6;y<13;y+=4)for(let x=2;x<14;x+=4){q(x,y,(x+y+v)%3?bl.win:'#2a2a3a',3,2);}q(6,12,bl.door,4,4);q(0,15,'#1a1a2e',16,1);}));
+  const bl=th.bldg;tl[BLDG]=[0,1,2].map(v=>tile(bl.wall,q=>{q(0,0,bl.roof,16,4);q(0,4,'#1a1a2e',16,1);q(0,0,'#1a1a2e',1,16);q(15,0,'#1a1a2e',1,16);
+    for(let y=6;y<13;y+=4)for(let x=2;x<14;x+=4){q(x,y,(x+y+v)%3?bl.win:'#2a2a3a',3,2);}q(6,12,bl.door,4,4);q(0,15,'#1a1a2e',16,1);
+    if(v===2){const Y='#f7d31a',K='#161616';q(9,5,Y,5,1);q(8,6,Y,7,5);q(9,11,Y,5,1);q(10,6,K,1,3);q(12,6,K,1,3);q(9,9,K);q(13,9,K);q(10,10,K,3,1);}}));
   return tl;}
 
 /* ---------------- data ---------------- */
@@ -262,8 +275,8 @@ function pressKey(k){ac();just[k]=true;tapT[k]=BTN_DIRS.includes(k)?6:1;}
 function holdKey(k,on){held[k]=!!on;if(on)ac();}
 function syncKeys(){for(const k in tapT)if(tapT[k]>0)tapT[k]--;BTN_DIRS.forEach(d=>{keys[d]=!!held[d]||tapT[d]>0;});}
 // the canvas is letterboxed inside its box (object-fit: contain), so map the pointer through that box
-function bindPointer(c){c.addEventListener('pointerdown',e=>{ac();const r=c.getBoundingClientRect();const sc=Math.min(r.width/CW,r.height/CH);const ox=(r.width-CW*sc)/2,oy=(r.height-CH*sc)/2;
-  const x=(e.clientX-r.left-ox)/sc,y=(e.clientY-r.top-oy)/sc;if(x<0||x>=CW||y<0||y>=CH)return;e.preventDefault();
+function bindPointer(c){c.addEventListener('pointerdown',e=>{ac();const r=c.getBoundingClientRect();const sc=Math.min(r.width/cv.width,r.height/cv.height);const ox=(r.width-cv.width*sc)/2,oy=(r.height-cv.height*sc)/2;
+  const x=(e.clientX-r.left-ox)/sc,y=(e.clientY-r.top-oy)/sc;if(x<0||x>=cv.width||y<0||y>=cv.height)return;e.preventDefault();
   click={x:x|0,y:y|0,top:true,topy:y|0};});}
 const hit=k=>{const v=!!just[k];just[k]=false;return v;};
 const tap=(x,y,w,h)=>!!(click&&!click.top&&click.x>=x&&click.x<x+w&&click.y>=y&&click.y<y+h);
@@ -282,6 +295,7 @@ function genMap(cont){const ci=CONT.indexOf(cont);theme=THEMES[cont];TL=buildTil
   const tn=theme.town;if(tn){const tr=rng(ci*131+5);for(let y=tn.y;y<tn.y+tn.h;y++)for(let x=tn.x;x<tn.x+tn.w;x++){if(x<=0||y<=0||x>=MW-1||y>=MH-1)continue;const dx=x-tn.x,dy=y-tn.y;
     if(dx%4===0||dy%4===0||dx===tn.w-1||dy===tn.h-1)map[y][x]=tn.soft?PATH:ROAD;else{const q=tr();map[y][x]=q<tn.dens?BLDG:q<tn.dens+.25?PATH:G0;}}}
   const sx=MW>>1,sy=MH>>1;for(let y=sy-1;y<=sy+1;y++)for(let x=sx-1;x<=sx+1;x++)if(!WALK[map[y][x]])map[y][x]=G0;
+  if(cont==='EUROPE')stampPond(rng(ci*311+9),sx,sy);
   player.x=sx;player.y=sy;player.px=sx*T;player.py=sy*T;player.mx=player.my=0;player.path=[];player.goal=null;
   const seen=new Set(),q=[[sx,sy]],reach=[];while(q.length){const [x,y]=q.pop();const k=y*MW+x;if(seen.has(k)||!WALK[map[y][x]])continue;seen.add(k);reach.push([x,y]);
     q.push([x+1,y],[x-1,y],[x,y+1],[x,y-1]);}
@@ -293,6 +307,15 @@ function genMap(cont){const ci=CONT.indexOf(cont);theme=THEMES[cont];TL=buildTil
   respawnQ=[];
 }
 let respawnQ=[];
+// a round pond with two slot eyes of grass and a smile of grass: the face, seen from above
+function stampPond(r,sx,sy){const R=4,cands=[];
+  for(let y=R+2;y<MH-R-2;y++)for(let x=R+2;x<MW-R-2;x++){if(Math.abs(x-sx)+Math.abs(y-sy)<R+4)continue;let ok=true;
+    for(let dy=-R-1;dy<=R+1&&ok;dy++)for(let dx=-R-1;dx<=R+1;dx++){if(dx*dx+dy*dy>(R+1)*(R+1))continue;const t=map[y+dy][x+dx];if(t===BLDG||t===ROAD||t===MTN||t===ICE||t===WATER){ok=false;break;}}
+    if(ok)cands.push([x,y]);}
+  if(!cands.length)return;const [cx,cy]=cands[(r()*cands.length)|0];
+  for(let dy=-R;dy<=R;dy++)for(let dx=-R;dx<=R;dx++)if(dx*dx+dy*dy<=R*R+1)map[cy+dy][cx+dx]=WATER;
+  for(const ex of [-2,2])for(let dy=-4;dy<=-1;dy++)map[cy+dy][cx+ex]=G0;
+  [[-3,1],[-2,2],[-1,2],[0,2],[1,2],[2,2],[3,1]].forEach(([dx,dy])=>{map[cy+dy][cx+dx]=G0;});}
 function respawnSpot(i){const pool=spots.pool;for(let k=0;k<50;k++){const [x,y]=pool[(Math.random()*pool.length)|0];
   if(Math.abs(x-player.x)+Math.abs(y-player.y)<3||occupied(x,y))continue;spots[i]={x,y,sp:pickSpecies(REG())};return;}spots.splice(i,1);}
 function pickSpecies(cont){const Rr=roster[cont];let tot=0;const w=Rr.map(s=>{const c=s.regionCounts[cont]||1;const v=(save.collected[s.key]?1:12)*(0.4+Math.min(1,Math.log10(c+1)/4));tot+=v;return v;});
@@ -578,7 +601,7 @@ function update(){frame++;if(amb.on&&!muted&&state!=='title')ambient();if(confir
           if(dx||dy){const nx=player.x+dx,ny=player.y+dy;if(nx>=0&&ny>=0&&nx<MW&&ny<MH&&WALK[map[ny][nx]]&&!spots.some(o=>o.x===nx&&o.y===ny)&&!beetles.some(o=>o.x===nx&&o.y===ny)){player.x=nx;player.y=ny;player.mx=-dx*T;player.my=-dy*T;save.steps++;snd('step',save.steps);}}}
       }else if(player.mx||player.my){const v=2;if(player.mx)player.mx+=player.mx<0?v:-v;if(player.my)player.my+=player.my<0?v:-v;player.anim++;}
       player.px=player.x*T+player.mx;player.py=player.y*T+player.my;
-      cam.x=Math.max(0,Math.min(MW*T-W,player.px-W/2+8));cam.y=Math.max(0,Math.min(MH*T-H,player.py-H/2+8));}}
+      cam.x=Math.max(0,Math.min(MW*T-cv.width,player.px-cv.width/2+8));cam.y=Math.max(0,Math.min(MH*T-cv.height,player.py-cv.height/2+8));}}
   else if(state==='enc'){if(enc.phase===1&&hit('j'))useHint();else if(enc.phase===2&&(hit('a')||hit('b')))encDone();else if(hit('b')){/* no fleeing: face it */snd('miss');}}
   else if(state==='pet'){const p=save.pet;if(!p){openPick();}else{if(frame%120===0){simPet(p,Date.now());persist();dirty();}petAnim(p);if(click&&click.top){pa.bounce=20;snd('chirp');}
     if(hit('b')||hit('j')){snd('back');go('world');}}}
@@ -657,10 +680,12 @@ function render(){if(!ui)return;let h='',focus=0,scene='none';const u=user||GUES
   else if(state==='enc'){const sp=enc.sp;
     if(enc.phase===0){h=`<div class="q-stage">${photoEl(sp)}</div><h2 class="q-name">a wild moss appears!</h2><dl>${row('family',sp.family||'?')}${row('found in',regionList(sp))}${row('records',sp.records.toLocaleString('en-US'))}${row('status',save.collected[sp.key]?'already in the MossDex':save.seen[sp.key]?'seen before. remember it?':'new species!')}</dl>
       <ul class="menu item-links">${mi('identify','enc:identify',null,'A: look closely, then pick the name')}</ul>`;}
-    else if(enc.phase===1){h=`<div class="q-stage">${photoEl(sp)}</div><h2 class="q-name">what species is it? <span class="item-meta">family ${esc(sp.family||'?')}</span></h2>${msg(toast&&toast.t)}<ul class="menu">`+
+    else if(enc.phase===1){h=`<div class="q-stage q-quiz">${photoEl(sp)}</div><h2 class="q-name">what species is it? <span class="item-meta">family ${esc(sp.family||'?')}</span></h2>${msg(toast&&toast.t)}<ul class="menu">`+
       enc.opts.map((o,i)=>{const gone=enc.gone.includes(i);return gone?`<li><button type="button" class="menu-item q-gone" disabled>${esc(o.name)}</button></li>`:mi(o.name,'enc:answer',i,'A: answer');}).join('')+
       `</ul><ul class="menu item-links">${mi(enc.hinted?'the beetle has spoken':`ask a beetle · 1 cheese, you have ${save.cheese}`,'enc:hint',null,'a beetle rules out two wrong names')}</ul>`;focus=enc.cur;}
-    else{h=`<h2 class="q-name">${enc.ok?'correct! '+esc(idstr(sp).toLowerCase()):'not quite...'}</h2>${speciesCard(sp,true)}<p class="lcd-msg">${enc.ok?'this entry is back in the MossDex.':'it slipped away, but it is marked as seen. find it again and name it to collect.'}</p>
+    else{h=`<div class="q-result">${photoEl(sp)}<div><h2 class="q-name">${enc.ok?'correct.':'not this one.'}</h2><p class="q-name">${esc(sp.name)}${sp.author?` <span class="q-author">${esc(sp.author)}</span>`:''}</p>${sp.common?`<p class="q-common">${esc(sp.common)}</p>`:''}</div></div>
+      <dl>${row('entry',String(sp.id).padStart(4,'0'))}${row('family',sp.family||'?')}${row('found in',regionList(sp))}${sp.image?row('photo',sp.image.by+' · '+lic(sp.image.license)):''}</dl>
+      <p class="lcd-msg">${enc.ok?'entry '+String(sp.id).padStart(4,'0')+' is back in the MossDex.':'it stays marked as seen. find it again and name it to collect.'}</p>
       <ul class="menu item-links">${mi('continue','enc:continue',null,'back to the moss')}</ul>`;}}
   else if(state==='journal'){const L=jlist();const name=jr.filter===0?'all regions':jr.filter===JF-1?'collected':low(CN[CONT[jr.filter-1]]);const got=L.filter(s=>save.collected[s.key]).length;
     if(entry){h=`<div class="lcd-header"><span class="lcd-header-title">MOSSDEX</span><span class="item-meta">${esc(name)} · ${jr.cur+1} / ${L.length}</span></div>${speciesCard(entry)}<ul class="menu item-links">${mi('back to the list','dex:back',null,'B: back')}</ul>`;}
@@ -686,26 +711,30 @@ function render(){if(!ui)return;let h='',focus=0,scene='none';const u=user||GUES
 function meter(label,v){const n=Math.round(Math.max(0,Math.min(1,v))*10);return row(label,'█'.repeat(n)+'░'.repeat(10-n));}
 
 /* ---------------- the pixel-art scene ---------------- */
-function drawTileAt(t,x,y){const base=OVER[t]?TL[G0]:null;if(base)ctx.drawImage(base,x,y);
-  let img_=TL[t];if(t===WATER)img_=TL[WATER][(frame>>5)&1];else if(t===BLDG)img_=TL[BLDG][((x/T+y/T)|0)&1];ctx.drawImage(img_,x,y);}
-function drawWorld(){const ox=-cam.x|0,oy=-cam.y|0;const x0=Math.max(0,(cam.x/T)|0),y0=Math.max(0,(cam.y/T)|0);
-  for(let y=y0;y<Math.min(MH,y0+VH+1);y++)for(let x=x0;x<Math.min(MW,x0+VW+1);x++)drawTileAt(map[y][x],x*T+ox,y*T+oy);
+function drawTileAt(t,x,y,tx,ty){const base=OVER[t]?TL[G0]:null;if(base)ctx.drawImage(base,x,y);
+  let img_=TL[t];if(t===WATER)img_=TL[WATER][(frame>>5)&1];else if(t===BLDG)img_=TL[BLDG][((tx*7+ty*13)%5===0)?2:((tx+ty)&1)];ctx.drawImage(img_,x,y);}
+function drawWorld(){const ox=-cam.x|0,oy=-cam.y|0;const x0=Math.max(0,(cam.x/T)|0),y0=Math.max(0,(cam.y/T)|0);const VH=cv.height/T,VW=cv.width/T;
+  for(let y=y0;y<Math.min(MH,y0+VH+1);y++)for(let x=x0;x<Math.min(MW,x0+VW+1);x++)drawTileAt(map[y][x],x*T+ox,y*T+oy,x,y);
   const mf=((frame>>4)&3)===0?1:0;for(const s of spots){if(s.x>=x0-1&&s.x<x0+VW+1&&s.y>=y0-1&&s.y<y0+VH+1)ctx.drawImage(MOSS[mf],s.x*T+ox,s.y*T+oy);}
   for(const b of beetles){if(b.x>=x0-1&&b.x<x0+VW+1&&b.y>=y0-1&&b.y<y0+VH+1)ctx.drawImage(b.spr[(frame>>3)&1],b.x*T+ox,b.y*T+oy);}
   const bob=(player.mx||player.my)&&((player.anim>>2)&1)?-1:0;ctx.drawImage(PL[player.dir],(player.px+ox)|0,(player.py+oy+bob)|0);
   const dx={left:-1,right:1}[player.dir]||0,dy={up:-1,down:1}[player.dir]||0;const tx=player.x+dx,ty=player.y+dy;
   if(!player.mx&&!player.my&&(spots.some(o=>o.x===tx&&o.y===ty)||beetles.some(o=>o.x===tx&&o.y===ty))){const bx=player.px+ox+5,by=player.py+oy-10+((frame>>3)&1);bevelOut(bx-2,by-2,10,11,C.paper);text('!',bx+1,by+1,C.red);}
-  ctx.globalAlpha=0.08;ctx.fillStyle='#0a246a';const cs=(frame*0.2)%(W+120);ctx.beginPath();ctx.ellipse(cs-60,40,50,16,0,0,7);ctx.ellipse(W-cs+30,130,40,14,0,0,7);ctx.fill();ctx.globalAlpha=1;
-  if(toast){withFont(F7,()=>{const w=tw(toast.t)+16;bevelOut(W/2-w/2,H-26,w,18,C.face);text(toast.t,W/2-w/2+8,H-20,toast.tier?TIER[toast.tier].col:C.ink);});}
+  ctx.globalAlpha=0.08;ctx.fillStyle='#0a246a';const cs=(frame*0.2)%(cv.width+120);ctx.beginPath();ctx.ellipse(cs-60,40,50,16,0,0,7);ctx.ellipse(cv.width-cs+30,130,40,14,0,0,7);ctx.fill();ctx.globalAlpha=1;
+  const hh=cv.height,cx=cv.width/2;if(toast){withFont(F7,()=>{const w=tw(toast.t)+16;bevelOut(cx-w/2,hh-26,w,18,C.face);text(toast.t,cx-w/2+8,hh-20,toast.tier?TIER[toast.tier].col:C.ink);});}
   if(player.goal||player.path.length){const g=player.goal;if(g){rect(g.x*T+ox+7,g.y*T+oy-3+((frame>>3)&1),2,2,C.red);}}
-  if(menuOpen){ctx.fillStyle='rgba(27,51,32,0.35)';ctx.fillRect(0,0,W,H);}}
+  if(menuOpen){ctx.fillStyle='rgba(27,51,32,0.35)';ctx.fillRect(0,0,cv.width,cv.height);}}
+// on the map the canvas is as tall as the box it sits in, so no letterbox: 256 wide, 192..320 tall
+function fitWorld(){let ww=CW,hh=CH;if(state==='world'&&cv.clientWidth>0&&cv.clientHeight>0){const a=cv.clientWidth/cv.clientHeight;if(a>CW/CH)ww=Math.min(400,Math.round(CH*a));else hh=Math.min(320,Math.round(CW/a));}
+  if(cv.width!==ww||cv.height!==hh){cv.width=ww;cv.height=hh;ctx.imageSmoothingEnabled=false;}}
 function drawLab(){drawSky(0,0,0.08);dots(0,0,W,H,'rgba(255,255,255,0.3)');
   rect(0,140,W,52,'#c8d4c0');for(let i=0;i<W;i+=16)for(let j=140;j<H;j+=16)if(((i+j)>>4)&1)rect(i,j,16,16,'#bccab4');
   bevelOut(150,96,96,52,'#a08060');rect(154,100,88,44,'#c8a880');ctx.drawImage(MOSS[0],160,92);ctx.drawImage(MOSS[1],200,92);
   photo(null,178,104,40,30,true);
-  ctx.save();ctx.translate(40,60);ctx.scale(3,3);ctx.drawImage(PROF,0,0);ctx.restore();
+  const talking=state==='intro'&&intro.ch<(intro.pages[intro.page]||'').length;const nod=talking?((frame>>2)&1)*2:((frame>>5)&1);const blink=(frame%210)<7;
+  ctx.save();ctx.translate(40,60+nod);ctx.scale(3,3);ctx.drawImage(blink?PROF2:PROF,0,0);ctx.restore();
   const bob=(frame>>4)&1;ctx.drawImage(MOSS[bob],20,150);ctx.drawImage(MOSS[1-bob],120,160);}
-function drawScene(){rect(0,0,W,H,C.paper);
+function drawScene(){fitWorld();rect(0,0,cv.width,cv.height,C.paper);
   if(state==='world')drawWorld();
   else if(state==='title'||state==='intro')drawLab();
   else if((state==='pet'||state==='petlapse')&&save.pet){const p=save.pet;const snap=state==='petlapse'?p.snaps[Math.min(lapse.i,p.snaps.length-1)]:null;drawJar(73,10,110,132,p,snap);}}

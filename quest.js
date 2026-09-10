@@ -380,9 +380,9 @@ const INTRO=()=>[
  {t:'I NEED YOUR HELP, TRAVELER. WILL YOU GO COLLECT ALL '+SP.length+' MOSS ENTRIES AND SAVE THE MOSSDEX?',ask:'quest'},
  {t:'WONDERFUL. WHAT SHALL I CALL YOU, TRAVELER?',ask:'name'},
  {t:'AND WHO IS WALKING ALL THAT WAY? PICK YOUR TRAVELER.',ask:'char'},
- {t:'{NAME}. A FINE NAME FOR A MOSS HUNTER. HERE IS HOW A BRYOLOGIST LOOKS. FACE A GREEN TUFT AND PRESS A. STUDY THE PHOTO: THE LEAF SHAPE, HOW THE SHOOTS BRANCH, THE COLOUR, THE LITTLE CAPSULES ON STALKS. THEN PICK THE NAME. THE FAMILY IS YOUR CLUE.'},
+ {t:'{NAME}. A FINE NAME FOR A MOSS HUNTER. NOW, HOW TO LOG A MOSS: WALK UP TO A GREEN TUFT, FACE IT, AND PRESS THE A BUTTON. I WILL SHOW YOU ITS PHOTO. LOOK AT THE LEAF SHAPE, HOW THE SHOOTS BRANCH, THE COLOUR, AND THE LITTLE CAPSULES ON STALKS. THEN PICK ITS NAME FROM THE LIST. THE FAMILY IS YOUR CLUE.'},
  {t:'NAME IT RIGHT AND THE ENTRY RETURNS TO THE MOSSDEX. NAME IT WRONG AND THE MOSS SLIPS AWAY, BUT IT STAYS MARKED AS SEEN. EVERY MISTAKE TEACHES YOU A NAME.'},
- {t:'BEETLES LIVE AMONG THE MOSS. FACE ONE AND PRESS A TO CATCH IT FOR CHEESE. STUCK ON A NAME? PRESS X DURING A QUIZ TO SPEND ONE CHEESE, AND A BEETLE WILL RULE OUT TWO WRONG ANSWERS.'},
+ {t:'BEETLES LIVE AMONG THE MOSS. FACE ONE AND PRESS THE A BUTTON TO CATCH IT FOR CHEESE. STUCK ON A NAME? PRESS THE X BUTTON DURING A QUIZ TO SPEND ONE CHEESE, AND A BEETLE WILL RULE OUT TWO WRONG ANSWERS.'},
  {t:'EACH CONTINENT HAS ITS OWN MOSSES, FROM ANTARCTIC ROCK TO CITY PAVEMENTS. USE THE MAP TO TRAVEL. THE MOSSDEX SHOWS WHAT IS STILL MISSING IN EACH PLACE.'},
  {t:'ONCE YOU HAVE A SPECIES, PLANT A CUTTING IN GOODMOSS AND KEEP IT ALIVE. YOU WILL LEARN MORE FROM ONE LIVING MOSS THAN FROM ANY BOOK.'},
  {t:'RECOVER ALL '+SP.length+' ENTRIES AND MY LIFE\'S WORK IS SAFE AGAIN. {NAME}, YOUR MOSS QUEST BEGINS NOW!'}];
@@ -709,7 +709,7 @@ const photoEl=(sp,hidden)=>sp&&sp.image&&!hidden?`<img class="q-photo" src="${es
 const low=t=>String(t||'').toLowerCase();
 const PROPER={traveler:'Traveler',mossdex:'MossDex',goodmoss:'GoodMoss',chaga:'Chaga',gbif:'GBIF',inaturalist:'iNaturalist',antarctic:'Antarctic',antarctica:'Antarctica',sphagnum:'Sphagnum',remilianet:'RemiliaNET'};
 function sentence(t){const name=playerName();t=String(t||'').toLowerCase();
-  t=t.replace(/(^|[.!?]\s+)([a-z])/g,(m,a,b)=>a+b.toUpperCase()).replace(/\bi\b/g,'I').replace(/[a-z]+/gi,w=>PROPER[w.toLowerCase()]||w);
+  t=t.replace(/(^|[.!?]\s+)([a-z])/g,(m,a,b)=>a+b.toUpperCase()).replace(/\bi\b/g,'I').replace(/[a-z]+/gi,w=>PROPER[w.toLowerCase()]||w).replace(/\b(press(?: the)? )([abxy])\b/gi,(m,a,b)=>a+b.toUpperCase());
   return t.replace(/\{name\}/g,name);}
 const titleCase=t=>String(t||'').toLowerCase().replace(/\b[a-z]/g,c=>c.toUpperCase());
 const cap=t=>{t=String(t||'');return t.charAt(0).toUpperCase()+t.slice(1).toLowerCase();};

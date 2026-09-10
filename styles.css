@@ -994,6 +994,9 @@ body {
 @keyframes item-loading { from { background-position: 200% 0; } to { background-position: -100% 0; } }
 @media (prefers-reduced-motion: reduce) { .item-stage.loading::after { animation: none; background: var(--lcd-mid); } }
 .q-nophoto { display: grid; place-items: center; background: var(--lcd-mid); color: var(--lcd); letter-spacing: 0.2em; }
+/* beetle cards: Beetleboy's renders on the LCD, uncaught ones as shadows */
+.q-beetle { display: block; width: calc(var(--u) * 30); height: calc(var(--u) * 30); object-fit: contain; image-rendering: auto; }
+.q-beetle.q-dim { filter: brightness(0) opacity(0.35); }
 .q-name { font-size: calc(var(--u) * 4.6); font-weight: 400; line-height: 1.1; }
 .q-author, .q-common { font-size: calc(var(--u) * 3.3); color: var(--lcd-mid); }
 .q-common { margin-top: calc(var(--u) * 0.4); }

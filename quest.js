@@ -137,17 +137,27 @@ const OVER=[0,1,1,0,0,0,1,0,0,1,0,1,1];   // drawn over ground
 const TIER={TIN:{cheese:1,col:'#5cb85c',hi:'#a8e6a0',w:.58},BRONZE:{cheese:2,col:'#d9a441',hi:'#f5dd9a',w:.25},MITHRIL:{cheese:3,col:'#4fc3d9',hi:'#c6f3fb',w:.11},ADAMANTINE:{cheese:5,col:'#d23c3c',hi:'#ffb0b0',w:.045},DIAMOND:{cheese:8,col:'#8fd3ff',hi:'#ffffff',w:.015}};
 const B=(name,tier,col,hi)=>({name,tier,col:col||TIER[tier].col,hi:hi||TIER[tier].hi});
 const GREEN=B('GREEN BEETLE','TIN'),SCARAB=B('GOLDEN SCARAB','DIAMOND','#e6b422','#fff2a8');
+const MONARCH=B('MONARCH','MITHRIL','#f08020','#2a2a2a'),BUMBLEBEE=B('BUMBLEBEE','MITHRIL','#f0c020','#2a2a2a'),PILLBUG=B('PILLBUG','MITHRIL','#7a7a86','#c8c8d0'),SUNSET=B('SUNSET MOTH','ADAMANTINE','#2fa060','#f0a030');
+const SKULLBUG=B('SKULLBUG','MITHRIL','#2a2a2a','#f0f0f0'),WIDOW=B('BLACK WIDOW','DIAMOND','#1a1a1a','#e03030'),XMAS=B('CHRISTMAS BEETLE','MITHRIL','#c8a020','#fff0a0'),CANDY=B('CANDYCANE TIGER MOTH','DIAMOND','#e03040','#ffffff');
+// Beetleboy's beetles as beetle.wiki lists them: name, tier, how they come; the wiki's renders are the cards
+const BEETLE_IMG={'GREEN BEETLE':'green','LADYBUG':'ladybug','PURPLE BEETLE':'purple','STRIPED CUCUMBER BEETLE':'cucumber','POND BEETLE':'pond','MONARCH':'monarch','BUMBLEBEE':'bumblebee','GOLIATH BEETLE':'goliath','BOMBARDIER BEETLE':'bombardier','STAG BEETLE':'stag','GOLDEN SCARAB':'gold',
+  'SKULLBUG':'skull','BLACK WIDOW':'widow','CHRISTMAS BEETLE':'christmas','CANDYCANE TIGER MOTH':'candycane_tiger','GIRAFFE WEEVIL':'giraffe_weevil','SABERTOOTH LONGHORN BEETLE':'sabertooth_longhorn','PILLBUG':'pillbug','IMPERIAL TORTOISE BEETLE':'imperial','GOLDEN TIGER BEETLE':'golden_tiger','BLUE LONGICORN BEETLE':'blue_longicorn','SUNSET MOTH':'sunset_moth','MARS RHINO BEETLE':'mars_rhino'};
+const BEETLE_BOOK=[['GREEN BEETLE','TIN','drop'],['LADYBUG','BRONZE','drop'],['PURPLE BEETLE','BRONZE','drop'],['STRIPED CUCUMBER BEETLE','BRONZE','drop'],['POND BEETLE','MITHRIL','drop'],['MONARCH','MITHRIL','drop'],['BUMBLEBEE','MITHRIL','drop'],['GOLIATH BEETLE','ADAMANTINE','drop'],['BOMBARDIER BEETLE','ADAMANTINE','drop'],['STAG BEETLE','ADAMANTINE','drop'],['GOLDEN SCARAB','DIAMOND','drop'],
+  ['SKULLBUG','MITHRIL','halloween'],['BLACK WIDOW','DIAMOND','halloween'],['CHRISTMAS BEETLE','MITHRIL','christmas'],['CANDYCANE TIGER MOTH','DIAMOND','christmas'],
+  ['GIRAFFE WEEVIL','MITHRIL','craft'],['SABERTOOTH LONGHORN BEETLE','ADAMANTINE','craft'],['PILLBUG','MITHRIL','craft'],['IMPERIAL TORTOISE BEETLE','MITHRIL','craft'],['GOLDEN TIGER BEETLE','MITHRIL','craft'],['BLUE LONGICORN BEETLE','MITHRIL','craft'],['SUNSET MOTH','ADAMANTINE','craft'],['MARS RHINO BEETLE','DIAMOND','craft'],
+  ['ANTARCTIC MIDGE','MITHRIL','moss'],['STOWAWAY GREEN BEETLE','TIN','moss']];
+const HOLIDAY=()=>{const m=new Date().getMonth();return m===9?[SKULLBUG,WIDOW]:m===11?[XMAS,CANDY]:[];};
 const THEMES={
  EUROPE:{blurb:'TEMPERATE WOODS, BOGS, RIVERS AND AN OLD TOWN',border:TREE,
   ground:['#78c55a','#5aa843','#9fe07c'],ground2:['#a9c96a','#8db052','#c6dd8f'],tree:'broad',treeCol:['#2e5d1f','#4f9a2d','#7fcf4a','#5b3a1e'],tree2:'pine',tree2Col:['#1f4a2a','#2f6b3a','#4e9a55','#5b3a1e'],
   water:['#6fb0f0','#bfe0ff','#4a8fdc'],path:['#cfc3a0','#b5a884','#e4dcc2'],wet:['#8aa35c','#5f7a3a','#6fa6d8'],rock:['#6e6e78','#a0a0a8','#d0d0d6'],bldg:{wall:'#f0e2c8',roof:'#b5533c',win:'#7fb2e5',door:'#5b3a1e'},road:['#9a9488','#b3ada2','#6f6a60'],mtn:['#7a8290','#a8b0bc','#ffffff'],
-  town:{x:23,y:17,w:11,h:9,dens:.6},beetles:[GREEN,B('LADYBUG','BRONZE','#e04848','#ffd0d0'),B('POND BEETLE','MITHRIL'),B('STAG BEETLE','ADAMANTINE','#6b3a1e','#c98e64'),SCARAB],
+  town:{x:23,y:17,w:11,h:9,dens:.6},beetles:[GREEN,B('LADYBUG','BRONZE','#e04848','#ffd0d0'),B('POND BEETLE','MITHRIL'),BUMBLEBEE,PILLBUG,B('STAG BEETLE','ADAMANTINE','#6b3a1e','#c98e64'),SCARAB],
   layout(u,v,n1,n2,n3){const rx=0.62+0.06*Math.sin(v*9);if(Math.abs(u-rx)<.035)return WATER;if(n1<.16)return WATER;if(n1<.24&&v<.45)return WET;
     if(v<.22&&n2>.55)return TREE2;if(n2>.68)return TREE;if(n1>.9||n3<.07)return ROCK;if(Math.abs(n3-.5)<.016)return PATH;if(n2<.3&&n1>.55)return G2;return G0;}},
  NORTH_AMERICA:{blurb:'ROCKIES, GREAT LAKES, PRAIRIE, DESERT AND A GRID CITY',border:TREE,
   ground:['#6db85a','#4f9a45','#93d67c'],ground2:['#d8c46a','#bfa94e','#eedb92'],tree:'broad',treeCol:['#2a5a1f','#4a8f2d','#77c44a','#5b3a1e'],tree2:'pine',tree2Col:['#1c4028','#2c6238','#4a8f52','#4a2e16'],tree3:'cactus',tree3Col:['#3f7a3e','#5aa050','#8ad07a','#3f7a3e'],
   water:['#4f9be0','#a9d4ff','#2e6fbd'],path:['#c9b98f','#ad9d73','#e2d6b4'],wet:['#7f9a5a','#586f3a','#5f9ad0'],rock:['#7a6e66','#a89a90','#d6ccc4'],bldg:{wall:'#a85a3c',roof:'#4a4a52','win':'#9fd6ff',door:'#2a2a2a'},road:['#4a4a52','#6a6a72','#f0e68c'],mtn:['#6f7a8a','#9aa6b6','#ffffff'],
-  town:{x:14,y:19,w:12,h:8,dens:.7},beetles:[GREEN,B('STRIPED CUCUMBER BEETLE','BRONZE','#f0d040','#2a2a2a'),B('LADYBUG','BRONZE','#e04848','#ffd0d0'),B('BOMBARDIER BEETLE','ADAMANTINE','#3a3a8a','#e07a30'),SCARAB],
+  town:{x:14,y:19,w:12,h:8,dens:.7},beetles:[GREEN,B('STRIPED CUCUMBER BEETLE','BRONZE','#f0d040','#2a2a2a'),B('LADYBUG','BRONZE','#e04848','#ffd0d0'),MONARCH,B('BOMBARDIER BEETLE','ADAMANTINE','#3a3a8a','#e07a30'),SCARAB],
   layout(u,v,n1,n2,n3){if(u<.26&&n2>.38)return MTN;if(u<.3&&v<.7&&n2>.22)return TREE2;if(u<.3&&v>=.7){if(n2>.7)return TREE3;if(n1>.9)return ROCK;return G2;}
     if(v<.38&&u>.38&&u<.68&&n1<.42)return WATER;if(Math.abs(v-.66)<.02)return ROAD;if(u>.3&&u<.6&&n1>.45&&v<.62)return G2;if(u>.6&&n2>.55)return TREE;if(n1<.1)return WATER;if(n1>.92)return ROCK;if(n1<.2&&u>.6)return WET;return G0;}},
  SOUTH_AMERICA:{blurb:'THE ANDES, THE AMAZON AND ITS FLOODPLAIN, PAMPAS, A COASTAL CITY',border:TREE,
@@ -167,7 +177,7 @@ const THEMES={
  AFRICA:{blurb:'SAHARA DUNES, AN OASIS, SAVANNA, THE RIFT LAKE AND RAINFOREST',border:TREE,
   ground:['#d8c36a','#b9a24c','#efe0a0'],ground2:['#efd79a','#d9bd78','#fff1c8'],tree:'acacia',treeCol:['#3f6a22','#5a8f30','#8ab850','#5b3a1e'],tree2:'palm',tree2Col:['#2a6a22','#3f9a30','#7fd050','#8a6a3a'],
   water:['#4f9be0','#a9d4ff','#2e6fbd'],path:['#c9a26a','#a8834e','#e0c495'],wet:['#8aa35c','#5f7a3a','#6fa6d8'],rock:['#a07a4a','#c9a06a','#ead7a8'],bldg:{wall:'#d9a466',roof:'#8a5a2a',win:'#7fb2e5',door:'#4a2e16'},road:['#a08a6a','#b8a488','#7a6a50'],mtn:['#8a7a66','#b8a890','#ffffff'],
-  town:{x:3,y:14,w:8,h:7,dens:.6},beetles:[GREEN,B('PURPLE BEETLE','BRONZE','#8a3fbf','#d9a8ff'),B('GIRAFFE WEEVIL','MITHRIL','#c03020','#2a2a2a'),B('GOLIATH BEETLE','ADAMANTINE','#f0f0f0','#2a2a2a'),SCARAB],
+  town:{x:3,y:14,w:8,h:7,dens:.6},beetles:[GREEN,B('PURPLE BEETLE','BRONZE','#8a3fbf','#d9a8ff'),B('GIRAFFE WEEVIL','MITHRIL','#c03020','#2a2a2a'),SUNSET,B('GOLIATH BEETLE','ADAMANTINE','#f0f0f0','#2a2a2a'),SCARAB],
   layout(u,v,n1,n2,n3){if(v<.3){if(n1<.07)return WATER;if(n1<.13)return TREE2;if(n2>.75)return ROCK;return G2;}
     if(Math.abs(u-.64)<.035&&v>.38&&v<.82)return WATER;if(v>.42&&v<.62&&u<.48&&n2>.4)return n3>.5?TREE2:TREE;if(n2>.8)return TREE;if(n1>.9)return ROCK;if(n1<.12&&v>.6)return WET;if(n1<.3&&n2<.3)return PATH;return G0;}},
  OCEANIA:{blurb:'REEF, BEACHES, EUCALYPT BUSH, RED OUTBACK AND A HARBOUR TOWN',border:WATER,
@@ -346,7 +356,7 @@ function interactAhead(){const dx={left:-1,right:1}[player.dir]||0,dy={up:-1,dow
   if(map[ty]&&map[ty][tx]===BLDG){snd('miss');toast={t:'CLOSED FOR CONSTRUCTION',n:120};return true;}return false;}
 
 /* ---------------- beetles (Beetleboy tiers) ---------------- */
-function rollBeetle(){const list=theme.beetles;const pity=save.pity>=6;let pool=list.filter(b=>!pity||b.tier!=='TIN');if(!pool.length)pool=list;
+function rollBeetle(){const list=theme.beetles.concat(HOLIDAY());const pity=save.pity>=6;let pool=list.filter(b=>!pity||b.tier!=='TIN');if(!pool.length)pool=list;
   const tot=pool.reduce((a,b)=>a+TIER[b.tier].w,0);let r=Math.random()*tot;for(const b of pool){r-=TIER[b.tier].w;if(r<=0)return b;}return pool[0];}
 function mkBeetle(x,y){const k=rollBeetle();const midge=k.name.includes('MIDGE');const bm=midge?MIDGEBM:BEETLEBM;
   return {x,y,kind:k,t:30+(Math.random()*60|0),spr:bm.map(rows=>sprite(rows,{'1':k.col,'3':k.hi,g:k.col,d:k.hi})),wig:0};}
@@ -354,7 +364,7 @@ function stepBeetles(){for(const b of beetles){if(--b.t>0)continue;b.t=30+(Math.
     if(nx>0&&ny>0&&nx<MW-1&&ny<MH-1&&WALK[map[ny][nx]]&&!occupied(nx,ny)){b.x=nx;b.y=ny;}}
   for(let i=respawnQ.length-1;i>=0;i--){if(--respawnQ[i]<=0){respawnQ.splice(i,1);const reach=spots.reach;for(let k=0;k<50;k++){const [x,y]=reach[(Math.random()*reach.length)|0];if(Math.abs(x-player.x)+Math.abs(y-player.y)<4||occupied(x,y))continue;beetles.push(mkBeetle(x,y));break;}}}}
 function catchBeetle(i){const b=beetles[i];beetles.splice(i,1);respawnQ.push(600+(Math.random()*600|0));const tier=TIER[b.kind.tier];save.cheese+=tier.cheese;save.beetles[b.kind.name]=(save.beetles[b.kind.name]||0)+1;
-  save.pity=b.kind.tier==='TIN'?save.pity+1:0;persist();snd('beetle');toast={t:'CAUGHT '+b.kind.name+'!  +'+tier.cheese+' CHEESE',n:150,tier:b.kind.tier};}
+  save.pity=b.kind.tier==='TIN'?save.pity+1:0;persist();snd('beetle');card={kind:b.kind,cheese:tier.cheese,count:save.beetles[b.kind.name]};go('beetle');}
 
 /* ---------------- intro (Professor Chaga) ---------------- */
 const INTRO=()=>[
@@ -564,7 +574,7 @@ function petAdvice(p){const pr=prefs(petSp(p));
 const pips=(v,n)=>{const k=Math.round(Math.max(0,Math.min(1,v))*n);return '●'.repeat(k)+'○'.repeat(n-k);};
 
 /* ---------------- states ---------------- */
-let state='title',cur=0,enc=null,jr={filter:0,cur:0},entry=null,toast=null,chimed=false,menuOpen=false,confirmNew=0,confirmRel=0,uiDirty=true,screenSig='';
+let state='title',cur=0,enc=null,jr={filter:0,cur:0},entry=null,card=null,bsel=null,toast=null,chimed=false,menuOpen=false,confirmNew=0,confirmRel=0,uiDirty=true,screenSig='';
 const REG=()=>save.region;
 let JF=9;function jlist(){return jr.filter===0?SP:jr.filter===JF-1?SP.filter(s=>save.collected[s.key]):roster[CONT[jr.filter-1]];}
 function go(st){state=st;dirty();}
@@ -579,7 +589,7 @@ function titleAct(opt){if(!chimed){snd('chime');chimed=true;}
   if(opt==='title:continue'){if(save.region&&save.introDone)enterRegion(save.region);else toRegion();}
   else if(opt==='title:begin')toRegion();
   else if(opt==='title:new'){if(nCollected()&&confirmNew<=0){confirmNew=180;snd('miss');say('THIS ERASES YOUR MOSSDEX. PRESS AGAIN.',180);return;}confirmNew=0;save=fresh();persist();toRegion();}}
-const MENU=[['MossDex','the 1000 species, and which ones you have','menu:mossdex'],['GoodMoss','plant a cutting and keep it alive','menu:goodmoss'],['map','travel to another continent','menu:map'],['tutorial','Professor Chaga, again','menu:tutorial'],['close','back to the moss','menu:close']];
+const MENU=[['MossDex','the 1000 species, and which ones you have','menu:mossdex'],['beetles','every beetle Beetleboy knows, and the ones you have caught','menu:beetles'],['GoodMoss','plant a cutting and keep it alive','menu:goodmoss'],['map','travel to another continent','menu:map'],['tutorial','Professor Chaga, again','menu:tutorial'],['close','back to the moss','menu:close']];
 function useHint(){if(enc.hinted||save.cheese<1){snd('miss');say(enc.hinted?'THE BEETLE ALREADY HELPED':'NO CHEESE. CATCH A BEETLE FIRST',120);return;}
   save.cheese--;enc.hinted=true;const wrong=enc.opts.map((o,i)=>i).filter(i=>enc.opts[i]!==enc.sp);for(let k=wrong.length-1;k>0;k--){const j=(Math.random()*(k+1))|0;[wrong[k],wrong[j]]=[wrong[j],wrong[k]];}
   enc.gone=wrong.slice(0,2);persist();snd('beetle');dirty();}
@@ -596,6 +606,8 @@ function handles(b){
   if(state==='journal')return b==='left'||b==='right'||b==='j'||(entry&&b==='a');
   if(state==='enc')return (enc.phase===2&&b==='a')||(enc.phase===1&&b==='j');
   if(state==='pet'||state==='petpick')return b==='j';
+  if(state==='beetle')return b==='a';
+  if(state==='beetles')return b==='j'||(bsel&&b==='a');
   return false;}
 const pad=()=>state==='world'&&!menuOpen;
 
@@ -633,6 +645,8 @@ function update(){frame++;if(amb.on&&!muted&&state!=='title')ambient();if(confir
     if(entry&&hit('a')){entry=null;dirty();}
     if(hit('b')||hit('j')){if(entry){entry=null;snd('back');dirty();}else{snd('back');go('world');}}}
   else if(state==='win'){if(hit('a')||hit('b')||click)go('world');}
+  else if(state==='beetle'){if(hit('a')||hit('b')){card=null;go('world');}}
+  else if(state==='beetles'){if(bsel&&(hit('a')||hit('b'))){bsel=null;snd('back');dirty();}else if(hit('b')||hit('j')){snd('back');go('world');}}
   else if(state==='title'){if(hit('b'))snd('miss');}
   click=null;
 }
@@ -646,6 +660,10 @@ function act(name,arg){
   else if(name==='menu:goodmoss'){menuOpen=false;openPet();}
   else if(name==='menu:map'){menuOpen=false;go('region');}
   else if(name==='menu:tutorial'){menuOpen=false;startIntro('world');dirty();}
+  else if(name==='menu:beetles'){menuOpen=false;bsel=null;go('beetles');}
+  else if(name==='beetle:done'){card=null;go('world');}
+  else if(name==='beetle:open'){bsel=BEETLE_BOOK.find(x=>x[0]===arg)||null;dirty();}
+  else if(name==='beetle:back'){bsel=null;dirty();}
   else if(name==='menu:close'){menuOpen=false;dirty();}
   else if(name==='enc:identify'){enc.phase=1;dirty();}
   else if(name==='enc:answer')answer(Number(arg));
@@ -680,6 +698,11 @@ const titleCase=t=>String(t||'').toLowerCase().replace(/\b[a-z]/g,c=>c.toUpperCa
 const cap=t=>{t=String(t||'');return t.charAt(0).toUpperCase()+t.slice(1).toLowerCase();};
 const regionList=sp=>sp.regions.map(r=>titleCase(CN[r])).join(', ');
 const status=sp=>save.collected[sp.key]?'collected':save.seen[sp.key]?'seen':'unknown';
+function beetleImg(name,dim){const f=BEETLE_IMG[name];if(f)return `<img class="q-beetle${dim?' q-dim':''}" src="${esc((opts.imgBase||'')+'beetles/'+f+'.png')}" alt="${esc(name)}">`;
+  const b=theme&&theme.beetles.find(x=>x.name===name)||[SKULLBUG,WIDOW,XMAS,CANDY].find(x=>x.name===name);const bm=name.includes('MIDGE')?MIDGEBM:BEETLEBM;const k=b||{col:'#2a2a2a',hi:'#ffffff'};
+  const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');g.imageSmoothingEnabled=false;g.drawImage(sprite(bm[0],{'1':k.col,'3':k.hi,g:k.col,d:k.hi}),0,0,16,16,0,0,64,64);return `<img class="q-beetle${dim?' q-dim':''}" src="${c.toDataURL()}" alt="${esc(name)}">`;}
+const beetleHome=name=>{const rs=CONT.filter(c=>THEMES[c].beetles.some(b=>b.name===name)).map(c=>titleCase(CN[c]));const bk=BEETLE_BOOK.find(x=>x[0]===name);
+  if(bk&&bk[2]==='halloween')return 'anywhere, in October';if(bk&&bk[2]==='christmas')return (rs.length?rs.join(', ')+' all year, and ':'')+'anywhere in December';return rs.length?rs.join(', '):'not in the wild here';};
 function speciesCard(sp,k){const known_=k==null?known(sp):k;return `<div class="q-card"><div class="q-stage">${photoEl(sp,!known_)}</div>
   <h2 class="q-name">${esc(known_?sp.name:'?????')}${known_&&sp.author?` <span class="q-author">${esc(sp.author)}</span>`:''}</h2>
   ${known_&&sp.common?`<p class="q-common">${esc(sp.common)}</p>`:''}
@@ -728,6 +751,15 @@ function render(){if(!ui)return;let h='',focus=0,scene='none';const u=user||GUES
       <ul class="menu item-links">${btn(acts.find(a=>a[2]===2))}${btn(acts.find(a=>a[2]===3))}${acts.filter(a=>a[2]>=5).map(btn).join('')}</ul>
       ${p.log[0]&&!/^(MISTED|SOAKED|MOVED|LID|REPOTTED)/.test(p.log[0])?`<p class="lcd-note">${esc(low(p.log[0]))}</p>`:''}${msg(toast&&toast.t)}`;focus=petCur;}
   else if(state==='petlapse'&&save.pet){scene='jar';const p=save.pet;h=`<div class="lcd-header"><span class="lcd-header-title">TIME-LAPSE</span><span class="item-meta" id="q-frame">frame 1 / ${p.snaps.length}</span></div><p class="lcd-note">the jar so far, replayed. A: back to the jar</p>`;}
+  else if(state==='beetle'&&card){h=`<div class="q-stage">${beetleImg(card.kind.name)}</div><h2 class="q-name">caught a ${esc(low(card.kind.name))}!</h2>
+      <dl>${row('tier',cap(card.kind.tier))}${row('cheese','+'+card.cheese+' · you have '+save.cheese)}${row('caught',card.count+'×')}${row('from','Beetleboy · beetle.wiki')}</dl>
+      <ul class="menu item-links">${mi('continue','beetle:done',null,'back to the moss')}</ul>`;}
+  else if(state==='beetles'){const have=BEETLE_BOOK.filter(b=>save.beetles[b[0]]).length;
+    if(bsel){const n=save.beetles[bsel[0]]||0;h=`<div class="lcd-header"><span class="lcd-header-title">BEETLES</span><span class="item-meta">${have} / ${BEETLE_BOOK.length}</span></div><div class="q-stage">${beetleImg(bsel[0],!n)}</div><h2 class="q-name">${esc(low(bsel[0]))}</h2>
+      <dl>${row('tier',cap(bsel[1])+' · '+TIER[bsel[1]].cheese+' cheese')}${row('found',beetleHome(bsel[0]))}${row('caught',n?n+'×':'not yet')}${bsel[2]==='craft'?row('in Beetleboy','a crafted beetle. here it lives in the wild'):''}${row('from','Beetleboy · beetle.wiki')}</dl>
+      <ul class="menu item-links">${mi('back to the book','beetle:back',null,'B: back')}</ul>`;}
+    else{h=`<div class="lcd-header"><span class="lcd-header-title">BEETLES</span><span class="item-meta">${have} / ${BEETLE_BOOK.length} caught</span></div><ul class="menu q-list">`+
+      BEETLE_BOOK.map(b=>{const n=save.beetles[b[0]]||0;return mi(`${titleCase(b[0])}${n?'  ·  '+n+'×':''}`,'beetle:open',b[0],cap(b[1])+' · '+beetleHome(b[0]),n?'q-collected':'q-unknown');}).join('')+'</ul>';}}
   else if(state==='win'){h=`<h1 class="q-title">you did it!</h1><p class="lcd-msg">every moss collected. a bryologist is born.</p><dl>${row('steps walked',String(save.steps))}${row('beetles caught',String(nBeetles()))}${row('cheese',String(save.cheese))}${CONT.map(c=>row(titleCase(CN[c]),nCollectedIn(c)+' / '+roster[c].length)).join('')}</dl><ul class="menu item-links">${mi('keep exploring','win:go',null,'the moss is still out there')}</ul>`;}
   ui.innerHTML=h;const host=ui.closest('[data-scene]')||ui.parentElement;if(host)host.dataset.scene=scene;
   // the same screen redrawn (a timer, a toast, a hint) keeps the cursor where the player left it: null asks the host to reuse its index
@@ -787,6 +819,8 @@ function statusText(){const n=nCollected()+'/'+SP.length;
   if(state==='petpick')return naming?'A: name it · B: back':'GoodMoss · A: plant this cutting · B: back';
   if(state==='pet')return 'GoodMoss · A: do it · d-pad: pick · B: back';
   if(state==='petlapse')return 'time-lapse · A: back';
+  if(state==='beetle')return 'A: continue';
+  if(state==='beetles')return bsel?'B: back to the book':'beetles · A: look · B: back';
   if(state==='win')return 'every moss found · A: keep exploring';return '';}
 function pushStatus(){const t=statusText();if(t!==lastStatus){lastStatus=t;if(opts.onStatus)opts.onStatus(t);}}
 let raf=0,running=false;

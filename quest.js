@@ -77,8 +77,8 @@ function mkSky(w,h,seed,top,bot,n){const c=document.createElement('canvas');c.wi
       g.fillStyle='rgba(150,180,220,0.55)';g.beginPath();g.arc(x,cy+3,R,0,7);g.fill();
       g.fillStyle='rgba(255,255,255,0.97)';g.beginPath();g.arc(x,cy,R,0,7);g.fill();
       g.save();g.globalCompositeOperation='destination-out';
-      for(const ex of [-0.42,0.42]){const ew=R*0.24,eh=R*0.9;g.beginPath();g.roundRect(x+ex*R-ew/2,cy-R-1,ew,eh+R*0.1,ew/2);g.fill();}
-      g.lineWidth=Math.max(1,R*0.09);g.beginPath();g.arc(x,cy-R*0.15,R*0.72,Math.PI*0.15,Math.PI*0.85);g.stroke();
+      for(const ex of [-0.40,0.40]){const ew=R*0.24,eh=R*1.9;g.beginPath();g.roundRect(x+ex*R-ew/2,cy-R-4,ew,eh,ew/2);g.fill();}
+      g.lineWidth=Math.max(1,R*0.05);g.beginPath();g.arc(x,cy,R*0.84,Math.PI*0.034,Math.PI*0.966);g.stroke();
       g.restore();}
     g.save();g.globalCompositeOperation='destination-over';g.fillStyle=gr;g.fillRect(0,0,w,h);g.restore();}
   return c;}
@@ -193,7 +193,8 @@ function buildTiles(th){const [g,gd,gl]=th.ground,[h,hd,hl]=th.ground2,[w,wl,wd]
   tl[TREE]=sprite(TREEBM[th.tree],tc(th.treeCol));tl[TREE2]=th.tree2?sprite(TREEBM[th.tree2],tc(th.tree2Col)):tl[TREE];tl[TREE3]=th.tree3?sprite(TREEBM[th.tree3],tc(th.tree3Col)):tl[TREE];
   const bl=th.bldg;tl[BLDG]=[0,1,2].map(v=>tile(bl.wall,q=>{q(0,0,bl.roof,16,4);q(0,4,'#1a1a2e',16,1);q(0,0,'#1a1a2e',1,16);q(15,0,'#1a1a2e',1,16);
     for(let y=6;y<13;y+=4)for(let x=2;x<14;x+=4){q(x,y,(x+y+v)%3?bl.win:'#2a2a3a',3,2);}q(6,12,bl.door,4,4);q(0,15,'#1a1a2e',16,1);
-    if(v===2){const Y='#f7d31a',K='#161616';q(9,5,Y,5,1);q(8,6,Y,7,5);q(9,11,Y,5,1);q(10,6,K,1,3);q(12,6,K,1,3);q(9,9,K);q(13,9,K);q(10,10,K,3,1);}}));
+    if(v===2){const Y='#f7d31a',K='#161616';const W9=[5,7,9,9,9,9,9,7,5];W9.forEach((w,i)=>q(10-(w>>1),3+i,Y,w,1));
+      q(8,3,K,1,4);q(12,3,K,1,4);[[6,7],[7,9],[8,10],[9,11],[10,11],[11,11],[12,10],[13,9],[14,7]].forEach(([x,y])=>q(x,y,K));}}));
   return tl;}
 
 /* ---------------- data ---------------- */
@@ -315,7 +316,7 @@ function stampPond(r,sx,sy){const R=4,cands=[];
   if(!cands.length)return;const [cx,cy]=cands[(r()*cands.length)|0];
   for(let dy=-R;dy<=R;dy++)for(let dx=-R;dx<=R;dx++)if(dx*dx+dy*dy<=R*R+1)map[cy+dy][cx+dx]=WATER;
   for(const ex of [-2,2])for(let dy=-4;dy<=-1;dy++)map[cy+dy][cx+ex]=G0;
-  [[-3,1],[-2,2],[-1,2],[0,2],[1,2],[2,2],[3,1]].forEach(([dx,dy])=>{map[cy+dy][cx+dx]=G0;});}
+  [[-3,1],[-2,2],[-1,3],[0,3],[1,3],[2,2],[3,1]].forEach(([dx,dy])=>{map[cy+dy][cx+dx]=G0;});}
 function respawnSpot(i){const pool=spots.pool;for(let k=0;k<50;k++){const [x,y]=pool[(Math.random()*pool.length)|0];
   if(Math.abs(x-player.x)+Math.abs(y-player.y)<3||occupied(x,y))continue;spots[i]={x,y,sp:pickSpecies(REG())};return;}spots.splice(i,1);}
 function pickSpecies(cont){const Rr=roster[cont];let tot=0;const w=Rr.map(s=>{const c=s.regionCounts[cont]||1;const v=(save.collected[s.key]?1:12)*(0.4+Math.min(1,Math.log10(c+1)/4));tot+=v;return v;});

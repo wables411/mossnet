@@ -553,15 +553,15 @@ function drawPot(x,y,w,h,p,snap){const q=snap?{hyd:snap.w,health:snap.h,fit:p.fi
   rect(x+2,cy,w-4,3,'#1e1e22');rect(x+2,cy,w-4,1,'#3a3a40');
   const sc=SUBCOL[p.sub][0],sl=SUBCOL[p.sub][1];rect(x+2,sy,w-4,cy-sy,sc);fillEllipse(x+(w>>1),sy,(w>>1)-2,3,sc);for(let i=0;i<Math.round(w/2);i++)px(x+3+((R()*(w-7))|0),sy+1+((R()*(cy-sy-2))|0),sl);
   // goods on the soil
-  if(jarHas('pebbles')){[[.12,-2],[.2,1],[.86,-1]].forEach(([f,o])=>{const bx=x+f*w,by=sy+o;fillEllipse(bx,by,5,3,'#5c6068');fillEllipse(bx,by,4,2,'#9a9ea8');px(bx-2,by-2,'#d8dce4',2,1);});}
-  if(jarHas('twig')){const tx=x+w*.72,ty=sy-2;for(let k=0;k<Math.round(w*.2);k++){px(tx+k,ty-Math.round(k*.35),'#6a4a2c',1,2);if(k%5===2)px(tx+k,ty-Math.round(k*.35)-3,'#7a5a3c',1,3);}}
+  if(jarHas('pebbles')){[[.09,-1,8,5],[.19,1,6,4],[.86,-1,9,5],[.93,1,5,3]].forEach(([f,o,rx,ry])=>{const bx=x+f*w,by=sy+o;fillEllipse(bx,by,rx,ry,'#3e4249');fillEllipse(bx,by-1,rx-1,ry-1,'#8e939e');fillEllipse(bx-1,by-2,Math.max(1,rx-4),Math.max(1,ry-3),'#b9bec8');px(bx-rx+3,by-ry+1,'#e2e6ee',2,1);});}
+  if(jarHas('twig')){const tx=x+w*.68,ty=sy-1,L=Math.round(w*.26);for(let k=0;k<L;k++){const yy=ty-Math.round(k*.4);px(tx+k,yy,'#5a3d22',1,3);px(tx+k,yy,'#8a6440');if(k===Math.round(L*.45))for(let m=0;m<7;m++)px(tx+k+m,yy-2-m,'#6a4a2c',1,2);if(k===Math.round(L*.75))for(let m=0;m<5;m++)px(tx+k-m,yy-3-m,'#6a4a2c',1,2);}px(tx+Math.round(L*.3),ty-Math.round(L*.12)+1,'#3a2614',2,1);}
   // the moss, and the carpet it spreads into
   const base=sy-1;const tn=tones(q.health,q.hyd,0,q.dead);const spread=Math.round(g*(jarHas('big')?7:4));
   for(let i=0;i<spread;i++){const f=i%2?.16+i*.06:.84-i*.06;const bx=x+f*w,ry=3+Math.round(g*4);fillEllipse(bx,base,7+g*5,ry,tn[3]);fillEllipse(bx,base,6+g*5,ry-1,tn[1]);px(bx-2,base-ry+1,tn[2],3,1);}
   const ks=Math.max(1,Math.min(1.7,w/150));ctx.save();ctx.translate(x+(w>>1),base);ctx.scale(ks,ks);ctx.translate(-(x+(w>>1)),-base);const info=drawChibi(x+(w>>1),base,g,q,pr,sp,snap?0:pa.wake,snap?0:pa.bounce,snap);ctx.restore();
   // the snail, or the springtail
   if(!snap&&!q.dead){const bug=pa.bug;const bx=x+6+bug.x*(w-16),by=base-1;
-    if(jarHas('snail')){fillEllipse(bx,by-3,4,3,'#c48a4a');fillEllipse(bx,by-3,2,2,'#e0b070');px(bx-5,by-1,'#d8c8a0',5,2);px(bx-6,by-3,'#d8c8a0',1,3);px(bx-7,by-4,'#5a4a3a');}
+    if(jarHas('snail')){fillEllipse(bx+1,by-5,6,5,'#5a3a1c');fillEllipse(bx+1,by-5,5,4,'#c48a4a');fillEllipse(bx+2,by-5,3,2,'#e8b878');px(bx+2,by-5,'#8a5a2c');px(bx-9,by-2,'#e0d0a8',10,3);px(bx-9,by-3,'#e0d0a8',3,1);px(bx-9,by-6,'#c8b890',1,4);px(bx-6,by-6,'#c8b890',1,4);px(bx-10,by-7,'#3a2a1a',2,2);px(bx-7,by-7,'#3a2a1a',2,2);}
     else if(q.fit>.6&&!q.dormant){const hy=by-bug.y*6-(bug.hop>0?3:0);px(bx,hy,'#8a6a4a',3,2);px(bx-1,hy-1,'#5a4a3a');px(bx+3,hy-1,'#5a4a3a');}}
   // the water cycle on the glass: beads high up when it is wet, fog at the shoulders, drips running down
   const nd=Math.round(q.hyd*16);for(let i=0;i<nd;i++){const dx=x+6+((R()*(w-12))|0),dy=y+10+((R()*(h*.35))|0);px(dx,dy,'rgba(160,210,255,0.8)',1,2);px(dx,dy,'rgba(255,255,255,0.9)');}
@@ -569,7 +569,7 @@ function drawPot(x,y,w,h,p,snap){const q=snap?{hyd:snap.w,health:snap.h,fit:p.fi
   if(q.algae>.05){ctx.fillStyle='rgba(90,160,60,'+(q.algae*.4)+')';ctx.fillRect(x+2,y+h*.4,w-4,sy-y-h*.4);}
   if(!snap)for(const bd of pa.beads){px(bd.x,bd.y,'#8fd0ff',1,3);px(bd.x,bd.y,C.white);}
   px(x+4,y+14,'rgba(255,255,255,0.8)',1,h-30);px(x+6,y+14,'rgba(255,255,255,0.5)',1,h*.3);px(x+w-5,y+16,'rgba(255,255,255,0.35)',1,h*.5);
-  if(jarHas('lights')){for(let i=0;i<7;i++){const lx=x+8+i*((w-16)/6),ly=y+12+Math.round(Math.sin(i*1.3)*3);px(lx,ly-2,'#5a4a3a',1,2);px(lx,ly,((frame>>4)+i)%3?'#ffe27a':'#fff8d0',2,2);}}
+  if(jarHas('lights')){const n=9,cols=['#ffe27a','#ff9ab0','#9ad8ff'];for(let i=0;i<n;i++){const lx=Math.round(x+8+i*((w-16)/(n-1))),ly=y+13+Math.round(Math.sin(i*1.1)*4);if(i<n-1){const nx=Math.round(x+8+(i+1)*((w-16)/(n-1))),ny=y+13+Math.round(Math.sin((i+1)*1.1)*4);for(let t=0;t<6;t++)px(lx+Math.round((nx-lx)*t/6),ly-3+Math.round((ny-ly)*t/6),'#4a3a2a');}const on=((frame>>4)+i)%4!==0,c=cols[i%3];if(on){ctx.fillStyle=c.replace(')',',0.35)').replace('#','rgba(').length?'rgba(255,240,200,0.28)':c;ctx.fillRect(lx-3,ly-3,8,8);}px(lx-1,ly-3,'#4a3a2a',3,2);px(lx-1,ly-1,on?c:'#8a8a80',4,4);px(lx,ly,on?'#ffffff':'#a0a098');}}
   // name tag
   const tagw=Math.min(w-10,tw(p.name)+10);const tx=x+w-tagw-5,ty=sy+5;px(tx,ty,C.lav,tagw,9);px(tx,ty,C.lav2,tagw,1);text(p.name,tx+5,ty+2,C.white);px(tx-4,ty+1,C.lav,3,3);px(tx-4,ty+5,C.lav,3,3);
   return info;}

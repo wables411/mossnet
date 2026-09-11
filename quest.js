@@ -463,7 +463,7 @@ function drawEye(img,x,fy,H,e,tone,blink,ink){const sc=H/img.height,w=Math.max(3
   ctx.drawImage(img,x-(w>>1),sy,w,hh);
   if(kind==='half'){ctx.fillStyle=tone;ctx.fillRect(x-(w>>1),sy,w,Math.round(hh*.45));px(x-(w>>1),sy+Math.round(hh*.45),ink,w,1);}}
 function drawFace(cx,fy,d,er,e,tone,blink,style){const ink=C.ink;
-  if(style!=null&&EYES[style]&&e.eyes!=='x'){const im=eyeImg(style),H=2*er+5;drawEye(im.L,cx-d,fy,H,e,tone,blink,ink);drawEye(im.R,cx+d,fy,H,e,tone,blink,ink);}
+  if(style!=null&&EYES[style]&&e.eyes!=='x'){const im=eyeImg(style),H=Math.round((2*er+5)*1.35);drawEye(im.L,cx-d,fy,H,e,tone,blink,ink);drawEye(im.R,cx+d,fy,H,e,tone,blink,ink);}
   else{const eye=(x)=>{
     if(e.eyes==='closed'||blink){px(x-er,fy,ink,er*2+1,1);return;}
     if(e.eyes==='x'){for(let k=-1;k<=1;k++){px(x+k,fy+k,ink);px(x+k,fy-k,ink);}return;}

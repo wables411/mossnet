@@ -494,7 +494,7 @@ function drawFace(cx,fy,d,er,e,tone,blink,style){const ink=C.ink;
 let MOSSCV=null,MOSSTINT=null;function mossImg(){if(!MOSSCV)MOSSCV=sprite(MOSSIMG.rows,MOSSIMG.pal,[MOSSIMG.w,MOSSIMG.h]);return MOSSCV;}
 const hasArt=pr=>pr.sub==='rock';
 function drawMossImg(cx,base,g,q,sp,wake,bounce,snap){const img=mossImg();const bt=bounce>0?Math.sin((1-bounce/20)*Math.PI):0;const sc=(0.5+g*0.5)*1.0;
-  const w=Math.max(8,Math.round(img.width*sc*(1+.06*bt))),h=Math.max(8,Math.round(img.height*sc*(1-.06*bt)));const x=Math.round(cx-w/2),y=Math.round(base-h+5);
+  const w=Math.max(8,Math.round(img.width*sc*(1+.06*bt))),h=Math.max(8,Math.round(img.height*sc*(1-.06*bt)));const x=Math.round(cx-w/2),y=Math.round(base-h*0.74);   // the ragged underside sinks into the soil
   ctx.imageSmoothingEnabled=false;
   const dry=q.dead?1:Math.max(0,Math.min(1,(.3-q.hyd)/.15));const tint=Math.min(1,dry*.8+(1-q.health)*.25+(q.dormant?.2:0));
   if(tint>.02){if(!MOSSTINT)MOSSTINT=document.createElement('canvas');MOSSTINT.width=w;MOSSTINT.height=h;const og=MOSSTINT.getContext('2d');og.imageSmoothingEnabled=false;og.drawImage(img,0,0,w,h);og.globalCompositeOperation='source-atop';og.fillStyle='rgba(150,118,74,'+tint.toFixed(2)+')';og.fillRect(0,0,w,h);og.globalCompositeOperation='source-over';ctx.drawImage(MOSSTINT,x,y);}

@@ -1028,7 +1028,7 @@ body {
 .q-needs { display: grid; grid-template-columns: auto auto 1fr; gap: calc(var(--u) * 0.3) calc(var(--u) * 2); align-items: baseline; margin: calc(var(--u) * 0.6) 0; font-size: calc(var(--u) * 3.2); }
 .q-needs > span:nth-child(3n+1) { color: var(--lcd-mid); text-transform: uppercase; letter-spacing: 0.08em; font-size: calc(var(--u) * 2.8); }
 .q-dots { letter-spacing: 0.12em; }
-#view-quest[data-scene="jar"] #quest-canvas { height: 50%; }
+#view-quest[data-scene="jar"] #quest-canvas { height: 56%; }
 #view-quest { position: relative; }
 #view-quest[data-scene="map"] #quest-canvas { height: 50%; }
 .q-regions { grid-template-columns: repeat(2, 1fr); gap: calc(var(--u) * 0.2) calc(var(--u) * 2); }

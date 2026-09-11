@@ -1005,11 +1005,11 @@ body {
 .q-keys .menu-item { text-align: center; padding: calc(var(--u) * 0.4) 0; border: calc(var(--u) * 0.35) solid var(--lcd-dark); font-size: calc(var(--u) * 3.6); }
 .q-keys .menu-item.focused::before { content: none; }
 .q-keys .q-wide { grid-column: span 2; }
-.q-chars { grid-template-columns: repeat(3, 1fr); gap: calc(var(--u) * 1); margin-top: calc(var(--u) * 1.4); }
+.q-chars { grid-template-columns: repeat(4, 1fr); gap: calc(var(--u) * 1); margin-top: calc(var(--u) * 1.4); }
 .q-chars .menu-item { display: flex; flex-direction: column; align-items: center; gap: calc(var(--u) * 0.8); text-align: center; padding: calc(var(--u) * 1) calc(var(--u) * 0.4); border: calc(var(--u) * 0.35) solid var(--lcd-dark); font-size: calc(var(--u) * 3.2); line-height: 1.1; }
 .q-chars .menu-item.focused::before { content: none; }
 .q-chars .menu-item.q-current { border-style: double; border-width: calc(var(--u) * 0.9); }
-#quest-ui .q-chars canvas { display: block; width: calc(var(--u) * 12); height: auto; max-width: 100%; background: transparent; image-rendering: pixelated; }
+#quest-ui .q-chars canvas { display: block; width: calc(var(--u) * 11); height: auto; max-width: 100%; background: transparent; image-rendering: pixelated; }
 .q-typed { min-height: 1.2em; letter-spacing: 0.08em; }
 .q-caret { animation: press-start 1s steps(1) infinite; }
 .q-name { font-size: calc(var(--u) * 4.6); font-weight: 400; line-height: 1.1; }

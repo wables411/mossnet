@@ -267,7 +267,7 @@ const pname=()=>norm(playerName()).slice(0,18);
 
 /* ---------------- save ---------------- */
 const SAVE_V=2;
-const fresh=()=>({v:SAVE_V,name:null,char:null,collected:{},seen:{},region:null,steps:0,last:null,cheese:0,beetles:{},pity:0,introDone:false,pet:null});
+const fresh=()=>({v:SAVE_V,name:null,char:null,jar:{},collected:{},seen:{},region:null,steps:0,last:null,cheese:0,beetles:{},pity:0,introDone:false,pet:null});
 let save=fresh();
 const saveKey=()=>'mossquest.save.'+(user?(user.id||user.handle):'guest');
 function loadSave(){save=fresh();try{const s=localStorage.getItem(saveKey())||(user&&user.guest?localStorage.getItem('mossquest.save'):null);if(s)save=Object.assign(save,JSON.parse(s));}catch(e){}pruneSave();}
@@ -509,44 +509,57 @@ function drawChibi(cx,base,g,q,pr,sp,wake,bounce,snap){
   const e=expr(q,wake);drawFace(Math.round(cx),Math.round(fy),Math.round(d),3+Math.round(g*2),e,tn[1],!snap&&pa.blink>0&&e.eyes==='open');
   if(e.sparkle&&!snap){const t=(frame>>3)%7;if(t<3){const s=S[(frame>>5)%S.length];const sx=cx+(s.x-.5)*rx*1.8,sy=y0-ry-4-s.y*8;px(sx,sy-1,C.white,1,3);px(sx-1,sy,C.white,3,1);}}
   return {rx,ry,y0};}
+function roundRect(x,y,w,h,r,col){ctx.fillStyle=col;for(let i=0;i<r;i++){const d=r-Math.round(Math.sqrt(r*r-(r-i-.5)*(r-i-.5)));ctx.fillRect(x+d,y+i,w-2*d,1);ctx.fillRect(x+d,y+h-1-i,w-2*d,1);}ctx.fillRect(x,y+r,w,h-2*r);}
+const JARGOODS=[['big','a bigger jar',25,'twice the soil. the moss spreads further'],['pebbles','river pebbles',5,'three smooth stones on the soil'],['twig','driftwood',5,'a branch to grow along'],['snail','a snail',8,'it keeps the glass clean and the moss company'],['lights','fairy lights',10,'a string of tiny lights under the lid']];
+const jarHas=id=>!!(save.jar&&save.jar[id]);
 function drawPot(x,y,w,h,p,snap){const q=snap?{hyd:snap.w,health:snap.h,fit:p.fit,algae:snap.a,spor:snap.s,dormant:snap.w<.15,dead:snap.h<=0,light:p.light,air:p.air}:p;const g=snap?snap.g:p.growth;
-  const sp=petSp(p),pr=prefs(sp);const li=p.light;
-  // window backdrop + diorama
-  const bg=li>.8?['#fff6c8','#ffe9a0']:li>.4?['#cfe6fa','#9fcbf0']:['#8a95ad','#5f6b85'];const gr=ctx.createLinearGradient(0,y-16,0,y+h+16);gr.addColorStop(0,bg[0]);gr.addColorStop(1,bg[1]);ctx.fillStyle=gr;ctx.fillRect(x-16,y-16,w+32,h+32);
-  bevelOut(x-18,y-18,w+36,h+36,'#e8e4dc');ctx.fillStyle=gr;ctx.fillRect(x-14,y-14,w+28,h+28);px(x+w/2-1,y-14,'#e8e4dc',2,h+28);px(x-14,y+h*.35,'#e8e4dc',w+28,2);
-  if(li>.8){ctx.fillStyle='rgba(255,240,180,0.5)';for(let i=0;i<4;i++)ctx.fillRect(x-14+i*(w+28)/4+6,y-14,3,h+28);}
-  // curtain
-  px(x-18,y-18,C.lav2,10,h+30);for(let i=0;i<4;i++)px(x-16+i*2,y-16,C.lav,1,h+26);
-  // shelf + props
-  rect(x-18,y+h+6,w+36,10,'#a08060');rect(x-18,y+h+6,w+36,1,'#c8a880');rect(x-18,y+h+15,w+36,1,'#6a4a30');
-  px(x+w+2,y+h+2,'#f2c94c',12,3);px(x+w+14,y+h+2,'#f0a0b0',3,3);px(x+w,y+h+2,'#3a3a44',2,3);  // pencil
-  px(x-14,y+h-2,'#f4d35e',9,8);px(x-12,y+h,'#e0b840',2,2);px(x-8,y+h+3,'#e0b840',2,2);px(x-14,y+h-2,'#d9a441',9,1);  // cheese wedge
-  // pot glass (rounded)
-  ctx.fillStyle='rgba(235,245,255,0.55)';ctx.fillRect(x+2,y,w-4,h);ctx.fillRect(x,y+2,w,h-4);
-  const ol='rgba(20,40,80,0.7)';px(x+2,y,ol,w-4,1);px(x+2,y+h-1,ol,w-4,1);px(x,y+2,ol,1,h-4);px(x+w-1,y+2,ol,1,h-4);px(x+1,y+1,ol);px(x+w-2,y+1,ol);px(x+1,y+h-2,ol);px(x+w-2,y+h-2,ol);
-  const sc=SUBCOL[p.sub][0],sl=SUBCOL[p.sub][1];const sh=Math.round(h*.2);rect(x+1,y+h-sh,w-2,sh-1,sc);fillEllipse(x+w/2,y+h-sh,w/2-1,3,sc);const r=rng(p.key);for(let i=0;i<50;i++)px(x+1+((r()*(w-3))|0),y+h-sh-2+((r()*(sh))|0),sl);
-  // the pet
-  const base=y+h-sh-1;const info=drawChibi(x+w/2,base,g,q,pr,sp,snap?0:pa.wake,snap?0:pa.bounce,snap);
-  // springtail sidekick
-  if(!snap&&q.fit>.6&&!q.dormant&&!q.dead){const b=pa.bug;const bx=x+4+b.x*(w-8),by=base-2-b.y*6-(b.hop>0?3:0);px(bx,by,'#8a6a4a',3,2);px(bx-1,by-1,'#5a4a3a');px(bx+3,by-1,'#5a4a3a');}
-  // algae film, fog, beads
-  if(q.algae>.05){ctx.fillStyle='rgba(90,160,60,'+(q.algae*.4)+')';ctx.fillRect(x+1,y+1,w-2,h-sh-1);}
-  if(p.air<.35){ctx.fillStyle='rgba(255,255,255,0.45)';ctx.fillRect(x+1,y+1,w-2,h*.4);for(let i=0;i<7;i++)px(x+6+i*15,y+8+(i%3)*9,'rgba(235,245,255,0.9)',3,3);}
-  else if(p.air<.7){ctx.fillStyle='rgba(255,255,255,0.3)';ctx.fillRect(x+1,y+1,w-2,h*.12);}
-  if(!snap)for(const bd of pa.beads){px(bd.x,bd.y,'#8fd0ff',1,2);px(bd.x,bd.y,C.white);}
-  px(x+3,y+5,'rgba(255,255,255,0.75)',1,h-14);px(x+5,y+5,'rgba(255,255,255,0.5)',1,h*.35);
-  // lid
-  const lid=p.air<.35?'closed':p.air<.7?'vent':'open';if(lid==='closed'){bevelOut(x-2,y-7,w+4,7,'#b8bcc4');}else if(lid==='vent'){bevelOut(x-2,y-7,w+4,7,'#b8bcc4');px(x+w/2-6,y-5,'#3a3a44',12,2);}else{bevelOut(x+w-6,y-13,12,6,'#b8bcc4');}
-  // ribbon name tag
-  const tagw=Math.min(w-10,tw(p.name)+10);const tx=x+w-tagw-4,ty=y+h-sh+4;px(tx,ty,C.lav,tagw,9);px(tx,ty,C.lav2,tagw,1);text(p.name,tx+5,ty+2,C.white);
-  px(tx-4,ty+1,C.lav,3,3);px(tx-4,ty+5,C.lav,3,3);px(tx-2,ty+4,C.lav2,2,1);
+  const sp=petSp(p),pr=prefs(sp);const li=p.light;const R=rng(p.key*3+11);
+  // the window behind the shelf: the light setting is the weather
+  const bg=li>.8?['#fff3c0','#ffe08a']:li>.4?['#d2e8fa','#9ccaf0']:['#8b96ae','#5e6a86'];const gr=ctx.createLinearGradient(0,y-20,0,y+h+16);gr.addColorStop(0,bg[0]);gr.addColorStop(1,bg[1]);
+  bevelOut(x-22,y-22,w+44,h+44,'#e8e4dc');ctx.fillStyle=gr;ctx.fillRect(x-18,y-18,w+36,h+36);px(x+(w>>1)-1,y-18,'#e8e4dc',2,h+36);px(x-18,y+h*.3,'#e8e4dc',w+36,2);
+  if(li>.8){ctx.fillStyle='rgba(255,235,160,0.45)';for(let i=0;i<5;i++)ctx.fillRect(x-18+i*(w+36)/5+8,y-18,3,h+36);}
+  else if(li<.4){for(let i=0;i<9;i++)px(x-12+((R()*(w+24))|0),y-14+((R()*(h*.35))|0),'#e8ecf4');}
+  px(x-22,y-22,C.lav2,12,h+40);for(let i=0;i<5;i++)px(x-20+i*2,y-20,C.lav,1,h+36);
+  // shelf
+  rect(x-22,y+h+6,w+44,12,'#a08060');rect(x-22,y+h+6,w+44,1,'#c8a880');rect(x-22,y+h+17,w+44,1,'#6a4a30');
+  px(x+w+4,y+h+2,'#f2c94c',12,3);px(x+w+16,y+h+2,'#f0a0b0',3,3);px(x+w+2,y+h+2,'#3a3a44',2,3);
+  px(x-18,y+h-2,'#f4d35e',9,8);px(x-16,y+h,'#e0b840',2,2);px(x-12,y+h+3,'#e0b840',2,2);px(x-18,y+h-2,'#d9a441',9,1);
+  // the jar: shoulders, neck, cork lid
+  const rr=Math.min(14,w>>3);roundRect(x,y+6,w,h-6,rr,'rgba(20,40,80,0.75)');roundRect(x+1,y+7,w-2,h-8,rr-1,'rgba(230,242,255,0.5)');
+  const nx=x+(w>>2),nw=w>>1;rect(nx,y,nw,8,'rgba(230,242,255,0.5)');px(nx,y,'rgba(20,40,80,0.75)',1,8);px(nx+nw-1,y,'rgba(20,40,80,0.75)',1,8);
+  bevelOut(nx-3,y-9,nw+6,10,'#b07a44');rect(nx-1,y-6,nw+2,1,'#8a5a2c');rect(nx-1,y-3,nw+2,1,'#8a5a2c');
+  // layers: gravel, charcoal, soil
+  const sh=Math.round(h*.26),gy=y+h-Math.round(h*.09),cy=gy-3,sy=y+h-sh;
+  rect(x+2,gy,w-4,h-(gy-y)-2,'#b9bcc4');for(let i=0;i<Math.round(w/3);i++){px(x+3+((R()*(w-7))|0),gy+1+((R()*(h-(gy-y)-5))|0),'#8f939c',2,1);px(x+3+((R()*(w-7))|0),gy+1+((R()*(h-(gy-y)-5))|0),'#e6e8ee');}
+  rect(x+2,cy,w-4,3,'#1e1e22');rect(x+2,cy,w-4,1,'#3a3a40');
+  const sc=SUBCOL[p.sub][0],sl=SUBCOL[p.sub][1];rect(x+2,sy,w-4,cy-sy,sc);fillEllipse(x+(w>>1),sy,(w>>1)-2,3,sc);for(let i=0;i<Math.round(w/2);i++)px(x+3+((R()*(w-7))|0),sy+1+((R()*(cy-sy-2))|0),sl);
+  // goods on the soil
+  if(jarHas('pebbles')){[[.12,-2],[.2,1],[.86,-1]].forEach(([f,o])=>{const bx=x+f*w,by=sy+o;fillEllipse(bx,by,5,3,'#5c6068');fillEllipse(bx,by,4,2,'#9a9ea8');px(bx-2,by-2,'#d8dce4',2,1);});}
+  if(jarHas('twig')){const tx=x+w*.72,ty=sy-2;for(let k=0;k<Math.round(w*.2);k++){px(tx+k,ty-Math.round(k*.35),'#6a4a2c',1,2);if(k%5===2)px(tx+k,ty-Math.round(k*.35)-3,'#7a5a3c',1,3);}}
+  // the moss, and the carpet it spreads into
+  const base=sy-1;const tn=tones(q.health,q.hyd,0,q.dead);const spread=Math.round(g*(jarHas('big')?7:4));
+  for(let i=0;i<spread;i++){const f=i%2?.16+i*.06:.84-i*.06;const bx=x+f*w,ry=3+Math.round(g*4);fillEllipse(bx,base,7+g*5,ry,tn[3]);fillEllipse(bx,base,6+g*5,ry-1,tn[1]);px(bx-2,base-ry+1,tn[2],3,1);}
+  const info=drawChibi(x+(w>>1),base,g,q,pr,sp,snap?0:pa.wake,snap?0:pa.bounce,snap);
+  // the snail, or the springtail
+  if(!snap&&!q.dead){const bug=pa.bug;const bx=x+6+bug.x*(w-16),by=base-1;
+    if(jarHas('snail')){fillEllipse(bx,by-3,4,3,'#c48a4a');fillEllipse(bx,by-3,2,2,'#e0b070');px(bx-5,by-1,'#d8c8a0',5,2);px(bx-6,by-3,'#d8c8a0',1,3);px(bx-7,by-4,'#5a4a3a');}
+    else if(q.fit>.6&&!q.dormant){const hy=by-bug.y*6-(bug.hop>0?3:0);px(bx,hy,'#8a6a4a',3,2);px(bx-1,hy-1,'#5a4a3a');px(bx+3,hy-1,'#5a4a3a');}}
+  // the water cycle on the glass: beads high up when it is wet, fog at the shoulders, drips running down
+  const nd=Math.round(q.hyd*16);for(let i=0;i<nd;i++){const dx=x+6+((R()*(w-12))|0),dy=y+10+((R()*(h*.35))|0);px(dx,dy,'rgba(160,210,255,0.8)',1,2);px(dx,dy,'rgba(255,255,255,0.9)');}
+  if(q.hyd>.75){ctx.fillStyle='rgba(255,255,255,'+((q.hyd-.75)*1.6)+')';ctx.fillRect(x+2,y+8,w-4,h*.16);}
+  if(q.algae>.05){ctx.fillStyle='rgba(90,160,60,'+(q.algae*.4)+')';ctx.fillRect(x+2,y+h*.4,w-4,sy-y-h*.4);}
+  if(!snap)for(const bd of pa.beads){px(bd.x,bd.y,'#8fd0ff',1,3);px(bd.x,bd.y,C.white);}
+  px(x+4,y+14,'rgba(255,255,255,0.8)',1,h-30);px(x+6,y+14,'rgba(255,255,255,0.5)',1,h*.3);px(x+w-5,y+16,'rgba(255,255,255,0.35)',1,h*.5);
+  if(jarHas('lights')){for(let i=0;i<7;i++){const lx=x+8+i*((w-16)/6),ly=y+12+Math.round(Math.sin(i*1.3)*3);px(lx,ly-2,'#5a4a3a',1,2);px(lx,ly,((frame>>4)+i)%3?'#ffe27a':'#fff8d0',2,2);}}
+  // name tag
+  const tagw=Math.min(w-10,tw(p.name)+10);const tx=x+w-tagw-5,ty=sy+5;px(tx,ty,C.lav,tagw,9);px(tx,ty,C.lav2,tagw,1);text(p.name,tx+5,ty+2,C.white);px(tx-4,ty+1,C.lav,3,3);px(tx-4,ty+5,C.lav,3,3);
   return info;}
 function drawJar(x,y,w,h,p,snap){return drawPot(x,y,w,h,p,snap);}
 let JAR={x:58,y:16,w:140,h:158};
-function jarRect(){const h=Math.max(100,cv.height-36),w=Math.max(90,Math.min(cv.width-44,Math.round(h*0.9)));JAR={x:(cv.width-w)>>1,y:18,w,h};}
-function addBeads(n){for(let k=0;k<n;k++)pa.beads.push({x:JAR.x+6+Math.random()*(JAR.w-12),y:JAR.y+10+Math.random()*30,v:.15+Math.random()*.35});}
-function petAnim(p){if(pa.blink>0)pa.blink--;else if(Math.random()<.008)pa.blink=6;if(pa.wake>0)pa.wake--;if(pa.bounce>0)pa.bounce--;
-  for(let i=pa.beads.length-1;i>=0;i--){const b=pa.beads[i];b.y+=b.v;if(b.y>JAR.y+JAR.h*0.7)pa.beads.splice(i,1);}
+function jarRect(){const h=Math.max(100,cv.height-44),w=Math.max(90,Math.min(cv.width-56,Math.round(h*(jarHas('big')?1.5:0.95))));JAR={x:(cv.width-w)>>1,y:24,w,h};}
+function addBeads(n){for(let k=0;k<n;k++)pa.beads.push({x:JAR.x+6+Math.random()*(JAR.w-12),y:JAR.y+12+Math.random()*30,v:.15+Math.random()*.35});}
+function petAnim(p){if(pa.blink>0)pa.blink--;if(p&&p.hyd>.55&&!p.dormant&&frame%70===0)pa.beads.push({x:JAR.x+(Math.random()<.5?5:JAR.w-6),y:JAR.y+12+Math.random()*20,v:.25+Math.random()*.3});else if(Math.random()<.008)pa.blink=6;if(pa.wake>0)pa.wake--;if(pa.bounce>0)pa.bounce--;
+  for(let i=pa.beads.length-1;i>=0;i--){const b=pa.beads[i];b.y+=b.v;if(b.y>JAR.y+JAR.h*0.72)pa.beads.splice(i,1);}
   const b=pa.bug;if(b.hop>0)b.hop--;if(--b.t<=0){b.t=30+(Math.random()*50|0);b.x=Math.max(.05,Math.min(.95,b.x+(Math.random()-.5)*.3));b.hop=6;}}
 function petAge(p){const ms=Date.now()-p.born,d=Math.floor(ms/86400000),h=Math.floor(ms/3600000)%24;return d?d+'D '+h+'H':h+'H';}
 
@@ -710,6 +723,8 @@ function act(name,arg){
   else if(name==='shop:tip')shopTip();
   else if(name==='shop:cutting')shopCutting();
   else if(name==='shop:swap'){shop.mode='swap';shop.pick=[];dirty();}
+  else if(name==='shop:goods'){shop.mode='goods';dirty();}
+  else if(name==='shop:buy'){const gd=JARGOODS.find(x=>x[0]===arg);if(!gd||jarHas(gd[0]))return;if(save.cheese<gd[2]){snd('miss');say(gd[2]+' CHEESE. NO CREDIT');return;}save.cheese-=gd[2];save.jar=save.jar||{};save.jar[gd[0]]=true;persist();snd('ok');say('IT IS IN THE JAR');dirty();}
   else if(name==='shop:pick')shopPick(arg);
   else if(name==='shop:deal')shopDeal();
   else if(name==='shop:back'){shop.mode='menu';shop.pick=[];dirty();}
@@ -810,7 +825,8 @@ function render(){if(!ui)return;let h='',focus=0,scene='none';const u=user||GUES
     else{h+=`<ul class="menu item-links q-petacts">${acts.map(btn).join('')}</ul>${msg(toast&&toast.t)}`;focus=petCur;}}
   else if(state==='petlapse'&&save.pet){scene='jar';const p=save.pet;h=`<div class="lcd-header"><span class="lcd-header-title">TIME-LAPSE</span><span class="item-meta" id="q-frame">frame 1 / ${p.snaps.length}</span></div><p class="lcd-note">the jar so far, replayed. A: back to the jar</p>`;}
   else if(state==='shop'&&shop){scene='lab';const c=REG();const cut=dailyCutting(c),st=shopState();
-    if(shop.mode==='menu'){h=`<div class="lcd-header"><span class="lcd-header-title">THE DEALER</span><span class="item-meta">${save.cheese} cheese</span></div><p class="lcd-msg">${esc(shop.quip)}</p><ul class="menu">${mi('a tip · 3 cheese','shop:tip',null,'he points out a moss you have never seen on this map')}${mi(cut&&!st.sold[c]?'a cutting · 15 cheese':'a cutting · sold out today','shop:cutting',null,cut&&!st.sold[c]?'one rare species from this continent, no questions asked. one a day':'come back tomorrow')}${mi('swap two for one','shop:swap',null,'two of a kind for one of the next kind up. sometimes he keeps a cut')}${mi('leave','shop:leave',null,'back to the moss')}</ul>`;}
+    if(shop.mode==='menu'){h=`<div class="lcd-header"><span class="lcd-header-title">THE DEALER</span><span class="item-meta">${save.cheese} cheese</span></div><p class="lcd-msg">${esc(shop.quip)}</p><ul class="menu">${mi('a tip · 3 cheese','shop:tip',null,'he points out a moss you have never seen on this map')}${mi(cut&&!st.sold[c]?'a cutting · 15 cheese':'a cutting · sold out today','shop:cutting',null,cut&&!st.sold[c]?'one rare species from this continent, no questions asked. one a day':'come back tomorrow')}${mi('swap two for one','shop:swap',null,'two of a kind for one of the next kind up. sometimes he keeps a cut')}${mi('jar goods','shop:goods',null,'things for the GoodMoss terrarium')}${mi('leave','shop:leave',null,'back to the moss')}</ul>`;}
+    else if(shop.mode==='goods'){h=`<div class="lcd-header"><span class="lcd-header-title">JAR GOODS</span><span class="item-meta">${save.cheese} cheese</span></div><p class="lcd-note">for the terrarium. bought once, kept for every cutting after.</p><ul class="menu">${JARGOODS.map(gd=>jarHas(gd[0])?`<li><button type="button" class="menu-item q-gone" disabled>${esc(gd[1])} · yours</button></li>`:mi(gd[1]+' · '+gd[2]+' cheese','shop:buy',gd[0],gd[3])).join('')}${mi('back','shop:back',null,'B does it too')}</ul>`;}
     else if(shop.mode==='swap'){const L=roster[c].filter(x=>save.collected[x.key]&&tierOf(x,c)<2);const ready=shop.pick.length===2;const t=ready?tierOf(SP.find(x=>String(x.key)===shop.pick[0]),c):0;const on=x=>shop.pick.includes(String(x.key));
       h=`<div class="lcd-header"><span class="lcd-header-title">TWO FOR ONE</span><span class="item-meta">${shop.pick.length} / 2 offered</span></div><p class="lcd-note">${L.length?'two of the same kind from this continent. common pairs become uncommon, uncommon pairs become rare. eight deals in ten go through.':'nothing to trade. collect some common moss here first.'}</p><ul class="menu item-links">${ready?mi('deal','shop:deal',null,'trade the two for one '+TIERN[t+1]+' species'):''}${mi('back','shop:back',null,'B does it too')}</ul><ul class="menu q-list">${L.map(x=>mi((on(x)?'✓ ':'')+x.name+'  ·  '+TIERN[tierOf(x,c)],'shop:pick',x.key,'A: '+(on(x)?'take it back':'offer it'),on(x)?'q-collected':'')).join('')}</ul>`;}
     else{h=`<div class="lcd-header"><span class="lcd-header-title">THE DEALER</span><span class="item-meta">${save.cheese} cheese</span></div><p class="lcd-msg">${esc(shop.res.t)}</p>${shop.res.sp?speciesCard(shop.res.sp,true):''}<ul class="menu item-links">${mi('continue','shop:ok',null,'back to the coat')}</ul>`;}}
@@ -906,7 +922,7 @@ function statusText(){const n=nCollected()+'/'+SP.length;
   if(state==='petlapse')return 'time-lapse · A: back';
   if(state==='beetle')return 'A: continue';
   if(state==='beetles')return bsel?'B: back to the book':'beetles · A: look · B: back';
-  if(state==='shop')return shop&&shop.mode==='swap'?'A: offer · B: back':'the Dealer · A: choose · B: leave';
+  if(state==='shop')return shop&&shop.mode==='swap'?'A: offer · B: back':shop&&shop.mode==='goods'?'A: buy · B: back':'the Dealer · A: choose · B: leave';
   if(state==='win')return 'every moss found · A: keep exploring';return '';}
 function pushStatus(){const t=statusText();if(t!==lastStatus){lastStatus=t;if(opts.onStatus)opts.onStatus(t);}}
 let raf=0,running=false;

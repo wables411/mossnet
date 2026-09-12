@@ -1032,6 +1032,7 @@ body {
 #quest-ui .q-dw-btns .menu-item { padding: calc(var(--u) * 0.3) calc(var(--u) * 1.1); font-size: calc(var(--u) * 3.1); }
 @media (max-width: 480px) { .q-dw-top { flex-direction: column; } .q-dw-bank { grid-template-columns: auto auto auto auto; } .q-dw-bar { width: calc(var(--u) * 14); } .q-dw-city { flex-direction: row; align-items: baseline; gap: calc(var(--u) * 2); } }
 #quest-ui:has(.q-shot) { padding: 0; }
+#quest-ui { align-self: stretch; }
 #quest-ui:has(.q-item) { display: flex; flex-direction: column; }
 .q-item { display: flex; flex-direction: column; height: 100%; gap: calc(var(--u) * 1.4); }
 .q-item .item-stage { flex: 1 1 auto; min-height: 0; width: 100%; padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; }

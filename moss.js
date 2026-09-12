@@ -193,6 +193,8 @@
     make('stone', (c, r) => streaked(c, r, PAL.stone));
     make('deepslate', (c, r) => streaked(c, r, PAL.deepslate));
     make('grass', (c, r) => grassSide(c, r, false));
+    make('grasstop', (c, r) => noiseTile(c, r, PAL.grass, [0.34, 0.30, 0.20, 0.16]));
+    make('mosstop', (c, r) => noiseTile(c, r, PAL.moss, [0.30, 0.26, 0.20, 0.14, 0.10]));
     make('mossgrass', (c, r) => grassSide(c, r, true));
     make('bedrock', bedrock);
     make('lava', lava);
@@ -270,18 +272,24 @@
 
   // Terrain is drawn once onto its own canvas with the sky left transparent, so the
   // sky and the light level can move without rebuilding the world
+  // what sits on top of each block when its upper face shows
+  const TOPS = { grass: 'grasstop', mossgrass: 'mosstop', dirt: 'dirt', coarse: 'coarse', moss: 'mosstop', mossy: 'mossy', cobble: 'cobble', stone: 'stone', deepslate: 'deepslate' };
+  const FACE_TOP = -0.16, FACE_SIDE = 0.30;                          // Minecraft's fixed face lighting: top brightest, side darkest
+
+  // Terrain is drawn once onto its own canvas with the sky left transparent, so the
+  // sky and the light level can move without rebuilding the world
   function drawTerrain(cols, rows, bs, candles, seed) {
+    const sh = Math.max(2, Math.round(bs * 0.42));                   // how far a top face reaches up and to the right
     const c = document.createElement('canvas');
-    c.width = cols * bs; c.height = rows * bs;
+    c.width = cols * bs + sh; c.height = rows * bs;
     const ctx = c.getContext('2d');
     ctx.imageSmoothingEnabled = false;
     const { surf, dry, spread, chg } = build(candles, cols, rows);
 
-    const draw = (name, x, y, shade) => {
-      ctx.drawImage(SETS[name][hash2(x, y, seed) % VARIANTS], x * bs, y * bs, bs, bs);
-      if (shade > 0) { ctx.fillStyle = `rgba(0,0,0,${shade})`; ctx.fillRect(x * bs, y * bs, bs, bs); }
-      else if (shade < 0) { ctx.fillStyle = `rgba(255,255,235,${-shade})`; ctx.fillRect(x * bs, y * bs, bs, bs); }
-    };
+    // 1. decide the world: a name and a shade per cell, or nothing
+    const grid = new Array(cols * rows).fill(null);
+    const at = (x, y) => (x < 0 || x >= cols || y < 0 || y >= rows) ? null : grid[y * cols + x];
+    const set = (x, y, name, shade) => { if (x >= 0 && x < cols && y >= 0 && y < rows) grid[y * cols + x] = name ? { name, shade: shade || 0 } : null; };
 
     // The column, bottom up: lava, bedrock, deepslate, stone, cobblestone, then the
     // soil cap — dirt with grass or moss on it. Price decides where the surface sits,
@@ -293,10 +301,6 @@
       const top = surf[x];
       const wet = clamp01(spread[x] * 1.15 + 0.05 - clamp01((dry[x] - 0.5) * 2) * 0.25);
       const green = 1 - dry[x];
-      // What the column did, and what it did to the ground:
-      //   a big sell strips the soil off and leaves a bare rock face
-      //   a big buy piles moss up in a stack
-      //   a flat stretch just sits there and goes mossy
       const move = chg[x];
       const burn = clamp01((Math.max(0, -move) - 0.10) / 0.30);
       const boom = clamp01((Math.max(0, move) - 0.10) / 0.30);
@@ -306,24 +310,22 @@
 
       for (let y = top; y < rows; y++) {
         const depth = y - top;
-        // deepslate, bedrock and lava sit at fixed depths in the world; soil and
-        // cobble are measured down from whatever the surface happens to be
         const deepHere = rDeep + (hash2(x, 0, seed + 91) % 3) - 1;
         const rock = cap + 4 + (hash2(x, y >> 2, seed + 44) % 5);
         let name, shade = Math.min(0.26, depth * 0.020);
         if (y >= rLava) { name = 'lava'; shade = 0; }
         else if (y >= rBed) { name = 'bedrock'; shade = 0.10; }
-        else if (depth === 0) {                                      // whatever the market made of the topsoil
-          name = burn > 0.55 ? 'deepslate'                           // scorched down to the rock
+        else if (depth === 0) {
+          name = burn > 0.55 ? 'deepslate'
                : burn > 0.12 ? 'stone'
-               : flat > 0.5 && life > 0.14 ? 'mossy'                 // nothing happened here for a while
+               : flat > 0.5 && life > 0.14 ? 'mossy'
                : life > 0.52 ? 'moss' : life > 0.30 ? 'mossgrass' : life > 0.16 ? 'grass'
                : dry[x] > 0.6 ? 'coarse' : 'cobble';
-          shade = burn > 0.12 ? 0.06 : -0.08;
+          shade = burn > 0.12 ? 0.06 : -0.04;
         } else if (burn > 0.12 && depth <= 2 + Math.round(burn * 4)) {
-          name = burn > 0.55 && depth > 2 ? 'deepslate' : 'stone';    // the cliff face, soil gone
+          name = burn > 0.55 && depth > 2 ? 'deepslate' : 'stone';
         } else if (life > 0.52 && depth <= (life > 0.75 ? 3 : 1)) {
-          name = 'moss'; shade = depth === 1 ? -0.02 : shade;        // a thriving column is mossed several deep
+          name = 'moss'; shade = depth === 1 ? -0.02 : shade;
         } else if (depth <= cap) {
           name = dry[x] > 0.66 ? 'coarse' : 'dirt';
           if (depth === 1) shade = -0.02;
@@ -332,34 +334,66 @@
           name = o ? `${o}_deep` : 'deepslate';
         } else if (depth <= rock) {
           const o = oreAt(x, y, 0.06 + 0.20 * (depth / Math.max(1, rock)), seed);
-          name = o ? o
-               : (hash2(x, y, 11) % 100) < life * 55 ? 'mossy'       // damp seams follow the moss down
-               : 'cobble';
+          name = o ? o : (hash2(x, y, 11) % 100) < life * 55 ? 'mossy' : 'cobble';
         } else {
           const o = oreAt(x, y, 0.24 + 0.60 * ((y - top - rock) / Math.max(1, deepHere - top - rock)), seed);
           name = o ? o : 'stone';
         }
-        draw(name, x, y, shade);
+        set(x, y, name, shade);
       }
 
-      // A big buy stacks moss up above the line — the bigger the candle, the taller
-      // the stack. Small buys and sells just add or knock out single blocks.
+      // A big buy stacks moss up above the line; small moves add or knock out single blocks
       const stack = Math.round(boom * 6) + (life > 0.55 && (hash2(x, top, 3) % 100) < 46 ? 1 : 0);
       for (let k = 1; k <= stack && top - k > 0; k++) {
-        if (k > 1 && (hash2(x, top - k, 6) % 100) > 92 - k * 4) break;   // the top of the stack frays
-        draw((hash2(x, top - k, 4) % 5) ? 'moss' : 'mossy', x, top - k, -0.06);
+        if (k > 1 && (hash2(x, top - k, 6) % 100) > 92 - k * 4) break;
+        set(x, top - k, (hash2(x, top - k, 4) % 5) ? 'moss' : 'mossy', -0.04);
       }
       const nudge = hash2(x, top, 55) % 100;
-      if (boom < 0.05 && move > 0.008 && nudge < move * 900 && top > 1) draw('moss', x, top - 1, -0.06);
-      if (burn < 0.05 && move < -0.008 && nudge < -move * 700) ctx.clearRect(x * bs, top * bs, bs, bs);
-      if (top < rDeep - 1 && (hash2(x, top, 21) % 100) < 4) ctx.clearRect(x * bs, (top + 1 + (hash2(x, top, 22) % 2)) * bs, bs, bs);
+      if (boom < 0.05 && move > 0.008 && nudge < move * 900 && top > 1) set(x, top - 1, 'moss', -0.04);
+      if (burn < 0.05 && move < -0.008 && nudge < -move * 700) set(x, top, null);
+      if (top < rDeep - 1 && (hash2(x, top, 21) % 100) < 4) set(x, top + 1 + (hash2(x, top, 22) % 2), null);
+    }
+
+    // 2. render it as cubes. Left to right, top to bottom: the front face, then the top
+    // face if the cell above is open, then the right face if the next column is open there.
+    const tileOf = (name, x, y) => SETS[name][hash2(x, y, seed) % VARIANTS];
+    const tint = (shade, x, y, w, h) => {
+      if (shade > 0) { ctx.fillStyle = `rgba(0,0,0,${shade.toFixed(3)})`; ctx.fillRect(x, y, w, h); }
+      else if (shade < 0) { ctx.fillStyle = `rgba(255,255,235,${(-shade).toFixed(3)})`; ctx.fillRect(x, y, w, h); }
+    };
+    for (let x = 0; x < cols; x++) for (let y = 0; y < rows; y++) {
+      const cell = at(x, y);
+      if (!cell) continue;
+      const X = x * bs, Y = y * bs;
+      ctx.drawImage(tileOf(cell.name, x, y), X, Y, bs, bs);
+      tint(cell.shade, X, Y, bs, bs);
+      if (cell.name === 'lava') continue;
+      if (!at(x, y - 1) && y > 0) {                                  // the top face: sheared up and to the right
+        const topName = TOPS[cell.name] || (cell.name.endsWith('_deep') ? 'deepslate' : cell.name.includes('_') ? 'stone' : cell.name);
+        ctx.save();
+        ctx.beginPath(); ctx.moveTo(X, Y); ctx.lineTo(X + bs, Y); ctx.lineTo(X + bs + sh, Y - sh); ctx.lineTo(X + sh, Y - sh); ctx.closePath(); ctx.clip();
+        ctx.setTransform(1, 0, -1, 1, X + sh, Y - sh);              // local (u,v) -> (X + sh + u - v, Y - sh + v)
+        ctx.drawImage(tileOf(SETS[topName] ? topName : cell.name, x, y + 977), 0, 0, bs, sh);
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        tint(FACE_TOP + cell.shade * 0.5, X, Y - sh, bs + sh, sh);
+        ctx.restore();
+      }
+      if (!at(x + 1, y) && cell.name !== 'bedrock') {              // the right face: sheared, in shadow
+        ctx.save();
+        ctx.beginPath(); ctx.moveTo(X + bs, Y); ctx.lineTo(X + bs + sh, Y - sh); ctx.lineTo(X + bs + sh, Y + bs - sh); ctx.lineTo(X + bs, Y + bs); ctx.closePath(); ctx.clip();
+        ctx.setTransform(1, -1, 0, 1, X + bs, Y);                   // local (u,v) -> (X + bs + u, Y - u + v)
+        ctx.drawImage(tileOf(cell.name, x + 331, y), 0, 0, sh, bs);
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        tint(FACE_SIDE + cell.shade * 0.5, X + bs, Y - sh, sh, bs + sh);
+        ctx.restore();
+      }
     }
     // lava throws light on the rock above it
     const glow = ctx.createLinearGradient(0, (rLava - 3) * bs, 0, rows * bs);
     glow.addColorStop(0, 'rgba(255,140,20,0)');
     glow.addColorStop(1, 'rgba(255,150,30,0.42)');
     ctx.globalCompositeOperation = 'source-atop';
-    ctx.fillStyle = glow; ctx.fillRect(0, (rLava - 3) * bs, cols * bs, rows * bs);
+    ctx.fillStyle = glow; ctx.fillRect(0, (rLava - 3) * bs, c.width, rows * bs);
     ctx.globalCompositeOperation = 'source-over';
 
     return { canvas: c, surf, lavaY: (rows - 1) * bs };
@@ -617,11 +651,11 @@
   // How far back you are looking, and how close. Zooming in shortens the window and
   // makes the blocks bigger: an hour of trading gets the same screen a year does.
   const ZOOM = [
-    { key: 'YEAR', tf: 'day', limit: 365, cols: 64 },
-    { key: 'MONTH', tf: 'day', limit: 30, cols: 48 },
-    { key: 'DAY', tf: 'hour', limit: 24, cols: 32 },
-    { key: 'HOUR', tf: 'minute', limit: 60, cols: 22 },
-    { key: '1 MIN', tf: 'minute', limit: 12, cols: 12 }
+    { key: 'YEAR', tf: 'day', limit: 365, cols: 30 },
+    { key: 'MONTH', tf: 'day', limit: 30, cols: 22 },
+    { key: 'DAY', tf: 'hour', limit: 24, cols: 16 },
+    { key: 'HOUR', tf: 'minute', limit: 60, cols: 12 },
+    { key: '1 MIN', tf: 'minute', limit: 12, cols: 8 }
   ];
   const STRIDE = { day: 86400, hour: 3600, minute: 60 };
   let zoom = 0;

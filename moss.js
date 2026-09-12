@@ -252,7 +252,8 @@
       // a heavy sell should land as one cliff, not a gentle slope: take the low
       if (chg[x] < -0.10) close = close * 0.35 + low * 0.65;
       const ground = Math.round(rows * 0.42);                        // sky above, world below
-      surf[x] = Math.round(rows - 1 - (0.06 + 0.90 * ((close - lo) / range)) * (rows - 1 - ground));
+      // the lowest column still stands at least two blocks above bedrock, whatever the zoom
+      surf[x] = Math.min(rows - 4, Math.round(rows - 1 - (0.06 + 0.90 * ((close - lo) / range)) * (rows - 1 - ground)));
       // volume is measured against a fixed reference, not against the world's own
       // maximum: a dead market really is bare stone, a busy one really is buried
       const daily = (v / Math.max(1, n)) * perDay;
@@ -350,7 +351,7 @@
       }
       const nudge = hash2(x, top, 55) % 100;
       if (boom < 0.05 && move > 0.008 && nudge < move * 900 && top > 1) set(x, top - 1, 'moss', -0.04);
-      if (burn < 0.05 && move < -0.008 && nudge < -move * 700) set(x, top, null);
+      if (burn < 0.05 && move < -0.008 && nudge < -move * 700 && top < rBed - 2) set(x, top, null);   // never a column's last block
       if (top < rDeep - 1 && (hash2(x, top, 21) % 100) < 4) set(x, top + 1 + (hash2(x, top, 22) % 2), null);
     }
 

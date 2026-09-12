@@ -1415,7 +1415,7 @@ function drawDealer(t) {
   for (let i = 0; i < 26; i++) { h = (h * 1103515245 + 12345) >>> 0; const x = h % W; h = (h * 1103515245 + 12345) >>> 0; const y = h % (H - 22); ctx.fillStyle = '#1f3242'; ctx.fillRect(x, y, 9, 1); ctx.fillRect(x + 4, y - 4, 1, 4); }
   ctx.fillStyle = '#1c2b38'; ctx.fillRect(0, H - 14, W, 14); ctx.fillStyle = '#3d5870'; ctx.fillRect(0, H - 14, W, 1);
   const blink = (t % 3000) < 150, bob = Math.floor(t / 600) % 2, img = dealerFrames[blink ? 1 : 0];
-  if (img.complete && img.naturalWidth) ctx.drawImage(img, Math.round(W / 2 - 25), H - 14 - 78 + bob, 50, 80);
+  if (img.complete && img.naturalWidth) ctx.drawImage(img, Math.round(W / 2 - 40), H - 14 - 126 + bob, 80, 128);
 }
 function startDealer() { stopDealer(); const t0 = Date.now(); drawDealer(0); dealerTimer = setInterval(() => drawDealer(Date.now() - t0), 120); }
 function stopDealer() { if (dealerTimer) clearInterval(dealerTimer); dealerTimer = 0; }

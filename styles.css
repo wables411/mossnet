@@ -964,11 +964,12 @@ body {
 }
 
 
-/* ---------- $MOSS page ---------- */
-#view-token { display: flex; flex-direction: column; gap: calc(var(--u) * 1.6); }
-.token-dealer { display: block; width: 100%; max-width: calc(var(--u) * 84); margin: 0 auto; image-rendering: pixelated; border: calc(var(--u) * 0.5) solid var(--lcd-dark); background: #2f4a5e; }
-.token-links { margin-top: 0; }
-.token-address { width: 100%; text-align: left; font-size: calc(var(--u) * 3); word-break: break-all; padding: calc(var(--u) * 0.6) calc(var(--u) * 1.2); border: calc(var(--u) * 0.35) solid var(--lcd-dark); }
+/* ---------- $MOSS page: the item view's layout, the Dealer where the picture goes ---------- */
+#view-token { height: 100%; display: flex; flex-direction: column; gap: calc(var(--u) * 1.2); }
+.token-stage { flex: 1 1 auto; min-height: 0; }
+.token-dealer { display: block; height: 100%; width: auto; max-width: 100%; image-rendering: pixelated; border: calc(var(--u) * 0.5) solid var(--lcd-dark); background: #2f4a5e; }
+.token-links { margin-top: 0; flex: 0 0 auto; }
+.token-address { flex: 0 0 auto; width: 100%; text-align: left; font-size: calc(var(--u) * 3); word-break: break-all; padding: calc(var(--u) * 0.6) calc(var(--u) * 1.2); border: calc(var(--u) * 0.35) solid var(--lcd-dark); }
 .token-address.focused::before { content: none; }
 
 /* ---------- Moss Quest ---------- */

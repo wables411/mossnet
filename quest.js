@@ -340,8 +340,9 @@ function genMap(cont){const ci=CONT.indexOf(cont);theme=THEMES[cont];TL=buildTil
     if(x===0||y===0||x===MW-1||y===MH-1)t=theme.border;row.push(t);}map.push(row);}
   const tn=theme.town;if(tn){const tr=rng(ci*131+5);for(let y=tn.y;y<tn.y+tn.h;y++)for(let x=tn.x;x<tn.x+tn.w;x++){if(x<=0||y<=0||x>=MW-1||y>=MH-1)continue;const dx=x-tn.x,dy=y-tn.y;
     if(dx%4===0||dy%4===0||dx===tn.w-1||dy===tn.h-1)map[y][x]=tn.soft?PATH:ROAD;else{const q=tr();map[y][x]=q<tn.dens?BLDG:q<tn.dens+.25?PATH:G0;}}}
-  const sx=MW>>1,sy=MH>>1;for(let y=sy-1;y<=sy+1;y++)for(let x=sx-1;x<=sx+1;x++)if(!WALK[map[y][x]])map[y][x]=G0;
+  let sx=MW>>1,sy=MH>>1;for(let y=sy-1;y<=sy+1;y++)for(let x=sx-1;x<=sx+1;x++)if(!WALK[map[y][x]])map[y][x]=G0;
   if(cont==='EUROPE')stampPond(rng(ci*311+9),sx,sy);
+  [sx,sy]=connectMap(sx,sy);
   player.x=sx;player.y=sy;player.px=sx*T;player.py=sy*T;player.mx=player.my=0;player.path=[];player.goal=null;
   const seen=new Set(),q=[[sx,sy]],reach=[];while(q.length){const [x,y]=q.pop();const k=y*MW+x;if(seen.has(k)||!WALK[map[y][x]])continue;seen.add(k);reach.push([x,y]);
     q.push([x+1,y],[x-1,y],[x,y+1],[x,y-1]);}
@@ -353,6 +354,48 @@ function genMap(cont){const ci=CONT.indexOf(cont);theme=THEMES[cont];TL=buildTil
   respawnQ=[];
 }
 let respawnQ=[];
+/* A river or a mountain range can cut a map in two, leaving the town, or the player, marooned.
+   Find the walkable islands; stand on the biggest; lay a causeway from it to every other island
+   that holds a building or is big enough to be worth walking. */
+function connectMap(sx,sy){
+  const id=new Int32Array(MW*MH).fill(-1);const sizes=[],tiles=[];
+  for(let y=1;y<MH-1;y++)for(let x=1;x<MW-1;x++){
+    if(!WALK[map[y][x]]||id[y*MW+x]>=0)continue;
+    const n=sizes.length;const list=[[x,y]];id[y*MW+x]=n;let count=0;
+    for(let i=0;i<list.length;i++){const [cx,cy]=list[i];count++;
+      for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const nx=cx+dx,ny=cy+dy;
+        if(nx<1||ny<1||nx>=MW-1||ny>=MH-1)continue;const k=ny*MW+nx;
+        if(id[k]>=0||!WALK[map[ny][nx]])continue;id[k]=n;list.push([nx,ny]);}}
+    sizes.push(count);tiles.push(list);}
+  if(sizes.length<2)return [sx,sy];
+  let main=0;for(let i=1;i<sizes.length;i++)if(sizes[i]>sizes[main])main=i;
+  // the player belongs on the mainland, near the middle of it
+  if(id[sy*MW+sx]!==main){let best=null,bd=1e9;
+    for(const [x,y] of tiles[main]){const d=Math.abs(x-(MW>>1))+Math.abs(y-(MH>>1));if(d<bd){bd=d;best=[x,y];}}
+    if(best)[sx,sy]=best;}
+  // which islands are worth a bridge: anything sizeable, or anything with a door on it
+  const worth=new Set();
+  for(let i=0;i<sizes.length;i++)if(i!==main&&sizes[i]>=12)worth.add(i);
+  for(let y=1;y<MH-1;y++)for(let x=1;x<MW-1;x++){
+    if(map[y][x]!==BLDG)continue;
+    for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){const k=(y+dy)*MW+(x+dx);
+      if(id[k]>=0&&id[k]!==main)worth.add(id[k]);}}
+  for(const island of worth){
+    // the shortest straight run from the mainland to this island, horizontal or vertical
+    let best=null,bd=1e9;
+    for(const [x,y] of tiles[island]){
+      for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+        for(let step=1;step<=14;step++){const nx=x+dx*step,ny=y+dy*step;
+          if(nx<1||ny<1||nx>=MW-1||ny>=MH-1)break;
+          if(id[ny*MW+nx]===main){if(step<bd){bd=step;best=[x,y,dx,dy,step];}break;}}}}
+    if(!best)continue;
+    const [x,y,dx,dy,step]=best;
+    for(let i=1;i<step;i++){const nx=x+dx*i,ny=y+dy*i;map[ny][nx]=PATH;
+      // a one-tile causeway is easy to miss; widen it where the land allows
+      const px=dy,py=dx;const ax=nx+px,ay=ny+py;
+      if(ax>0&&ay>0&&ax<MW-1&&ay<MH-1&&!WALK[map[ay][ax]])map[ay][ax]=PATH;}
+    for(const [cx,cy] of tiles[island])id[cy*MW+cx]=main;}
+  return [sx,sy];}
 // a round pond with two slot eyes of grass and a smile of grass: the face, seen from above
 function stampPond(r,sx,sy){const R=4,cands=[];
   for(let y=R+2;y<MH-R-2;y++)for(let x=R+2;x<MW-R-2;x++){if(Math.abs(x-sx)+Math.abs(y-sy)<R+4)continue;let ok=true;
@@ -694,7 +737,11 @@ let JF=9;function jlist(){return jr.filter===0?SP:jr.filter===JF-1?SP.filter(s=>
 function go(st){state=st;dirty();}
 function dirty(){uiDirty=true;if(ui&&SP&&running)render();}
 function say(t,n){toast={t,n:n||150};dirty();}
-function placeDealer(ci){dealerAt=null;const r=rng(ci*977+3);const cand=[];for(let y=1;y<MH-1;y++)for(let x=1;x<MW-1;x++)if(map[y][x]===BLDG&&[[0,1],[0,-1],[1,0],[-1,0]].some(([dx,dy])=>WALK[map[y+dy][x+dx]]))cand.push([x,y]);
+function placeDealer(ci){dealerAt=null;const r=rng(ci*977+3);
+  // only a door the player can actually walk to: a building on the far side of a river is no shop
+  const walkable=new Set((spots.reach||[]).map(([x,y])=>y*MW+x));
+  const ok=(x,y)=>[[0,1],[0,-1],[1,0],[-1,0]].some(([dx,dy])=>WALK[map[y+dy][x+dx]]&&(!walkable.size||walkable.has((y+dy)*MW+(x+dx))));
+  const cand=[];for(let y=1;y<MH-1;y++)for(let x=1;x<MW-1;x++)if(map[y][x]===BLDG&&ok(x,y))cand.push([x,y]);
   if(cand.length){const [x,y]=cand[(r()*cand.length)|0];dealerAt={x,y};}}
 function enterRegion(c){snd('ok');save.region=c;persist();genMap(c);placeDealer(CONT.indexOf(c));menuOpen=false;toast={t:'WELCOME TO '+CN[c],n:120};ambientFor(CONT.indexOf(c));go('world');}
 function openJournal(){entry=null;jr.filter=CONT.indexOf(REG())+1;jr.cur=0;go('journal');}

@@ -283,6 +283,30 @@ function pruneSave(){if(!SP)return;const have=new Set(SP.map(x=>String(x.key)));
   if(!CONT.includes(save.region))save.region=null;
   if(save.v!==SAVE_V||dropped){save.v=SAVE_V;persist();}}
 function persist(){try{localStorage.setItem(saveKey(),JSON.stringify(save));}catch(e){}}
+/* Two saves of the same MossDex, reconciled. Nothing found is ever lost: a species you
+   logged on your phone and one you logged on your laptop both survive. */
+function mergeSaves(a,b){
+  if(!a)return b?JSON.parse(JSON.stringify(b)):null;
+  if(!b)return JSON.parse(JSON.stringify(a));
+  const newer=(Number(b.last)||Number(b.started)||0)>=(Number(a.last)||Number(a.started)||0)?b:a,older=newer===b?a:b;
+  const out=Object.assign({},older,newer);
+  const earliest=(x,y)=>{const o={};for(const k of new Set([...Object.keys(x||{}),...Object.keys(y||{})])){const p=Number(x&&x[k])||0,q=Number(y&&y[k])||0;o[k]=Math.min(p||q||1,q||p||1);}return o;};
+  out.collected=earliest(a.collected,b.collected);
+  out.seen=Object.assign({},a.seen,b.seen);
+  const most={};for(const k of new Set([...Object.keys(a.beetles||{}),...Object.keys(b.beetles||{})]))most[k]=Math.max(Number(a.beetles&&a.beetles[k])||0,Number(b.beetles&&b.beetles[k])||0);
+  out.beetles=most;
+  out.jar=Object.assign({},a.jar,b.jar);
+  for(const k of ['cheese','steps','pity'])out[k]=Math.max(Number(a[k])||0,Number(b[k])||0);
+  out.started=Math.min(Number(a.started)||Date.now(),Number(b.started)||Date.now());
+  out.introDone=!!(a.introDone||b.introDone);
+  out.v=SAVE_V;
+  return out;}
+/* the site's hooks: read the save, replace it, or fold another one into it */
+function getSave(){return JSON.parse(JSON.stringify(save));}
+function setSave(next,{merge=false}={}){if(!next||typeof next!=='object')return getSave();
+  save=merge?mergeSaves(save,next):Object.assign(fresh(),next);pruneSave();persist();buildPlayer();
+  // a save with no continent cannot be stood in: send the player back to the title rather than into a map that is not there
+  if(state!=='title'&&(!save.region||!map))go('title');else dirty();return getSave();}
 const nCollected=()=>Object.keys(save.collected).length;
 const nCollectedIn=c=>roster[c].filter(s=>save.collected[s.key]).length;
 const known=s=>save.collected[s.key]||save.seen[s.key];
@@ -1009,7 +1033,7 @@ function start(canvas,o){opts=o||{};cv=canvas;ctx=cv.getContext('2d');cv.width=C
   if(opts.dev&&!window.MQ)window.MQ=DEBUG;
   return api;}
 function stop(){running=false;cancelAnimationFrame(raf);amb.on=false;if(AC&&AC.state==='running')AC.suspend();}
-const api={start,stop,press:pressKey,hold:holdKey,handles,pad,setMuted:setMute,setUser,act,get state(){return state;},get user(){return user;}};
+const api={start,stop,press:pressKey,hold:holdKey,handles,pad,setMuted:setMute,setUser,act,getSave,setSave,mergeSaves,get saveKey(){return saveKey();},get state(){return state;},get user(){return user;}};
 
 const DEBUG={get map(){return map;},get spots(){return spots;},get beetles(){return beetles;},get player(){return player;},get state(){return state;},get save(){return save;},get enc(){return enc;},get user(){return user;},
   setUser,go(c){enterRegion(c);},intro(){startIntro('world');dirty();},pet(){openPet();},ff(h){if(save.pet){save.pet.last-=h*3600000;simPet(save.pet,Date.now());persist();dirty();}},act,

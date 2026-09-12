@@ -641,7 +641,7 @@ function showView(name, { focus = 0, scroll = true } = {}) {
 // The game paints its pixel art (the map, the lab, the jar) on a canvas at the top of the LCD and renders the
 // rest of itself as the LCD's own HTML: menus, lists, tabs, photos. So the handheld's focus cursor, notes and
 // blips work on it like on every other screen. quest.js and its species data load the first time it is opened.
-const QUEST_SRC = 'quest.js?v=ab98fcb8';
+const QUEST_SRC = 'quest.js?v=72cedd87';
 const questCanvas = document.getElementById('quest-canvas');
 const questUi = document.getElementById('quest-ui');
 let questLoading = null;
@@ -691,12 +691,13 @@ async function startQuest() {
       // null: the same screen was redrawn, keep the cursor where it is
       onRender: (focus) => { if (activeView === 'quest') setFocus(focus == null ? (focusIndex.quest || 0) : focus, { scroll: false }); }
     });
+    if (typeof cloudWatch === 'function') { cloudWatch(true); cloudSync().catch(() => { /* offline, or cloud saves are off: play on */ }); }
   } catch (error) {
     setNote(`Moss Quest could not start: ${error.message}`);
   }
 }
 
-function leaveQuest() { window.mossQuest?.stop(); leds.set('mem', 'off'); toHome(); }
+function leaveQuest() { if (typeof cloudWatch === 'function') { cloudWatch(false); cloudSync().catch(() => {}); } window.mossQuest?.stop(); leds.set('mem', 'off'); toHome(); }
 // the game takes the buttons it asks for (walking, dialogue, hints); the rest move and activate the LCD cursor
 const questButton = (button) => () => {
   const q = window.mossQuest;
@@ -1484,6 +1485,100 @@ homeToken();
 });
 syncExpanders();
 itemStage.addEventListener('click', () => { sound.tick(); setShowcase(!views.item.classList.contains('showcase')); });
+
+
+// ---------- cloud saves ----------
+// The MossDex lives in localStorage and always will; this copies it to /save under the
+// wallet that signed for it, so the same game opens on another device. Every step here is
+// allowed to fail: the game never waits on it and never breaks when it is switched off.
+const SAVE_TOKEN = 'moss-save-token';
+let savePushed = '';                                   // the last JSON this tab wrote to the cloud
+let saveTimer = 0;
+const saveNote = (text) => setTimeout(() => setNote(text), 0);   // land after the click's own focus note, not before
+
+const cloudToken = () => { try { return JSON.parse(localStorage.getItem(SAVE_TOKEN) || 'null'); } catch (_) { return null; } };
+function setCloudToken(v) { try { v ? localStorage.setItem(SAVE_TOKEN, JSON.stringify(v)) : localStorage.removeItem(SAVE_TOKEN); } catch (_) { /* private mode */ } }
+const cloudLive = () => { const t = cloudToken(); return t && t.expires > Date.now() ? t : null; };
+
+async function cloudCall(path, { method = 'GET', body, token } = {}) {
+  const response = await fetch(`/save${path}`, {
+    method,
+    headers: Object.assign({ 'content-type': 'application/json' }, token ? { authorization: `Bearer ${token}` } : {}),
+    body: body === undefined ? undefined : JSON.stringify(body)
+  });
+  const text = await response.text();
+  let data = {};
+  try { data = text ? JSON.parse(text) : {}; } catch (_) { data = { error: 'the server sent something unreadable' }; }
+  return { status: response.status, ok: response.ok, data };
+}
+
+// A signature, not a transaction: nothing moves and nothing is spent.
+async function cloudSignIn() {
+  const wallet = window.mossWallet;
+  if (!wallet?.isConnected?.()) { saveNote('connect a wallet first'); wallet?.open?.(); return null; }
+  const address = wallet.address();
+  const provider = wallet.provider();
+  if (!address || !provider) { saveNote('that wallet cannot sign right now'); return null; }
+
+  const challenge = await cloudCall('/challenge', { method: 'POST', body: { address } });
+  if (!challenge.ok) { saveNote(challenge.data.error || 'cloud saves are not available'); return null; }
+
+  saveNote('check your wallet and sign to back up your MossDex');
+  const hex = '0x' + Array.from(new TextEncoder().encode(challenge.data.message), b => b.toString(16).padStart(2, '0')).join('');
+  let signature;
+  try { signature = await provider.request({ method: 'personal_sign', params: [hex, address] }); }
+  catch (_) { saveNote('signature cancelled · your save stays on this device'); return null; }
+
+  const session = await cloudCall('/session', { method: 'POST', body: { address, signature } });
+  if (!session.ok) { saveNote(session.data.error || 'that signature was not accepted'); return null; }
+  setCloudToken(session.data);
+  return session.data;
+}
+
+/** Pull what the cloud has, fold it into the game, push the result back. */
+async function cloudSync({ signIn = false } = {}) {
+  if (!window.mossQuest?.getSave) { saveNote('open Moss Quest first'); return; }
+  let token = cloudLive();
+  if (!token && signIn) token = await cloudSignIn();
+  if (!token) return;                                  // cloudSignIn has already said why
+
+  const pulled = await cloudCall('', { token: token.token });
+  if (pulled.status === 401) { setCloudToken(null); saveNote('that sign-in expired · try again'); return; }
+  if (pulled.status === 503) { saveNote(pulled.data.error); return; }
+
+  const merged = pulled.ok && pulled.data.save
+    ? window.mossQuest.setSave(pulled.data.save, { merge: true })
+    : window.mossQuest.getSave();
+
+  const body = JSON.stringify(merged);
+  const pushed = await cloudCall('', { method: 'PUT', token: token.token, body: merged });
+  if (pushed.ok) { savePushed = body; saveNote(`MossDex backed up to ${token.address.slice(0, 6)}…${token.address.slice(-4)}`); }
+  else saveNote(pushed.data.error || 'could not back up');
+}
+
+// while the game is open, send the save up when it has actually changed
+function cloudWatch(on) {
+  clearInterval(saveTimer); saveTimer = 0;
+  if (!on) return;
+  saveTimer = setInterval(async () => {
+    const token = cloudLive();
+    if (!token || !window.mossQuest?.getSave || document.hidden) return;
+    const body = JSON.stringify(window.mossQuest.getSave());
+    if (body === savePushed) return;
+    const r = await cloudCall('', { method: 'PUT', token: token.token, body: JSON.parse(body) });
+    if (r.ok) savePushed = body;
+  }, 60000);
+}
+addEventListener('pagehide', () => {
+  const token = cloudLive();
+  if (!token || !window.mossQuest?.getSave) return;
+  const body = JSON.stringify(window.mossQuest.getSave());
+  if (body === savePushed) return;
+  // a Blob keeps the content type; sendBeacon cannot set an Authorization header, so the
+  // token rides in the query and the endpoint is happy either way
+  navigator.sendBeacon?.(`/save?t=${encodeURIComponent(token.token)}`, new Blob([body], { type: 'application/json' }));
+});
+document.querySelectorAll('[data-action="cloudsave"]').forEach(el => el.addEventListener('click', () => cloudSync({ signIn: true })));
 
 function toTitle() { if (activeView !== 'title') { sound.close(); showView('title'); } }
 function toHome() { sound.close(); showView('home', { focus: null }); }

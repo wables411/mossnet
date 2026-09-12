@@ -2,13 +2,16 @@
   "name": "mossmossmoss-quest",
   "private": true,
   "version": "1.0.0",
-  "description": "moss quest — the site is plain static files; this exists only to bundle the wallet connector",
+  "description": "moss quest \u2014 the site is plain static files; this exists to bundle the wallet connector and the save endpoint's signature check",
   "type": "module",
   "scripts": {
-    "build:wallet": "esbuild src/wallet.js --bundle --format=esm --minify --target=es2020 --outfile=assets/appkit.bundle.js --legal-comments=none"
+    "build:wallet": "esbuild src/wallet.js --bundle --format=esm --minify --target=es2020 --outfile=assets/appkit.bundle.js --legal-comments=none",
+    "build:verify": "esbuild src/ethverify.js --bundle --format=esm --target=es2022 --outfile=functions/_lib/ethverify.js --legal-comments=none"
   },
   "devDependencies": {
-    "esbuild": "^0.24.0"
+    "esbuild": "^0.24.2",
+    "@noble/curves": "^1.8.1",
+    "@noble/hashes": "^1.7.1"
   },
   "dependencies": {
     "@reown/appkit": "^1.6.0",

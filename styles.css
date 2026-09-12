@@ -965,26 +965,44 @@ body {
 
 
 
-/* ---------- home: one random token in the bottom-right quarter ---------- */
-#view-home { position: relative; }
+/* ---------- home: one random token in the bottom-right corner ---------- */
+/* The menu is a two-column grid so the token sits in the corner of the screen rather than
+   under the list: opening a section grows the list, not the picture's position. */
+#view-home {
+    position: relative;
+    height: 100%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: minmax(0, 1fr) auto;
+    column-gap: calc(var(--u) * 2);
+}
+#view-home > .menu {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: none;
+    align-self: start;
+}
+#view-home > .menu::-webkit-scrollbar { display: none; }
 .home-nft {
-    position: absolute;
-    right: 0;
-    bottom: 0;
-    width: 46%;
-    max-height: 46%;
+    grid-column: 2;
+    grid-row: 2;
+    align-self: end;
+    justify-self: end;
+    width: calc(var(--u) * 40);
+    max-width: 100%;
     margin: 0;
     display: flex;
     flex-direction: column;
     align-items: flex-end;
-    gap: calc(var(--u) * 0.8);
+    gap: calc(var(--u) * 0.6);
     pointer-events: none;
 }
 .home-nft img {
     display: block;
     width: 100%;
     height: auto;
-    max-height: calc(var(--u) * 46);
     object-fit: contain;
     border: calc(var(--u) * 0.5) solid var(--lcd-dark);
     background: var(--lcd);
@@ -995,7 +1013,7 @@ body {
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
-@media (max-width: 480px) { .home-nft { width: 52%; } }
+@media (max-width: 480px) { .home-nft { width: calc(var(--u) * 34); } }
 
 /* ---------- $MOSS page: the item view's layout, the Dealer where the picture goes ---------- */
 #view-token { height: 100%; display: flex; flex-direction: column; gap: calc(var(--u) * 1.2); }

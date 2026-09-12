@@ -31,11 +31,17 @@
     grout: [[74, 74, 74], [62, 62, 62]],
     moss: [[88, 112, 45], [100, 128, 52], [74, 98, 37], [112, 142, 60], [62, 85, 31]],
     grass: [[95, 159, 53], [110, 175, 62], [82, 140, 44], [124, 186, 72]],
-    dirt: [[134, 96, 67], [121, 85, 58], [148, 110, 78], [110, 76, 50], [98, 68, 45]],
+    dirt: [[134, 96, 67], [118, 82, 55], [155, 116, 83], [99, 68, 44], [172, 132, 97], [84, 57, 37]],
     coarse: [[124, 90, 63], [107, 76, 52], [143, 107, 77], [92, 64, 43], [77, 54, 36]],
-    stone: [[127, 127, 127], [117, 117, 117], [136, 136, 136], [110, 110, 110]],
-    deepslate: [[83, 83, 87], [74, 74, 78], [92, 92, 96], [70, 70, 74]],
+    stone: [[128, 128, 128], [112, 112, 112], [146, 146, 146], [99, 99, 99], [161, 161, 161]],
+    deepslate: [[84, 84, 89], [68, 68, 73], [101, 101, 107], [54, 54, 59], [116, 116, 122]],
     bedrock: [[85, 85, 85], [59, 59, 59], [108, 108, 108], [42, 42, 42], [130, 130, 130]],
+    // the rock that actually generates underground: no cobblestone, which only comes from
+    // dungeons and ruins, and tuff either side of the deepslate line where 1.17 put it
+    tuff: [[108, 109, 102], [99, 100, 94], [117, 118, 110], [91, 92, 86]],
+    andesite: [[136, 136, 136], [126, 126, 126], [145, 145, 145], [118, 118, 118]],
+    granite: [[149, 103, 85], [136, 93, 77], [160, 114, 95], [126, 86, 71]],
+    diorite: [[188, 188, 188], [205, 205, 205], [173, 173, 173], [215, 215, 215]],
     lava: [[212, 90, 18], [242, 164, 35], [255, 221, 85], [176, 62, 12], [255, 190, 60]]
   };
 
@@ -110,39 +116,76 @@
 
   // Dirt and moss are flat noise over a small palette, but the tones clump in twos and
   // threes rather than scattering evenly — the same way Mojang's do
+  // a tone shifted off its own colour, so crevices and highlights widen the value range
+  // wherever they fall and do not depend on how a palette happens to be ordered
+  function clumpTone(c, k) {
+    const f = v => Math.max(0, Math.min(255, Math.round(v * k)));
+    return [f(c[0]), f(c[1]), f(c[2])];
+  }
+
+  // A Minecraft block is not static: it is grains of rock or soil with dark crevices where
+  // they meet and a few faces catching the light. Scatter seeds, give every pixel the tone of
+  // its nearest one, darken the seam between cells, lift a few grains, then sprinkle grit.
+  // Distances wrap, so a tile still sits against a copy of itself without a seam.
   function noiseTile(ctx, r, pal, weights) {
     const pick = k => { let i = 0, acc = 0; for (; i < weights.length - 1; i++) { acc += weights[i]; if (k < acc) break; } return i; };
-    const coarse = [];
-    for (let i = 0; i < 64; i++) coarse.push(pick(r()));             // an 8x8 bias grid
+    const n = 7 + Math.floor(r() * 5);
+    const sx = [], sy = [], st = [];
+    for (let i = 0; i < n; i++) { sx.push(r() * T); sy.push(r() * T); st.push(pal[pick(r())]); }
     for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
-      const g = coarse[(y >> 1) * 8 + (x >> 1)];
-      px(ctx, x, y, pal[r() < 0.55 ? g : pick(r())]);
-    }
-    for (let i = 0; i < 8; i++) {                                    // a few deliberate clumps
-      const x = Math.floor(r() * (T - 1)), y = Math.floor(r() * (T - 1));
-      ctx.fillStyle = css(pal[pick(r())]);
-      ctx.fillRect(x, y, 1 + Math.round(r()), 1 + Math.round(r()));
-    }
-  }
-  function streaked(ctx, r, pal) {                                   // stone and deepslate run in seams
-    for (let y = 0; y < T; y++) {
-      let c = pal[Math.floor(r() * pal.length)];
-      for (let x = 0; x < T; x++) {
-        if (r() < 0.28) c = pal[Math.floor(r() * pal.length)];
-        px(ctx, x, y, c);
+      let best = 1e9, second = 1e9, bi = 0;
+      for (let i = 0; i < n; i++) {
+        let dx = Math.abs(x + 0.5 - sx[i]); if (dx > T / 2) dx = T - dx;
+        let dy = Math.abs(y + 0.5 - sy[i]); if (dy > T / 2) dy = T - dy;
+        const d = dx * dx + dy * dy;
+        if (d < best) { second = best; best = d; bi = i; } else if (d < second) second = d;
       }
+      const seam = Math.sqrt(second) - Math.sqrt(best);
+      let c = st[bi];
+      if (seam < 0.7) c = clumpTone(c, 0.72);                        // the crevice between two grains
+      else if (r() < 0.20) c = pal[pick(r())];                       // grit within the grain
+      else if (r() < 0.10) c = clumpTone(c, 1.14);                   // a face catching the light
+      px(ctx, x, y, c);
+    }
+    for (let i = 0; i < 4; i++) {                                    // a few bright grains on top
+      const x = Math.floor(r() * T), y = Math.floor(r() * T);
+      px(ctx, x, y, clumpTone(pal[0], 1.26));
+      if (r() < 0.45) px(ctx, (x + 1) % T, y, clumpTone(pal[0], 1.18));
+    }
+    for (let i = 0; i < 3; i++) {                                    // and a few pits
+      const x = Math.floor(r() * T), y = Math.floor(r() * T);
+      px(ctx, x, y, clumpTone(pal[0], 0.66));
     }
   }
 
-  // Grass, seen from the side: dirt with a green cap and a ragged edge where the
-  // two meet, exactly the way grass_block_side is drawn
+  function streaked(ctx, r, pal) {                                   // deepslate runs in vertical seams
+    for (let x = 0; x < T; x++) {
+      let c = pal[Math.floor(r() * pal.length)];
+      for (let y = 0; y < T; y++) {
+        if (r() < 0.24) c = pal[Math.floor(r() * pal.length)];
+        px(ctx, x, y, r() < 0.10 ? clumpTone(c, 1.16) : c);
+      }
+    }
+    for (let i = 0; i < 5; i++) {                                    // the dark seams between the seams
+      const x = Math.floor(r() * T), y0 = Math.floor(r() * T), h = 3 + Math.floor(r() * 7);
+      for (let k = 0; k < h; k++) px(ctx, x, (y0 + k) % T, clumpTone(pal[0], 0.70));
+    }
+  }
+
   function grassSide(ctx, r, moss) {
     noiseTile(ctx, r, PAL.dirt, [0.40, 0.26, 0.20, 0.08, 0.06]);
     const pal = moss ? PAL.moss : PAL.grass;
+    // the overhang is ragged and runs a little further down in places, the way the real
+    // grass block does, with a dark line under it where it meets the soil
+    let h = 3 + Math.floor(r() * 2);
     for (let x = 0; x < T; x++) {
-      const h = 3 + Math.floor(r() * 3);
-      for (let y = 0; y < h; y++) px(ctx, x, y, pal[Math.floor(r() * pal.length)]);
-      if (r() < 0.4) px(ctx, x, h, pal[Math.floor(r() * pal.length)]);
+      h = Math.max(2, Math.min(7, h + (r() < 0.42 ? (r() < 0.5 ? 1 : -1) : 0)));
+      for (let y = 0; y < h; y++) {
+        const c = pal[Math.floor(r() * pal.length)];
+        px(ctx, x, y, y === 0 && r() < 0.3 ? clumpTone(c, 1.15) : c);
+      }
+      px(ctx, x, h, clumpTone(pal[Math.floor(r() * pal.length)], 0.74));
+      if (r() < 0.3) px(ctx, x, h + 1, clumpTone(pal[Math.floor(r() * pal.length)], 0.8));
     }
   }
 
@@ -181,6 +224,84 @@
     }
   }
 
+  // one flat colour per block, got by letting the browser scale its texture down to a single
+  // pixel. Used only under the cubes, where a seam would otherwise show the sky
+  const AVG = {};
+  function avgOf(name) {
+    if (AVG[name]) return AVG[name];
+    const c = document.createElement('canvas');
+    c.width = c.height = 1;
+    const g = c.getContext('2d');
+    g.imageSmoothingEnabled = true;
+    g.drawImage(SETS[name][0], 0, 0, 1, 1);
+    const d = g.getImageData(0, 0, 1, 1).data;
+    return (AVG[name] = `rgb(${d[0]},${d[1]},${d[2]})`);
+  }
+
+  // Minecraft's lava scrolls rather than flickering: one tall field of molten noise with the
+  // colour smeared downwards into flow lines, sampled at a moving offset. Sixteen frames, and the
+  // field is laid down twice end to end so a slice never runs off the bottom.
+  const LAVA_FRAMES = 16;
+  let LAVA = null;
+  function buildLava(seed) {
+    const h = T * 2;
+    const field = document.createElement('canvas');
+    field.width = T; field.height = h;
+    const fg = field.getContext('2d'), r = rng(seed + 1717);
+    let carry = new Array(T).fill(0);
+    for (let y = 0; y < h; y++) for (let x = 0; x < T; x++) {
+      if (y === 0 || r() < 0.34) carry[x] = r() < 0.42 ? 0 : r() < 0.72 ? 1 : r() < 0.86 ? 3 : r() < 0.95 ? 4 : 2;
+      px(fg, x, y, PAL.lava[carry[x]]);
+    }
+    for (let i = 0; i < 10; i++) {                                   // the bright cells riding on top
+      const x = Math.floor(r() * T), y = Math.floor(r() * h);
+      fg.fillStyle = css(PAL.lava[2]);
+      fg.fillRect(x, y, 1 + Math.floor(r() * 3), 1 + Math.floor(r() * 2));
+    }
+    const strip = document.createElement('canvas');
+    strip.width = T; strip.height = h * 2;
+    const sg = strip.getContext('2d');
+    sg.imageSmoothingEnabled = false;
+    sg.drawImage(field, 0, 0); sg.drawImage(field, 0, h);
+    LAVA = [];
+    for (let f = 0; f < LAVA_FRAMES; f++) {
+      const c = document.createElement('canvas');
+      c.width = c.height = T;
+      const cg = c.getContext('2d');
+      cg.imageSmoothingEnabled = false;
+      cg.drawImage(strip, 0, Math.round(f * h / LAVA_FRAMES), T, T, 0, 0, T, T);
+      LAVA.push(c);
+    }
+  }
+  function lavaFrame(t) { return LAVA ? LAVA[Math.floor(t / 190) % LAVA_FRAMES] : null; }
+
+  // Moss creeping over rock: thin tendrils that wander across the face and leave the block
+  // showing between them, the way moss and glow lichen spread in a lush cave.
+  const VEIN_VARIANTS = 5;
+  let VEINS = null;
+  function buildVeins(seed) {
+    VEINS = [];
+    for (let v = 0; v < VEIN_VARIANTS; v++) {
+      const c = document.createElement('canvas');
+      c.width = c.height = T;
+      const g = c.getContext('2d'), r = rng(seed + 5171 + v * 331);
+      const runs = 2 + Math.floor(r() * 3);
+      for (let i = 0; i < runs; i++) {
+        let x = Math.floor(r() * T), y = Math.floor(r() * T);
+        const len = 7 + Math.floor(r() * 15);
+        for (let k = 0; k < len; k++) {
+          const wrap = (v2) => ((v2 % T) + T) % T;
+          px(g, wrap(x), wrap(y), PAL.moss[Math.floor(r() * PAL.moss.length)]);
+          if (r() < 0.42) px(g, wrap(x + 1), wrap(y), clumpTone(PAL.moss[0], 0.66));
+          if (r() < 0.22) px(g, wrap(x), wrap(y + 1), clumpTone(PAL.moss[0], 1.12));
+          if (r() < 0.62) x += r() < 0.5 ? 1 : -1;
+          if (r() < 0.52) y += r() < 0.5 ? 1 : -1;
+        }
+      }
+      VEINS.push(c);
+    }
+  }
+
   const VARIANTS = 4;
   const SETS = {};
   function buildTiles(seed) {
@@ -190,8 +311,12 @@
     make('moss', (c, r) => noiseTile(c, r, PAL.moss, [0.34, 0.24, 0.20, 0.12, 0.10]));
     make('dirt', (c, r) => noiseTile(c, r, PAL.dirt, [0.40, 0.26, 0.20, 0.14]));
     make('coarse', (c, r) => noiseTile(c, r, PAL.coarse, [0.26, 0.24, 0.18, 0.18, 0.14]));
-    make('stone', (c, r) => streaked(c, r, PAL.stone));
+    make('stone', (c, r) => noiseTile(c, r, PAL.stone, [0.34, 0.26, 0.20, 0.12, 0.08]));
     make('deepslate', (c, r) => streaked(c, r, PAL.deepslate));
+    make('tuff', (c, r) => noiseTile(c, r, PAL.tuff, [0.30, 0.28, 0.24, 0.18]));
+    make('andesite', (c, r) => noiseTile(c, r, PAL.andesite, [0.30, 0.28, 0.24, 0.18]));
+    make('granite', (c, r) => noiseTile(c, r, PAL.granite, [0.32, 0.26, 0.24, 0.18]));
+    make('diorite', (c, r) => noiseTile(c, r, PAL.diorite, [0.30, 0.26, 0.24, 0.20]));
     make('grass', (c, r) => grassSide(c, r, false));
     make('grasstop', (c, r) => noiseTile(c, r, PAL.grass, [0.34, 0.30, 0.20, 0.16]));
     make('mosstop', (c, r) => noiseTile(c, r, PAL.moss, [0.30, 0.26, 0.20, 0.14, 0.10]));
@@ -205,16 +330,19 @@
   }
 
   // where each ore turns up, and how often, roughly following vanilla's bands
+  // The 1.21 distribution, written as depth from the surface (0) to bedrock (1) -- the surface
+  // standing in for y=64 and bedrock for y=-64, so the halfway mark is y=0 and the deepslate line.
   const ORE_RULES = [
-    { name: 'coal', from: 0.00, to: 0.55, chance: 26 },
-    { name: 'copper', from: 0.05, to: 0.50, chance: 16 },
-    { name: 'iron', from: 0.20, to: 0.80, chance: 19 },
-    { name: 'lapis', from: 0.55, to: 0.95, chance: 8 },
-    { name: 'gold', from: 0.60, to: 1.00, chance: 10 },
-    { name: 'redstone', from: 0.72, to: 1.00, chance: 12 },
-    { name: 'diamond', from: 0.86, to: 1.00, chance: 6 },
-    { name: 'emerald', from: 0.30, to: 1.00, chance: 1 }
+    { name: 'coal', from: 0.00, to: 0.45, chance: 34 },        // y=0 and up, thickest near the surface
+    { name: 'copper', from: 0.02, to: 0.60, chance: 22 },      // peaks at y=48
+    { name: 'iron', from: 0.10, to: 0.95, chance: 30 },        // two peaks, y=16 and the mountains
+    { name: 'lapis', from: 0.40, to: 0.70, chance: 12 },       // peaks at y=0, right on the line
+    { name: 'gold', from: 0.50, to: 0.92, chance: 16 },        // peaks at y=-16
+    { name: 'redstone', from: 0.62, to: 1.00, chance: 22 },    // below y=-32, heaviest at the bottom
+    { name: 'diamond', from: 0.70, to: 1.00, chance: 14 },     // y=16 down, peaks at y=-59
+    { name: 'emerald', from: 0.05, to: 0.45, chance: 2 }       // mountains only, and never much
   ];
+
   // ores come in small clusters, so decide on a 2x2 cell rather than per block
   function oreAt(x, y, depth, seed) {
     const cell = hash2(x >> 1, y >> 1, seed + 613);
@@ -228,8 +356,10 @@
   }
 
   // ---------- the world ----------
-  // daily volume, in dollars, that leaves a column completely mossed over
-  const VREF = 2500;
+  // Daily volume, in dollars, that leaves a column completely mossed over. Calibrated to this
+  // pool rather than to a guess: its busiest day on record is $173 and its median day $49, so a
+  // reference of 2500 meant the moss thresholds were never reached and every column came out bare.
+  const VREF = 150;
 
   function build(candles, cols, rows) {
     // price on a log scale, the way a chart is read — otherwise one spike flattens
@@ -274,7 +404,7 @@
   // Terrain is drawn once onto its own canvas with the sky left transparent, so the
   // sky and the light level can move without rebuilding the world
   // what sits on top of each block when its upper face shows
-  const TOPS = { grass: 'grasstop', mossgrass: 'mosstop', dirt: 'dirt', coarse: 'coarse', moss: 'mosstop', mossy: 'mossy', cobble: 'cobble', stone: 'stone', deepslate: 'deepslate' };
+  const TOPS = { tuff: 'tuff', andesite: 'andesite', granite: 'granite', diorite: 'diorite', grass: 'grasstop', mossgrass: 'mosstop', dirt: 'dirt', coarse: 'coarse', moss: 'mosstop', mossy: 'mossy', cobble: 'cobble', stone: 'stone', deepslate: 'deepslate' };
   const FACE_TOP = -0.16, FACE_SIDE = 0.30;                          // Minecraft's fixed face lighting: top brightest, side darkest
 
   // Terrain is drawn once onto its own canvas with the sky left transparent, so the
@@ -298,6 +428,21 @@
     const rLava = rows - 1, rBed = rows - 2;
     const rDeep = Math.max(2, rBed - Math.round(rows * 0.20));
 
+    // How tall each column's moss stack wants to be, worked out before anything is placed, so
+    // the surface can be pushed down far enough for the biggest one to fit on screen. A tall
+    // candle running off the top is the one thing the frame must not do.
+    const want = new Int32Array(cols);
+    for (let x = 0; x < cols; x++) {
+      const wet0 = clamp01(spread[x] * 1.15 + 0.05 - clamp01((dry[x] - 0.5) * 2) * 0.25);
+      const burn0 = clamp01((Math.max(0, -chg[x]) - 0.10) / 0.30);
+      const life0 = clamp01(wet0 * 0.75 + (1 - dry[x]) * 0.45 - 0.18) * (1 - burn0 * 0.95);
+      const boom0 = clamp01((Math.max(0, chg[x]) - 0.10) / 0.30);
+      want[x] = Math.round(boom0 * 6) + (life0 > 0.55 ? 1 : 0);
+    }
+    let drop = 0;
+    for (let x = 0; x < cols; x++) drop = Math.max(drop, want[x] + 1 - surf[x]);
+    if (drop > 0) for (let x = 0; x < cols; x++) surf[x] = Math.min(rBed - 2, surf[x] + drop);
+
     for (let x = 0; x < cols; x++) {
       const top = surf[x];
       const wet = clamp01(spread[x] * 1.15 + 0.05 - clamp01((dry[x] - 0.5) * 2) * 0.25);
@@ -309,10 +454,18 @@
       const life = clamp01(wet * 0.75 + green * 0.45 - 0.18) * (1 - burn * 0.95);
       const cap = burn > 0.12 ? 0 : life > 0.5 ? 3 : 2;
 
+      // Depth as a fraction of this column's own reach from the surface to bedrock, so the
+      // strata hold their proportions whether the world is seven rows tall or twenty-three.
+      // Absolute block counts were the bug: soil ate the whole column and the stone band,
+      // ores and all, came out zero rows deep at the closer zooms.
+      const span = Math.max(1, rBed - top);
+      // moss, grass, mossy cobble and dirt own the top two thirds of the column; stone, tuff
+      // and deepslate keep their order but are compressed into what is left
+      const soil = Math.max(1, Math.round(span * 0.42));
       for (let y = top; y < rows; y++) {
         const depth = y - top;
-        const deepHere = rDeep + (hash2(x, 0, seed + 91) % 3) - 1;
-        const rock = cap + 4 + (hash2(x, y >> 2, seed + 44) % 5);
+        const f = Math.min(1, depth / span);                      // 0 at the surface, 1 at bedrock
+        const deep = f >= 0.82;                                   // deepslate only down at the bottom
         let name, shade = Math.min(0.26, depth * 0.020);
         if (y >= rLava) { name = 'lava'; shade = 0; }
         else if (y >= rBed) { name = 'bedrock'; shade = 0.10; }
@@ -325,22 +478,32 @@
           shade = burn > 0.12 ? 0.06 : -0.04;
         } else if (burn > 0.12 && depth <= 2 + Math.round(burn * 4)) {
           name = burn > 0.55 && depth > 2 ? 'deepslate' : 'stone';
-        } else if (life > 0.52 && depth <= (life > 0.75 ? 3 : 1)) {
+        } else if (life > 0.34 && depth <= Math.max(1, Math.round(span * (life > 0.66 ? 0.38 : 0.22)))) {
           name = 'moss'; shade = depth === 1 ? -0.02 : shade;
-        } else if (depth <= cap) {
+        } else if (depth <= soil) {
           name = dry[x] > 0.66 ? 'coarse' : 'dirt';
           if (depth === 1) shade = -0.02;
-        } else if (y >= deepHere) {
-          const o = oreAt(x, y, 0.86 + 0.14 * ((y - deepHere) / Math.max(1, rBed - deepHere)), seed);
-          name = o ? `${o}_deep` : 'deepslate';
-        } else if (depth <= rock) {
-          const o = oreAt(x, y, 0.06 + 0.20 * (depth / Math.max(1, rock)), seed);
-          name = o ? o : (hash2(x, y, 11) % 100) < life * 55 ? 'mossy' : 'cobble';
         } else {
-          const o = oreAt(x, y, 0.24 + 0.60 * ((y - top - rock) / Math.max(1, deepHere - top - rock)), seed);
-          name = o ? o : 'stone';
+          const o = oreAt(x, y, f, seed);
+          if (o) name = deep ? `${o}_deep` : o;
+          else if (f > 0.72 && f < 0.82) name = 'tuff';           // the band above the deepslate
+          else if (deep) name = 'deepslate';
+          else {
+            // mossy cobble is the common rock up near the soil; stone with speckled blobs below
+            const blob = hash2(x >> 1, y >> 1, seed + 777) % 100;
+            name = (hash2(x, y, 11) % 100) < 34 + life * 46 && f < 0.66 ? 'mossy'
+                 : blob < 7 ? 'andesite' : blob < 12 ? 'granite' : blob < 16 ? 'diorite' : 'stone';
+          }
         }
         set(x, y, name, shade);
+        // moss creeps over the rock nearest the soil, thinning out with depth
+        if (VEINS && depth > 0 && f < 0.60 && (name === 'stone' || name === 'mossy' || name === 'cobble'
+            || name === 'tuff' || name === 'andesite' || name === 'granite' || name === 'diorite')) {
+          if ((hash2(x, y, seed + 909) % 100) < 16 + life * 52 * (1 - f / 0.6)) {
+            const cc = at(x, y);
+            if (cc) cc.vein = 1 + (hash2(x, y, seed + 313) % VEIN_VARIANTS);
+          }
+        }
       }
 
       // A big buy stacks moss up above the line; small moves add or knock out single blocks
@@ -355,6 +518,24 @@
       if (top < rDeep - 1 && (hash2(x, top, 21) % 100) < 4) set(x, top + 1 + (hash2(x, top, 22) % 2), null);
     }
 
+    // the world has an inside: everything from a column's surface downwards is filled with
+    // cave dark before a single cube is drawn. The cubes cover it, so it shows only where the
+    // ground has a gap -- a punched hole, a notch left by a sell -- and a gap in the ground
+    // should read as depth. Above the surface nothing is filled, so open air between two moss
+    // stacks still shows the sky, which up there is what it is.
+    for (let x = 0; x < cols; x++) {
+      let y0 = rows;
+      for (let y = 0; y < rows; y++) if (at(x, y)) { y0 = y; break; }     // the real skyline, stacks included
+      const top = Math.max(0, Math.min(y0, surf[x]));
+      const Y0 = top * bs;
+      const g = ctx.createLinearGradient(0, Y0, 0, rows * bs);
+      g.addColorStop(0, '#14161d');
+      g.addColorStop(0.35, '#0b0d13');
+      g.addColorStop(1, '#06070b');
+      ctx.fillStyle = g;
+      ctx.fillRect(x * bs, Y0, bs + (x === cols - 1 ? sh : 0), rows * bs - Y0);
+    }
+
     // 2. render it as cubes. Left to right, top to bottom: the front face, then the top
     // face if the cell above is open, then the right face if the next column is open there.
     const tileOf = (name, x, y) => SETS[name][hash2(x, y, seed) % VARIANTS];
@@ -362,11 +543,32 @@
       if (shade > 0) { ctx.fillStyle = `rgba(0,0,0,${shade.toFixed(3)})`; ctx.fillRect(x, y, w, h); }
       else if (shade < 0) { ctx.fillStyle = `rgba(255,255,235,${(-shade).toFixed(3)})`; ctx.fillRect(x, y, w, h); }
     };
+    // Every sheared face is clipped, and canvas clips anti-alias, so each one kept a half
+    // transparent pixel along its diagonal and the sky came through the joins. Lay an opaque
+    // silhouette of the whole cube down first -- front, top and right as one hexagon, a pixel
+    // proud all round -- so those seams land on the block's own colour instead of on the night.
+    for (let x = 0; x < cols; x++) for (let y = 0; y < rows; y++) {
+      const cell = at(x, y);
+      if (!cell) continue;
+      const X = x * bs, Y = y * bs, e = 1;
+      ctx.fillStyle = avgOf(cell.name);
+      ctx.beginPath();
+      ctx.moveTo(X - e, Y + bs + e);
+      ctx.lineTo(X - e, Y - e);
+      ctx.lineTo(X + sh, Y - sh - e);
+      ctx.lineTo(X + bs + sh + e, Y - sh - e);
+      ctx.lineTo(X + bs + sh + e, Y + bs - sh);
+      ctx.lineTo(X + bs + e, Y + bs + e);
+      ctx.closePath();
+      ctx.fill();
+    }
+
     for (let x = 0; x < cols; x++) for (let y = 0; y < rows; y++) {
       const cell = at(x, y);
       if (!cell) continue;
       const X = x * bs, Y = y * bs;
       ctx.drawImage(tileOf(cell.name, x, y), X, Y, bs, bs);
+      if (cell.vein) ctx.drawImage(VEINS[cell.vein - 1], X, Y, bs, bs);
       tint(cell.shade, X, Y, bs, bs);
       if (cell.name === 'lava') continue;
       if (!at(x, y - 1) && y > 0) {                                  // the top face: sheared up and to the right
@@ -397,7 +599,12 @@
     ctx.fillStyle = glow; ctx.fillRect(0, (rLava - 3) * bs, c.width, rows * bs);
     ctx.globalCompositeOperation = 'source-over';
 
-    return { canvas: c, surf, lavaY: (rows - 1) * bs };
+    const lavaCells = [];
+    for (let x = 0; x < cols; x++) for (let y = 0; y < rows; y++) {
+      const cc = at(x, y);
+      if (cc && cc.name === 'lava') lavaCells.push([x * bs, y * bs]);
+    }
+    return { canvas: c, surf, lavaCells, lavaY: (rows - 1) * bs };
   }
 
   // ---------- sky ----------
@@ -527,7 +734,7 @@
     const bs = Math.max(6, Math.round(W / across));
     const cols = Math.ceil(W / bs), rows = Math.ceil(H / bs);
     const seed = opts.seed || 20260908;
-    if (!SETS.cobble) buildTiles(seed);
+    if (!SETS.cobble) { buildTiles(seed); buildLava(seed); buildVeins(seed); }
     canvas.width = cols * bs; canvas.height = rows * bs;
     const candles = currentCandles(opts);
     const t = drawTerrain(cols, rows, bs, candles, seed);
@@ -557,6 +764,10 @@
     if (s.dusk > 0.05) { sctx.fillStyle = `rgba(255,142,64,${(s.dusk * 0.16).toFixed(3)})`; sctx.fillRect(0, 0, world.W, world.H); }
     sctx.globalCompositeOperation = 'source-over';
     ctx.drawImage(scratch, 0, 0);
+
+    // lava is drawn after the light, at full brightness, and moves on its own clock
+    const lf = lavaFrame(t || 0);
+    if (lf && world.lavaCells) for (const [lx, ly] of world.lavaCells) ctx.drawImage(lf, lx, ly, world.bs, world.bs);
 
     // lava does not care what time it is
     if (world.lavaY) {

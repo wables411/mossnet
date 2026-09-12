@@ -659,7 +659,8 @@ function drawPot(x,y,w,h,p,snap){const q=snap?{hyd:snap.w,health:snap.h,fit:p.fi
   const ks=Math.max(1,Math.min(1.7,w/150));ctx.save();ctx.translate(x+(w>>1),base);ctx.scale(ks,ks);ctx.translate(-(x+(w>>1)),-base);const info=hasArt(pr)?drawMossImg(x+(w>>1),base,g,q,sp,snap?0:pa.wake,snap?0:pa.bounce,snap):drawChibi(x+(w>>1),base,g,q,pr,sp,snap?0:pa.wake,snap?0:pa.bounce,snap);ctx.restore();
   // the snail, or the springtail
   if(!snap&&!q.dead){const bug=pa.bug;const bx=x+6+bug.x*(w-16),by=base-1;
-    if(jarHas('snail')){fillEllipse(bx+1,by-5,6,5,'#5a3a1c');fillEllipse(bx+1,by-5,5,4,'#c48a4a');fillEllipse(bx+2,by-5,3,2,'#e8b878');px(bx+2,by-5,'#8a5a2c');px(bx-9,by-2,'#e0d0a8',10,3);px(bx-9,by-3,'#e0d0a8',3,1);px(bx-9,by-6,'#c8b890',1,4);px(bx-6,by-6,'#c8b890',1,4);px(bx-10,by-7,'#3a2a1a',2,2);px(bx-7,by-7,'#3a2a1a',2,2);}
+    if(jarHas('snail')){const ahead=bug.dir>0;if(ahead){ctx.save();ctx.translate(bx*2,0);ctx.scale(-1,1);}   // the sprite is drawn facing left, so mirror it about its own anchor when heading right
+      fillEllipse(bx+1,by-5,6,5,'#5a3a1c');fillEllipse(bx+1,by-5,5,4,'#c48a4a');fillEllipse(bx+2,by-5,3,2,'#e8b878');px(bx+2,by-5,'#8a5a2c');px(bx-9,by-2,'#e0d0a8',10,3);px(bx-9,by-3,'#e0d0a8',3,1);px(bx-9,by-6,'#c8b890',1,4);px(bx-6,by-6,'#c8b890',1,4);px(bx-10,by-7,'#3a2a1a',2,2);px(bx-7,by-7,'#3a2a1a',2,2);if(ahead)ctx.restore();}
     else if(q.fit>.6&&!q.dormant){const hy=by-bug.y*6-(bug.hop>0?3:0);px(bx,hy,'#8a6a4a',3,2);px(bx-1,hy-1,'#5a4a3a');px(bx+3,hy-1,'#5a4a3a');}}
   // the water cycle on the glass: beads high up when it is wet, fog at the shoulders, drips running down
   const nd=Math.round(q.hyd*16);for(let i=0;i<nd;i++){const dx=x+6+((R()*(w-12))|0),dy=y+10+((R()*(h*.35))|0);px(dx,dy,'rgba(160,210,255,0.8)',1,2);px(dx,dy,'rgba(255,255,255,0.9)');}
@@ -677,7 +678,18 @@ function jarRect(){const h=Math.max(100,cv.height-44),w=Math.max(90,Math.round(c
 function addBeads(n){for(let k=0;k<n;k++)pa.beads.push({x:JAR.x+6+Math.random()*(JAR.w-12),y:JAR.y+12+Math.random()*30,v:.15+Math.random()*.35});}
 function petAnim(p){if(pa.blink>0)pa.blink--;if(p&&p.hyd>.55&&!p.dormant&&frame%70===0)pa.beads.push({x:JAR.x+(Math.random()<.5?5:JAR.w-6),y:JAR.y+12+Math.random()*20,v:.25+Math.random()*.3});else if(Math.random()<.008)pa.blink=6;if(pa.wake>0)pa.wake--;if(pa.bounce>0)pa.bounce--;
   for(let i=pa.beads.length-1;i>=0;i--){const b=pa.beads[i];b.y+=b.v;if(b.y>JAR.y+JAR.h*0.72)pa.beads.splice(i,1);}
-  const b=pa.bug;if(b.hop>0)b.hop--;if(--b.t<=0){b.t=30+(Math.random()*50|0);b.x=Math.max(.05,Math.min(.95,b.x+(Math.random()-.5)*.3));b.hop=6;}}
+  const b=pa.bug;if(b.hop>0)b.hop--;
+  if(jarHas('snail')){                                              // a snail glides, and stops to think about it
+    if(b.dir===undefined){b.dir=1;b.rest=0;}
+    if(b.rest>0)b.rest--;
+    else{
+      b.x+=b.dir*.0016;
+      if(b.x>=.93){b.x=.93;b.dir=-1;b.rest=50+(Math.random()*70|0);}
+      else if(b.x<=.05){b.x=.05;b.dir=1;b.rest=50+(Math.random()*70|0);}
+      else if(Math.random()<.004)b.rest=30+(Math.random()*80|0);
+    }
+  }
+  else if(--b.t<=0){b.t=30+(Math.random()*50|0);b.x=Math.max(.05,Math.min(.95,b.x+(Math.random()-.5)*.3));b.hop=6;}}
 function petAge(p){const ms=Date.now()-p.born,d=Math.floor(ms/86400000),h=Math.floor(ms/3600000)%24;return d?d+'D '+h+'H':h+'H';}
 
 /* ---------------- GoodMoss controls ---------------- */

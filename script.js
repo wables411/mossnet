@@ -641,7 +641,7 @@ function showView(name, { focus = 0, scroll = true } = {}) {
 // The game paints its pixel art (the map, the lab, the jar) on a canvas at the top of the LCD and renders the
 // rest of itself as the LCD's own HTML: menus, lists, tabs, photos. So the handheld's focus cursor, notes and
 // blips work on it like on every other screen. quest.js and its species data load the first time it is opened.
-const QUEST_SRC = 'quest.js?v=5f1170c1';
+const QUEST_SRC = 'quest.js?v=e138e5c5';
 const questCanvas = document.getElementById('quest-canvas');
 const questUi = document.getElementById('quest-ui');
 let questLoading = null;
@@ -685,6 +685,7 @@ async function startQuest() {
       ui: questUi,
       user,
       notice: questNotice,
+      cloud: { save: () => (typeof cloudBackup === 'function' ? cloudBackup() : { ok: false, message: 'backing up is not switched on here' }) },
       muted: !sound.enabled,
       dev: ['127.0.0.1', 'localhost'].includes(location.hostname),
       onStatus: (text) => { if (activeView === 'quest' && !focusedElement()?.dataset.note) setNote(text); },
@@ -1578,7 +1579,26 @@ addEventListener('pagehide', () => {
   // token rides in the query and the endpoint is happy either way
   navigator.sendBeacon?.(`/save?t=${encodeURIComponent(token.token)}`, new Blob([body], { type: 'application/json' }));
 });
-document.querySelectorAll('[data-action="cloudsave"]').forEach(el => el.addEventListener('click', () => cloudSync({ signIn: true })));
+// what the save station calls: the same sync, but it answers rather than only setting a note
+async function cloudBackup() {
+  if (!window.mossQuest?.getSave) return { ok: false, message: 'the game is not open' };
+  let token = cloudLive();
+  if (!token) token = await cloudSignIn();
+  if (!token) return { ok: false, message: 'not backed up · connect a wallet and sign' };
+
+  const pulled = await cloudCall('', { token: token.token });
+  if (pulled.status === 401) { setCloudToken(null); return { ok: false, message: 'that sign-in expired · try again' }; }
+  if (pulled.status === 503) return { ok: false, message: pulled.data.error };
+
+  const merged = pulled.ok && pulled.data.save
+    ? window.mossQuest.setSave(pulled.data.save, { merge: true })
+    : window.mossQuest.getSave();
+  const body = JSON.stringify(merged);
+  const pushed = await cloudCall('', { method: 'PUT', token: token.token, body: merged });
+  if (!pushed.ok) return { ok: false, message: pushed.data.error || 'could not back up' };
+  savePushed = body;
+  return { ok: true, message: `kept on ${token.address.slice(0, 6)}…${token.address.slice(-4)} · it will follow you to another screen` };
+}
 
 function toTitle() { if (activeView !== 'title') { sound.close(); showView('title'); } }
 function toHome() { sound.close(); showView('home', { focus: null }); }

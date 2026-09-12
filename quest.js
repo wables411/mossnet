@@ -209,8 +209,9 @@ function buildTiles(th){const [g,gd,gl]=th.ground,[h,hd,hl]=th.ground2,[w,wl,wd]
   tl[ROCK]=sprite(ROCKBM,{'5':ra,'6':rb,'7':rc});tl[MTN]=sprite(MTNBM,{'5':ma,'6':mb,'7':mb,'d':mc});
   const tc=(cols)=>({'1':cols[0],'2':cols[1],'3':cols[2],'4':cols[3]});
   tl[TREE]=sprite(TREEBM[th.tree],tc(th.treeCol));tl[TREE2]=th.tree2?sprite(TREEBM[th.tree2],tc(th.tree2Col)):tl[TREE];tl[TREE3]=th.tree3?sprite(TREEBM[th.tree3],tc(th.tree3Col)):tl[TREE];
-  const bl=th.bldg;tl[BLDG]=[0,1,2].map(v=>tile(v===2?'#5a5048':bl.wall,q=>{q(0,0,v===2?'#3a3230':bl.roof,16,4);q(0,4,'#1a1a2e',16,1);q(0,0,'#1a1a2e',1,16);q(15,0,'#1a1a2e',1,16);
+  const bl=th.bldg;tl[BLDG]=[0,1,2,3].map(v=>tile(v===2?'#5a5048':v===3?'#f0ece0':bl.wall,q=>{q(0,0,v===2?'#3a3230':v===3?'#3f8f4a':bl.roof,16,4);q(0,4,'#1a1a2e',16,1);q(0,0,'#1a1a2e',1,16);q(15,0,'#1a1a2e',1,16);
     for(let y=6;y<13;y+=4)for(let x=2;x<14;x+=4){if(v===2){q(x,y,'#1c1a22',3,2);q(x,y+1,'#6a5a48',3,1);}else{q(x,y,bl.win,3,2);q(x+1,y,'#fff6c8');}}if(v===2){q(6,12,'#2a2420',4,4);q(5,13,'#6a5a48',6,1);q(5,15,'#6a5a48',6,1);}else q(6,12,bl.door,4,4);q(0,15,'#1a1a2e',16,1);
+  if(v===3){q(7,1,'#f0ece0',2,2);q(6,1,'#f0ece0',4,1);q(6,6,'#3f8f4a',4,1);q(6,10,'#3f8f4a',4,1);}
 }));
   return tl;}
 
@@ -328,7 +329,7 @@ const tap=(x,y,w,h)=>!!(click&&!click.top&&click.x>=x&&click.x<x+w&&click.y>=y&&
 
 /* ---------------- map ---------------- */
 const MW=36,MH=28,VW=W/T,VH=H/T;
-let dealerAt=null;
+let dealerAt=null,saveAt=null,saveMsg=null;
 let map=null,spots=[],beetles=[],player={x:0,y:0,px:0,py:0,dir:'down',mx:0,my:0,anim:0,path:[],goal:null},cam={x:0,y:0},TL=null,theme=null;
 function noise(r,w,h,cell){const gw=Math.ceil(w/cell)+1,gh=Math.ceil(h/cell)+1,g=[];for(let i=0;i<gw*gh;i++)g.push(r());
   const out=[];for(let y=0;y<h;y++)for(let x=0;x<w;x++){const gx=x/cell,gy=y/cell,x0=gx|0,y0=gy|0,fx=gx-x0,fy=gy-y0;
@@ -430,7 +431,7 @@ function faceTowards(x,y){player.dir=x>player.x?'right':x<player.x?'left':y>play
 function interactAhead(){const dx={left:-1,right:1}[player.dir]||0,dy={up:-1,down:1}[player.dir]||0;const tx=player.x+dx,ty=player.y+dy;
   const s=spots.findIndex(o=>o.x===tx&&o.y===ty);if(s>=0){startEnc(s);return true;}
   const bi=beetles.findIndex(o=>o.x===tx&&o.y===ty);if(bi>=0){catchBeetle(bi);return true;}
-  if(map[ty]&&map[ty][tx]===BLDG){if(dealerAt&&tx===dealerAt.x&&ty===dealerAt.y)openShop();else{snd('miss');toast={t:['LIGHTS ON. NOBODY ANSWERS.','THE CURTAIN TWITCHES. THE DOOR STAYS SHUT.','A DOG BARKS INSIDE. NO ONE COMES.','THEY ARE HOME. THEY ARE NOT OPENING.'][(tx*7+ty*13)%4],n:120};}return true;}return false;}
+  if(map[ty]&&map[ty][tx]===BLDG){if(dealerAt&&tx===dealerAt.x&&ty===dealerAt.y)openShop();else if(saveAt&&tx===saveAt.x&&ty===saveAt.y)openStation();else{snd('miss');toast={t:['LIGHTS ON. NOBODY ANSWERS.','THE CURTAIN TWITCHES. THE DOOR STAYS SHUT.','A DOG BARKS INSIDE. NO ONE COMES.','THEY ARE HOME. THEY ARE NOT OPENING.'][(tx*7+ty*13)%4],n:120};}return true;}return false;}
 
 /* ---------------- beetles (Beetleboy tiers) ---------------- */
 function rollBeetle(){const list=theme.beetles.concat(HOLIDAY());const pity=save.pity>=6;let pool=list.filter(b=>!pity||b.tier!=='TIN');if(!pool.length)pool=list;
@@ -730,6 +731,21 @@ function drawShop(){rect(0,0,cv.width,cv.height,'#2f4a5e');const r=rng(99);for(l
   const blink=(frame%170)<6,bob=(frame>>5)&1;const k=Math.max(1,Math.min(2,(cv.height-26)/66));ctx.save();ctx.translate(Math.round(cv.width*0.5-20*k),cv.height-26-Math.round(64*k)+bob);ctx.scale(k,k);ctx.drawImage(blink?DEALER2:DEALER,0,0);ctx.restore();
   withFont(F7,()=>{const t='THE DEALER';const w=tw(t)+8;bevelOut(6,6,w,12,C.paper);text(t,10,9,C.ink);});}
 
+/* ---------------- the save station ---------------- */
+// The game writes to this device after every action anyway; the station is where you can
+// see that it happened, and where you send a copy somewhere this device cannot lose it.
+const ago=(t)=>{if(!t)return 'never';const m=Math.round((Date.now()-t)/60000);
+  return m<1?'just now':m<60?m+(m===1?' minute ago':' minutes ago'):m<1440?Math.round(m/60)+'h ago':Math.round(m/1440)+'d ago';};
+function openStation(){saveMsg=null;snd('chime');go('station');}
+function stationSave(){save.saved=Date.now();persist();saveMsg='kept on this device. '+pname()+"'S MossDex is safe here.";snd('ok');dirty();}
+async function stationCloud(){const c=opts.cloud;
+  if(!c||!c.save){saveMsg='backing up to a wallet is not switched on here.';snd('miss');dirty();return;}
+  saveMsg='talking to your wallet...';dirty();
+  try{const r=await c.save();saveMsg=String(r&&r.message||r||'backed up.');
+    if(r&&r.ok===false)snd('miss');else{save.backed=Date.now();snd('ok');}}   // only stamp it when it actually went
+  catch(e){saveMsg=String(e&&e.message||e);snd('miss');}
+  persist();dirty();}
+
 /* ---------------- states ---------------- */
 let state='title',cur=0,enc=null,jr={filter:0,cur:0},entry=null,shot=false,info=false,card=null,bsel=null,toast=null,chimed=false,menuOpen=false,confirmNew=0,confirmRel=0,uiDirty=true,screenSig='';
 const REG=()=>save.region;
@@ -742,7 +758,10 @@ function placeDealer(ci){dealerAt=null;const r=rng(ci*977+3);
   const walkable=new Set((spots.reach||[]).map(([x,y])=>y*MW+x));
   const ok=(x,y)=>[[0,1],[0,-1],[1,0],[-1,0]].some(([dx,dy])=>WALK[map[y+dy][x+dx]]&&(!walkable.size||walkable.has((y+dy)*MW+(x+dx))));
   const cand=[];for(let y=1;y<MH-1;y++)for(let x=1;x<MW-1;x++)if(map[y][x]===BLDG&&ok(x,y))cand.push([x,y]);
-  if(cand.length){const [x,y]=cand[(r()*cand.length)|0];dealerAt={x,y};}}
+  if(cand.length){const i=(r()*cand.length)|0;dealerAt={x:cand[i][0],y:cand[i][1]};
+    // the station goes in another building, as far from the Dealer as the town allows
+    let best=null,bd=-1;for(const [x,y] of cand){const d=Math.abs(x-dealerAt.x)+Math.abs(y-dealerAt.y);if(d>bd){bd=d;best=[x,y];}}
+    if(best&&bd>0)saveAt={x:best[0],y:best[1]};}}
 function enterRegion(c){snd('ok');save.region=c;persist();genMap(c);placeDealer(CONT.indexOf(c));menuOpen=false;toast={t:'WELCOME TO '+CN[c],n:120};ambientFor(CONT.indexOf(c));go('world');}
 function openJournal(){entry=null;jr.filter=CONT.indexOf(REG())+1;jr.cur=0;go('journal');}
 function startEnc(i){snd('found');const sp=spots[i].sp||pickSpecies(REG());img(sp);enc={spot:i,sp,opts:choices(sp,REG()),cur:0,phase:0,ok:false,gone:[],hinted:false};go('enc');}
@@ -772,6 +791,7 @@ function handles(b){
   if(state==='pet'||state==='petpick')return b==='j';
   if(state==='beetle')return b==='a';
   if(state==='shop')return false;
+  if(state==='station')return false;
   if(state==='beetles')return b==='j'||(bsel&&b==='a');
   return false;}
 const pad=()=>state==='world'&&!menuOpen;
@@ -815,6 +835,7 @@ function update(){frame++;if(tuneT>0){tuneT--;drawTune();}if(amb.on&&!muted&&sta
     if(hit('j')&&!entry){snd('back');go('world');}}
   else if(state==='win'){if(hit('a')||hit('b')||click)go('world');}
   else if(state==='beetle'){if(hit('a')||hit('b')){card=null;go('world');}}
+  else if(state==='station'){if(hit('b')){snd('back');go('world');}}
   else if(state==='shop'){if(hit('b')){if(!shop||shop.mode==='menu'){snd('back');go('world');}else{shop.mode='menu';shop.pick=[];snd('back');dirty();}}}
   else if(state==='beetles'){if(bsel&&(hit('a')||hit('b'))){bsel=null;snd('back');dirty();}else if(hit('b')||hit('j')){snd('back');go('world');}}
   else if(state==='title'){if(hit('b'))snd('miss');}
@@ -839,6 +860,9 @@ function act(name,arg){
   else if(name==='intro:char'){if(!CHARS[arg])return;save.char=arg;persist();buildPlayer();snd('ok');introNext();}
   else if(name==='menu:beetles'){menuOpen=false;bsel=null;go('beetles');}
   else if(name==='beetle:done'){card=null;go('world');}
+  else if(name==='save:device')stationSave();
+  else if(name==='save:wallet')stationCloud();
+  else if(name==='save:leave'){snd('back');go('world');}
   else if(name==='shop:tip')shopTip();
   else if(name==='shop:buy')shopBuy(arg);
   else if(name==='shop:sell')shopSell(arg);
@@ -958,6 +982,11 @@ function render(){if(!ui)return;let h='',focus=0,scene='none';const u=user||GUES
     if(petMenu){h+=`<ul class="menu">${mi('return to quest','pet:back',null,'leave the jar, it keeps growing')}${mi('release '+low(p.name),'pet:release',null,'let it go and plant another cutting')}${mi('stay','pet:menu',null,'close this')}</ul>`;focus=0;}
     else{h+=`<ul class="menu item-links q-petacts">${acts.map(btn).join('')}</ul>${msg(toast&&toast.t)}`;focus=petCur;}}
   else if(state==='petlapse'&&save.pet){scene='jar';const p=save.pet;h=`<div class="lcd-header"><span class="lcd-header-title">TIME-LAPSE</span><span class="item-meta" id="q-frame">frame 1 / ${p.snaps.length}</span></div><p class="lcd-note">the jar so far, replayed. A: back to the jar</p>`;}
+  else if(state==='station'){scene='none';const c=opts.cloud;
+    h=`<div class="lcd-header"><span class="lcd-header-title">SAVE STATION</span><span class="item-meta">${esc(titleCase(CN[REG()]))}</span></div>
+      <dl>${row('traveler',pname())}${row('logged',nCollected()+' / '+SP.length)}${row('this device',ago(save.saved||save.last))}${row('wallet',save.backed?ago(save.backed):'not backed up')}</dl>
+      ${saveMsg?`<p class="lcd-msg">${esc(saveMsg)}</p>`:`<p class="lcd-note">your MossDex is written to this device as you play. keep a copy on your wallet and it will follow you to another screen.</p>`}
+      <ul class="menu">${mi('save on this device','save:device',null,'write it now and stamp the time')}${mi('save to my wallet','save:wallet',null,c&&c.save?'sign once, and your MossDex follows the wallet':'not switched on here')}${mi('leave','save:leave',null,'return to quest')}</ul>`;}
   else if(state==='shop'&&shop){scene='shop';const c=REG();const cut=dailyCutting(c),st=shopState();
     if(shop.mode==='menu'){const stock=dailyStock(c);const coat=roster[c].filter(x=>save.collected[x.key]).sort((A,B)=>(save.collected[B.key]||0)-(save.collected[A.key]||0)).slice(0,5);const rows=Math.max(stock.length,coat.length,1);
       const day=Math.floor((Date.now()-(save.started||Date.now()))/86400000)+1;const ph=save.pet?Math.round(save.pet.health*100):null;
@@ -986,14 +1015,14 @@ function render(){if(!ui)return;let h='',focus=0,scene='none';const u=user||GUES
   ui.innerHTML=h;const host=ui.closest('[data-scene]')||ui.parentElement;if(host)host.dataset.scene=scene;
   ui.querySelectorAll('canvas[data-char]').forEach(c=>{c.getContext('2d').drawImage(charPortrait(c.dataset.char),0,0);});
   // the same screen redrawn (a timer, a toast, a hint) keeps the cursor where the player left it: null asks the host to reuse its index
-  const sg=[state,menuOpen,enc&&enc.phase,entry&&entry.key,shot,info,naming&&naming.key,jr.filter,shop&&shop.mode].join('|');const keep=sg===screenSig;screenSig=sg;
+  const sg=[state,menuOpen,saveMsg,enc&&enc.phase,entry&&entry.key,shot,info,naming&&naming.key,jr.filter,shop&&shop.mode].join('|');const keep=sg===screenSig;screenSig=sg;
   if(opts.onRender)opts.onRender(keep?null:focus);
   if(opts.onStatus)opts.onStatus(statusText());lastStatus=statusText();uiDirty=false;}
 function meter(label,v){const n=Math.round(Math.max(0,Math.min(1,v))*10);return row(label,'█'.repeat(n)+'░'.repeat(10-n));}
 
 /* ---------------- the pixel-art scene ---------------- */
 function drawTileAt(t,x,y,tx,ty){const base=OVER[t]?TL[G0]:null;if(base)ctx.drawImage(base,x,y);
-  let img_=TL[t];if(t===WATER)img_=TL[WATER][(frame>>5)&1];else if(t===BLDG)img_=(dealerAt&&tx===dealerAt.x&&ty===dealerAt.y)?TL[BLDG][2]:TL[BLDG][(tx+ty)&1];ctx.drawImage(img_,x,y);}
+  let img_=TL[t];if(t===WATER)img_=TL[WATER][(frame>>5)&1];else if(t===BLDG)img_=(dealerAt&&tx===dealerAt.x&&ty===dealerAt.y)?TL[BLDG][2]:(saveAt&&tx===saveAt.x&&ty===saveAt.y)?TL[BLDG][3]:TL[BLDG][(tx+ty)&1];ctx.drawImage(img_,x,y);}
 function drawWorld(){const ox=-cam.x|0,oy=-cam.y|0;const x0=Math.max(0,(cam.x/T)|0),y0=Math.max(0,(cam.y/T)|0);const VH=cv.height/T,VW=cv.width/T;
   for(let y=y0;y<Math.min(MH,y0+VH+1);y++)for(let x=x0;x<Math.min(MW,x0+VW+1);x++)drawTileAt(map[y][x],x*T+ox,y*T+oy,x,y);
   const mf=((frame>>4)&3)===0?1:0;for(const s of spots){if(s.x>=x0-1&&s.x<x0+VW+1&&s.y>=y0-1&&s.y<y0+VH+1)ctx.drawImage(MOSS[mf],s.x*T+ox,s.y*T+oy);}
@@ -1065,6 +1094,7 @@ function statusText(){const n=nCollected()+'/'+SP.length;
   if(state==='petlapse')return 'time-lapse · A: back';
   if(state==='beetle')return 'A: continue';
   if(state==='beetles')return bsel?'B: back to the book':'beetles · A: look · B: back';
+  if(state==='station')return 'save station · A: choose · B: leave';
   if(state==='shop')return shop&&shop.mode==='swap'?'A: offer · B: back':shop&&shop.mode==='goods'?'A: buy · B: back':'the Dealer · left: buy · right: sell · B: leave';
   if(state==='win')return 'every moss found · A: keep exploring';return '';}
 function pushStatus(){const t=statusText();if(t!==lastStatus){lastStatus=t;if(opts.onStatus)opts.onStatus(t);}}

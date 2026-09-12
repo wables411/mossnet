@@ -137,8 +137,9 @@ buildPlayer(CHAR_IDS[0]);
 
 /* ---------------- tiles: ids, themes, factories ---------------- */
 const G0=0,TREE=1,ROCK=2,WATER=3,PATH=4,WET=5,BLDG=6,ROAD=7,G2=8,MTN=9,ICE=10,TREE2=11,TREE3=12;
-const WALK=[1,0,0,0,1,1,0,1,1,0,1,0,0];
-const OVER=[0,1,1,0,0,0,1,0,0,1,0,1,1];   // drawn over ground
+const IWALL=13,IFLOOR=14,SHELF=15,COUNTER=16,CLERK=17,TERMINAL=18;   // inside the Quick-E-Mart
+const WALK=[1,0,0,0,1,1,0,1,1,0,1,0,0,0,1,0,0,0,0];
+const OVER=[0,1,1,0,0,0,1,0,0,1,0,1,1,0,0,0,0,0,0];   // drawn over ground
 // Beetleboy tiers: Tin, Bronze, Mithril, Adamantine, Diamond
 const TIER={TIN:{cheese:1,col:'#5cb85c',hi:'#a8e6a0',w:.58},BRONZE:{cheese:2,col:'#d9a441',hi:'#f5dd9a',w:.25},MITHRIL:{cheese:3,col:'#4fc3d9',hi:'#c6f3fb',w:.11},ADAMANTINE:{cheese:5,col:'#d23c3c',hi:'#ffb0b0',w:.045},DIAMOND:{cheese:8,col:'#8fd3ff',hi:'#ffffff',w:.015}};
 const B=(name,tier,col,hi)=>({name,tier,col:col||TIER[tier].col,hi:hi||TIER[tier].hi});
@@ -213,6 +214,17 @@ function buildTiles(th){const [g,gd,gl]=th.ground,[h,hd,hl]=th.ground2,[w,wl,wd]
     for(let y=6;y<13;y+=4)for(let x=2;x<14;x+=4){if(v===2){q(x,y,'#1c1a22',3,2);q(x,y+1,'#6a5a48',3,1);}else{q(x,y,bl.win,3,2);q(x+1,y,'#fff6c8');}}if(v===2){q(6,12,'#2a2420',4,4);q(5,13,'#6a5a48',6,1);q(5,15,'#6a5a48',6,1);}else q(6,12,bl.door,4,4);q(0,15,'#1a1a2e',16,1);
   if(v===3){q(7,1,'#f0ece0',2,2);q(6,1,'#f0ece0',4,1);q(6,6,'#3f8f4a',4,1);q(6,10,'#3f8f4a',4,1);}
 }));
+  // the Quick-E-Mart, which is the same in every town
+  tl[IWALL]=tile('#c9c4b4',q=>{q(0,0,'#b0aa98',16,3);q(0,3,'#8f8a7a',16,1);for(let x=0;x<16;x+=4)q(x,0,'#8f8a7a',1,3);q(0,15,'#8f8a7a',16,1);});
+  tl[IFLOOR]=tile('#ddd8c8',q=>{q(0,0,'#cdc8b8',8,8);q(8,8,'#cdc8b8',8,8);q(1,1,'#c2bdae',1,1);q(11,4,'#c6c1b1',2,1);q(4,12,'#c6c1b1',1,2);});
+  // picked over: bare board, a couple of things left, one shelf empty altogether
+  tl[SHELF]=tile('#9a8f78',q=>{q(0,0,'#6a5f4a',16,2);q(0,7,'#6a5f4a',16,2);q(0,14,'#6a5f4a',16,2);
+    q(1,2,'#7f755f',14,5);q(1,9,'#7f755f',14,5);
+    q(2,3,'#c8543c',2,4);q(5,4,'#e0b040',2,3);q(11,3,'#4a7ec0',2,4);q(8,10,'#5c9c46',2,4);});
+  tl[COUNTER]=tile('#b9b0a0',q=>{q(0,0,'#6a6255',16,3);q(0,3,'#8f8778',16,1);q(2,6,'#3f8f4a',5,4);q(3,7,'#f0ece0',3,2);q(10,6,'#2a2a32',4,4);q(11,7,'#8fd45f',2,1);});
+  tl[CLERK]=tile('#e6e2d6',q=>{q(4,1,'#3f8f4a',8,3);q(3,4,'#f2c9a0',10,5);q(5,6,'#1b1b20',2,1);q(9,6,'#1b1b20',2,1);q(6,8,'#c06a6a',4,1);q(3,9,'#4a6ea0',10,6);q(2,10,'#4a6ea0',2,4);q(12,10,'#4a6ea0',2,4);});
+  tl[TERMINAL]=tile('#d8d4c8',q=>{q(1,1,'#6a6a72',14,10);q(2,2,'#2a3a2a',12,7);q(3,3,'#8fd45f',4,1);q(3,5,'#8fd45f',7,1);q(3,7,'#8fd45f',5,1);
+    q(5,11,'#6a6a72',6,2);q(2,13,'#9a9aa2',12,2);q(4,14,'#3a3a42',8,1);});
   return tl;}
 
 /* ---------------- data ---------------- */
@@ -427,11 +439,16 @@ function pathTo(tx,ty){ // BFS from player to tx,ty (or to a tile adjacent to it
 function tapWorld(){const tx=Math.floor((click.x+cam.x)/T),ty=Math.floor((click.topy+cam.y)/T);if(tx<0||ty<0||tx>=MW||ty>=MH)return;
   if(tx===player.x&&ty===player.y)return;const path=pathTo(tx,ty);if(!path){snd('miss');return;}
   player.path=path;player.goal=thing(tx,ty)?{x:tx,y:ty}:null;snd('move',path.length);}
+function storeExit(){if(!store)return;const sh=STORE.length;if(player.y>=store.oy+sh-1)leaveStore();}
 function faceTowards(x,y){player.dir=x>player.x?'right':x<player.x?'left':y>player.y?'down':'up';}
 function interactAhead(){const dx={left:-1,right:1}[player.dir]||0,dy={up:-1,down:1}[player.dir]||0;const tx=player.x+dx,ty=player.y+dy;
+  if(store){const t=map[ty]&&map[ty][tx];
+    if(t===CLERK){snd('move',2);toast={t:CLERK_LINES[(frame>>4)%CLERK_LINES.length],n:200};dirty();return true;}
+    if(t===TERMINAL){openStation();return true;}
+    return true;}
   const s=spots.findIndex(o=>o.x===tx&&o.y===ty);if(s>=0){startEnc(s);return true;}
   const bi=beetles.findIndex(o=>o.x===tx&&o.y===ty);if(bi>=0){catchBeetle(bi);return true;}
-  if(map[ty]&&map[ty][tx]===BLDG){if(dealerAt&&tx===dealerAt.x&&ty===dealerAt.y)openShop();else if(saveAt&&tx===saveAt.x&&ty===saveAt.y)openStation();else{snd('miss');toast={t:['LIGHTS ON. NOBODY ANSWERS.','THE CURTAIN TWITCHES. THE DOOR STAYS SHUT.','A DOG BARKS INSIDE. NO ONE COMES.','THEY ARE HOME. THEY ARE NOT OPENING.'][(tx*7+ty*13)%4],n:120};}return true;}return false;}
+  if(map[ty]&&map[ty][tx]===BLDG){if(dealerAt&&tx===dealerAt.x&&ty===dealerAt.y)openShop();else if(saveAt&&tx===saveAt.x&&ty===saveAt.y)enterStore();else{snd('miss');toast={t:['LIGHTS ON. NOBODY ANSWERS.','THE CURTAIN TWITCHES. THE DOOR STAYS SHUT.','A DOG BARKS INSIDE. NO ONE COMES.','THEY ARE HOME. THEY ARE NOT OPENING.'][(tx*7+ty*13)%4],n:120};}return true;}return false;}
 
 /* ---------------- beetles (Beetleboy tiers) ---------------- */
 function rollBeetle(){const list=theme.beetles.concat(HOLIDAY());const pity=save.pity>=6;let pool=list.filter(b=>!pity||b.tier!=='TIN');if(!pool.length)pool=list;
@@ -731,13 +748,50 @@ function drawShop(){rect(0,0,cv.width,cv.height,'#2f4a5e');const r=rng(99);for(l
   const blink=(frame%170)<6,bob=(frame>>5)&1;const k=Math.max(1,Math.min(2,(cv.height-26)/66));ctx.save();ctx.translate(Math.round(cv.width*0.5-20*k),cv.height-26-Math.round(64*k)+bob);ctx.scale(k,k);ctx.drawImage(blink?DEALER2:DEALER,0,0);ctx.restore();
   withFont(F7,()=>{const t='THE DEALER';const w=tw(t)+8;bevelOut(6,6,w,12,C.paper);text(t,10,9,C.ink);});}
 
-/* ---------------- the save station ---------------- */
+/* ---------------- the Quick-E-Mart ---------------- */
+// One room, the same in every town: aisles, a counter with a clerk, and a public terminal
+// in the corner. Laid out by hand rather than generated, because a shop should be a place.
+const STORE=[
+'################',
+'#..............#',
+'#.SS..S.......T#',
+'#.S...SS.......#',
+'#..............#',
+'#.....S........#',
+'#.SS..S........#',
+'#..............#',
+'#CCCC..........#',
+'#...E..........#',
+'#..............#',
+'#######..#######'];
+const STORE_T={'#':IWALL,'.':IFLOOR,'S':SHELF,'C':COUNTER,'E':CLERK,'T':TERMINAL};
+let outside=null;                                  // where the map and the player were before we came in
+function enterStore(){
+  outside={map,spots,beetles,x:player.x,y:player.y,px:player.px,py:player.py,dir:player.dir,cam:{x:cam.x,y:cam.y}};
+  const sw=STORE[0].length,sh=STORE.length,ox=(MW-sw)>>1,oy=(MH-sh)>>1;
+  const m=[];for(let y=0;y<MH;y++){const row=[];for(let x=0;x<MW;x++)row.push(IWALL);m.push(row);}
+  for(let y=0;y<sh;y++)for(let x=0;x<sw;x++)m[oy+y][ox+x]=STORE_T[STORE[y][x]];
+  map=m;spots=[];spots.pool=[];spots.reach=[];beetles=[];
+  const dx=ox+7,dy=oy+sh-2;                        // just inside the door
+  player.x=dx;player.y=dy;player.px=dx*T;player.py=dy*T;player.dir='up';player.mx=player.my=0;player.path=[];player.goal=null;
+  store={ox,oy};snd('ok');toast={t:'QUICK-E-MART',n:110};dirty();}
+function leaveStore(){
+  if(!outside)return;
+  map=outside.map;spots=outside.spots;beetles=outside.beetles;
+  player.x=outside.x;player.y=outside.y;player.px=outside.px;player.py=outside.py;player.dir='down';player.mx=player.my=0;player.path=[];player.goal=null;
+  cam.x=outside.cam.x;cam.y=outside.cam.y;outside=null;store=null;snd('back');dirty();}
+let store=null;
+const CLERK_LINES=['the terminal takes the old handhelds. quarter a minute, no refunds.','you want the computer, not me. corner, by the mops.','plug it in, press the buttons, take your receipt.','if it asks for a wallet, that is between you and the wallet.'];
+/* ---------------- the terminal ---------------- */
 // The game writes to this device after every action anyway; the station is where you can
 // see that it happened, and where you send a copy somewhere this device cannot lose it.
 const ago=(t)=>{if(!t)return 'never';const m=Math.round((Date.now()-t)/60000);
   return m<1?'just now':m<60?m+(m===1?' minute ago':' minutes ago'):m<1440?Math.round(m/60)+'h ago':Math.round(m/1440)+'d ago';};
-function openStation(){saveMsg=null;snd('chime');go('station');}
-function stationSave(){save.saved=Date.now();persist();saveMsg='kept on this device. '+pname()+"'S MossDex is safe here.";snd('ok');dirty();}
+function openStation(){saveMsg=null;pcPlugged=false;pcStart=Date.now();snd('chime');go('station');}
+let pcPlugged=false,pcStart=0;
+const pcMeter=()=>{const sec=Math.max(0,Math.floor((Date.now()-pcStart)/1000));
+  return '$'+(0.25*Math.max(1,Math.ceil(sec/60))).toFixed(2)+' \u00b7 '+String((sec/60)|0).padStart(2,'0')+':'+String(sec%60).padStart(2,'0');};
+function stationSave(){save.saved=Date.now();persist();saveMsg='SAVE COMPLETE. '+nCollected()+' ENTRIES WRITTEN TO THE HANDHELD.';snd('ok');dirty();}
 async function stationCloud(){const c=opts.cloud;
   if(!c||!c.save){saveMsg='backing up to a wallet is not switched on here.';snd('miss');dirty();return;}
   saveMsg='talking to your wallet...';dirty();
@@ -799,17 +853,18 @@ const pad=()=>state==='world'&&!menuOpen;
 // the game's own input, for the states it handles. Menus, lists and buttons are clicked by the host.
 function update(){frame++;if(tuneT>0){tuneT--;drawTune();}if(amb.on&&!muted&&state!=='title')ambient();if(confirmNew>0)confirmNew--;if(confirmRel>0)confirmRel--;
   if(toast&&--toast.n<=0){toast=null;dirty();}
+  if(state==='station'&&ui){const m=ui.querySelector('#q-meter');if(m)m.textContent=pcMeter();}
   if(state==='intro'){const pg=intro.pages[intro.page],txt=pageText();if(intro.ch<txt.length){intro.ch+=2;if(frame%3===0)snd('talk',intro.ch);const d=ui&&ui.querySelector('#q-dialog');if(d)d.textContent=txt.slice(0,intro.ch);}
     if(intro.ch>=txt.length&&pg.ask&&!intro.opt){intro.opt=true;dirty();}
     if(hit('a')||(click&&click.top)){if(intro.ch<txt.length){intro.ch=txt.length;const d=ui&&ui.querySelector('#q-dialog');if(d)d.textContent=txt;if(pg.ask){intro.opt=true;dirty();}}else if(!pg.ask)introNext();}
     if(hit('b')){if(intro.kb&&intro.buf){intro.buf=intro.buf.slice(0,-1);dirty();}else if(intro.kb){intro.kb=false;dirty();}else if(intro.page>0&&!intro.bail){intro.page--;intro.ch=pageText().length;intro.opt=!!intro.pages[intro.page].ask;snd('back');dirty();}else snd('miss');}}
   else if(state==='region'){if(hit('b')&&save.region&&map){snd('back');go('world');}}
-  else if(state==='world'){stepBeetles();
+  else if(state==='world'){stepBeetles();if(store)storeExit();
     if(menuOpen){if(hit('b')){menuOpen=false;snd('back');dirty();}}
     else{if(click&&click.top)tapWorld();
       if(!player.mx&&!player.my){
         if(hit('j'))openJournal();
-        else if(hit('b')){menuOpen=true;snd('move',0);dirty();}
+        else if(hit('b')){if(store)leaveStore();else{menuOpen=true;snd('move',0);dirty();}}
         else{
           if(hit('a')){player.path=[];if(interactAhead()){click=null;return;}}
           if(keys.up||keys.down||keys.left||keys.right){player.path=[];player.goal=null;}
@@ -819,7 +874,9 @@ function update(){frame++;if(tuneT>0){tuneT--;drawTune();}if(amb.on&&!muted&&sta
           if(dx||dy){const nx=player.x+dx,ny=player.y+dy;if(nx>=0&&ny>=0&&nx<MW&&ny<MH&&WALK[map[ny][nx]]&&!spots.some(o=>o.x===nx&&o.y===ny)&&!beetles.some(o=>o.x===nx&&o.y===ny)){player.x=nx;player.y=ny;player.mx=-dx*T;player.my=-dy*T;save.steps++;snd('step',save.steps);}}}
       }else if(player.mx||player.my){const v=2;if(player.mx)player.mx+=player.mx<0?v:-v;if(player.my)player.my+=player.my<0?v:-v;player.anim++;}
       player.px=player.x*T+player.mx;player.py=player.y*T+player.my;
-      cam.x=Math.max(0,Math.min(MW*T-cv.width,player.px-cv.width/2+8));cam.y=Math.max(0,Math.min(MH*T-cv.height,player.py-cv.height/2+8));}}
+      if(store){const rw=STORE[0].length*T,rh=STORE.length*T;   // indoors the room sits still and centred
+        cam.x=Math.round(store.ox*T-(cv.width-rw)/2);cam.y=Math.round(store.oy*T-(cv.height-rh)/2);}
+      else{cam.x=Math.max(0,Math.min(MW*T-cv.width,player.px-cv.width/2+8));cam.y=Math.max(0,Math.min(MH*T-cv.height,player.py-cv.height/2+8));}}}
   else if(state==='enc'){if(enc.phase===1&&hit('j'))useHint();else if(enc.phase===2&&(hit('a')||hit('b')))encDone();else if(hit('b')){/* no fleeing: face it */snd('miss');}}
   else if(state==='pet'){const p=save.pet;if(!p){openPick();}else{if(frame%120===0){simPet(p,Date.now());persist();dirty();}petAnim(p);if(click&&click.top){pa.bounce=20;snd('chirp');}
     if(hit('b')||hit('j')){if(petMenu){petMenu=false;snd('back');dirty();}else{petMenu=true;snd('move',0);dirty();}}}}
@@ -835,7 +892,7 @@ function update(){frame++;if(tuneT>0){tuneT--;drawTune();}if(amb.on&&!muted&&sta
     if(hit('j')&&!entry){snd('back');go('world');}}
   else if(state==='win'){if(hit('a')||hit('b')||click)go('world');}
   else if(state==='beetle'){if(hit('a')||hit('b')){card=null;go('world');}}
-  else if(state==='station'){if(hit('b')){snd('back');go('world');}}
+  else if(state==='station'){if(hit('b')){pcPlugged=false;snd('back');go('world');}}
   else if(state==='shop'){if(hit('b')){if(!shop||shop.mode==='menu'){snd('back');go('world');}else{shop.mode='menu';shop.pick=[];snd('back');dirty();}}}
   else if(state==='beetles'){if(bsel&&(hit('a')||hit('b'))){bsel=null;snd('back');dirty();}else if(hit('b')||hit('j')){snd('back');go('world');}}
   else if(state==='title'){if(hit('b'))snd('miss');}
@@ -860,9 +917,11 @@ function act(name,arg){
   else if(name==='intro:char'){if(!CHARS[arg])return;save.char=arg;persist();buildPlayer();snd('ok');introNext();}
   else if(name==='menu:beetles'){menuOpen=false;bsel=null;go('beetles');}
   else if(name==='beetle:done'){card=null;go('world');}
+  else if(name==='save:plug'){pcPlugged=true;saveMsg=null;snd('found');dirty();}
+  else if(name==='save:unplug'){pcPlugged=false;saveMsg=null;snd('back');dirty();}
   else if(name==='save:device')stationSave();
   else if(name==='save:wallet')stationCloud();
-  else if(name==='save:leave'){snd('back');go('world');}
+  else if(name==='save:leave'){pcPlugged=false;snd('back');go('world');}
   else if(name==='shop:tip')shopTip();
   else if(name==='shop:buy')shopBuy(arg);
   else if(name==='shop:sell')shopSell(arg);
@@ -983,10 +1042,16 @@ function render(){if(!ui)return;let h='',focus=0,scene='none';const u=user||GUES
     else{h+=`<ul class="menu item-links q-petacts">${acts.map(btn).join('')}</ul>${msg(toast&&toast.t)}`;focus=petCur;}}
   else if(state==='petlapse'&&save.pet){scene='jar';const p=save.pet;h=`<div class="lcd-header"><span class="lcd-header-title">TIME-LAPSE</span><span class="item-meta" id="q-frame">frame 1 / ${p.snaps.length}</span></div><p class="lcd-note">the jar so far, replayed. A: back to the jar</p>`;}
   else if(state==='station'){scene='none';const c=opts.cloud;
-    h=`<div class="lcd-header"><span class="lcd-header-title">SAVE STATION</span><span class="item-meta">${esc(titleCase(CN[REG()]))}</span></div>
-      <dl>${row('traveler',pname())}${row('logged',nCollected()+' / '+SP.length)}${row('this device',ago(save.saved||save.last))}${row('wallet',save.backed?ago(save.backed):'not backed up')}</dl>
-      ${saveMsg?`<p class="lcd-msg">${esc(saveMsg)}</p>`:`<p class="lcd-note">your MossDex is written to this device as you play. keep a copy on your wallet and it will follow you to another screen.</p>`}
-      <ul class="menu">${mi('save on this device','save:device',null,'write it now and stamp the time')}${mi('save to my wallet','save:wallet',null,c&&c.save?'sign once, and your MossDex follows the wallet':'not switched on here')}${mi('leave','save:leave',null,'return to quest')}</ul>`;}
+    h=`<div class="q-pc"><div class="q-pc-bar"><span>QUICK-E-MART \u00b7 PUBLIC TERMINAL</span><span class="q-pc-meter" id="q-meter">${esc(pcMeter())}</span></div>`;
+    if(!pcPlugged){
+      h+=`<p class="q-pc-line">&gt; NO DEVICE DETECTED</p><p class="q-pc-line q-pc-dim">&gt; 25 CENTS A MINUTE. NO REFUNDS. NO PRINTING.</p>
+        <ul class="menu item-links q-pc-acts">${mi('plug in Moss Quest device','save:plug',null,'A: connect the handheld to the terminal')}${mi('walk away','save:leave',null,'B does it too')}</ul>`;}
+    else{
+      h+=`<p class="q-pc-line">&gt; DEVICE FOUND: MQ-01</p>
+        <dl>${row('traveler',pname())}${row('logged',nCollected()+' / '+SP.length)}${row('handheld',ago(save.saved||save.last))}${row('wallet',save.backed?ago(save.backed):'no copy')}</dl>
+        ${saveMsg?`<p class="q-pc-line">&gt; ${esc(saveMsg)}</p>`:`<p class="q-pc-line q-pc-dim">&gt; READY.</p>`}
+        <ul class="menu item-links q-pc-acts">${mi('save to handheld','save:device',null,'write it to the device you are holding')}${mi('upload to wallet','save:wallet',null,c&&c.save?'sign once and it follows the wallet':'this terminal cannot reach a wallet')}${mi('unplug','save:unplug',null,'take the handheld back')}${mi('walk away','save:leave',null,'B does it too')}</ul>`;}
+    h+='</div>';}
   else if(state==='shop'&&shop){scene='shop';const c=REG();const cut=dailyCutting(c),st=shopState();
     if(shop.mode==='menu'){const stock=dailyStock(c);const coat=roster[c].filter(x=>save.collected[x.key]).sort((A,B)=>(save.collected[B.key]||0)-(save.collected[A.key]||0)).slice(0,5);const rows=Math.max(stock.length,coat.length,1);
       const day=Math.floor((Date.now()-(save.started||Date.now()))/86400000)+1;const ph=save.pet?Math.round(save.pet.health*100):null;
@@ -1015,7 +1080,7 @@ function render(){if(!ui)return;let h='',focus=0,scene='none';const u=user||GUES
   ui.innerHTML=h;const host=ui.closest('[data-scene]')||ui.parentElement;if(host)host.dataset.scene=scene;
   ui.querySelectorAll('canvas[data-char]').forEach(c=>{c.getContext('2d').drawImage(charPortrait(c.dataset.char),0,0);});
   // the same screen redrawn (a timer, a toast, a hint) keeps the cursor where the player left it: null asks the host to reuse its index
-  const sg=[state,menuOpen,saveMsg,enc&&enc.phase,entry&&entry.key,shot,info,naming&&naming.key,jr.filter,shop&&shop.mode].join('|');const keep=sg===screenSig;screenSig=sg;
+  const sg=[state,menuOpen,saveMsg,pcPlugged,enc&&enc.phase,entry&&entry.key,shot,info,naming&&naming.key,jr.filter,shop&&shop.mode].join('|');const keep=sg===screenSig;screenSig=sg;
   if(opts.onRender)opts.onRender(keep?null:focus);
   if(opts.onStatus)opts.onStatus(statusText());lastStatus=statusText();uiDirty=false;}
 function meter(label,v){const n=Math.round(Math.max(0,Math.min(1,v))*10);return row(label,'█'.repeat(n)+'░'.repeat(10-n));}
@@ -1032,7 +1097,7 @@ function drawWorld(){const ox=-cam.x|0,oy=-cam.y|0;const x0=Math.max(0,(cam.x/T)
   const dx={left:-1,right:1}[player.dir]||0,dy={up:-1,down:1}[player.dir]||0;const tx=player.x+dx,ty=player.y+dy;
   if(!player.mx&&!player.my&&(spots.some(o=>o.x===tx&&o.y===ty)||beetles.some(o=>o.x===tx&&o.y===ty))){const bx=player.px+ox+5,by=player.py+oy+T-PLH-10+((frame>>3)&1);bevelOut(bx-2,by-2,10,11,C.paper);text('!',bx+1,by+1,C.red);}
   for(const o of spots)if(o.tip&&o.x>=x0-1&&o.x<x0+VW+1&&o.y>=y0-1&&o.y<y0+VH+1){const bx=o.x*T+ox+4,by=o.y*T+oy-9+((frame>>3)&1);bevelOut(bx-2,by-2,10,11,C.paper);text('?',bx+1,by+1,C.ink);}
-  drawCloudShadows();
+  if(!store)drawCloudShadows();                                   // no weather indoors
   const hh=cv.height,cx=cv.width/2;if(toast){withFont(F7,()=>{const w=tw(toast.t)+16;bevelOut(cx-w/2,hh-26,w,18,C.face);text(toast.t,cx-w/2+8,hh-20,toast.tier?TIER[toast.tier].col:C.ink);});}
   if(player.goal||player.path.length){const g=player.goal;if(g){rect(g.x*T+ox+7,g.y*T+oy-3+((frame>>3)&1),2,2,C.red);}}
   if(menuOpen){ctx.fillStyle='rgba(27,51,32,0.35)';ctx.fillRect(0,0,cv.width,cv.height);}}
@@ -1094,7 +1159,7 @@ function statusText(){const n=nCollected()+'/'+SP.length;
   if(state==='petlapse')return 'time-lapse · A: back';
   if(state==='beetle')return 'A: continue';
   if(state==='beetles')return bsel?'B: back to the book':'beetles · A: look · B: back';
-  if(state==='station')return 'save station · A: choose · B: leave';
+  if(state==='station')return pcPlugged?'terminal \u00b7 A: choose \u00b7 B: walk away':'terminal \u00b7 A: plug in \u00b7 B: walk away';
   if(state==='shop')return shop&&shop.mode==='swap'?'A: offer · B: back':shop&&shop.mode==='goods'?'A: buy · B: back':'the Dealer · left: buy · right: sell · B: leave';
   if(state==='win')return 'every moss found · A: keep exploring';return '';}
 function pushStatus(){const t=statusText();if(t!==lastStatus){lastStatus=t;if(opts.onStatus)opts.onStatus(t);}}

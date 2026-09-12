@@ -514,8 +514,13 @@
       }
       const nudge = hash2(x, top, 55) % 100;
       if (boom < 0.05 && move > 0.008 && nudge < move * 900 && top > 1) set(x, top - 1, 'moss', -0.04);
-      if (burn < 0.05 && move < -0.008 && nudge < -move * 700 && top < rBed - 2) set(x, top, null);   // never a column's last block
-      if (top < rDeep - 1 && (hash2(x, top, 21) % 100) < 4) set(x, top + 1 + (hash2(x, top, 22) % 2), null);
+      // a sell knocks the top block off the column, whatever is up there, rather than deleting
+      // the surface out from under moss that is standing on it and leaving it in mid-air
+      if (burn < 0.05 && move < -0.008 && nudge < -move * 700 && top < rBed - 2) {
+        let ty = top;
+        while (ty > 0 && at(x, ty - 1)) ty--;
+        set(x, ty, null);                                            // never a column's last block
+      }
     }
 
     // the world has an inside: everything from a column's surface downwards is filled with

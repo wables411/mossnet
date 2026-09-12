@@ -664,7 +664,7 @@ function drawShop(){rect(0,0,cv.width,cv.height,'#2f4a5e');const r=rng(99);for(l
   withFont(F7,()=>{const t='THE DEALER';const w=tw(t)+8;bevelOut(6,6,w,12,C.paper);text(t,10,9,C.ink);});}
 
 /* ---------------- states ---------------- */
-let state='title',cur=0,enc=null,jr={filter:0,cur:0},entry=null,shot=false,card=null,bsel=null,toast=null,chimed=false,menuOpen=false,confirmNew=0,confirmRel=0,uiDirty=true,screenSig='';
+let state='title',cur=0,enc=null,jr={filter:0,cur:0},entry=null,shot=false,info=false,card=null,bsel=null,toast=null,chimed=false,menuOpen=false,confirmNew=0,confirmRel=0,uiDirty=true,screenSig='';
 const REG=()=>save.region;
 let JF=9;function jlist(){return jr.filter===0?SP:jr.filter===JF-1?SP.filter(s=>save.collected[s.key]):roster[CONT[jr.filter-1]];}
 function go(st){state=st;dirty();}
@@ -696,7 +696,7 @@ function handles(b){
   if(state==='world')return !menuOpen;
   if(state==='intro'){const pg=intro.pages[intro.page]||{};if(b==='a')return !(pg.ask&&intro.opt);return false;}
   if(state==='petlapse'||state==='win')return true;
-  if(state==='journal')return b==='left'||b==='right'||b==='j'||(entry&&b==='a');
+  if(state==='journal')return b==='left'||b==='right'||b==='j'||(entry&&(shot||info)&&b==='a');
   if(state==='enc')return (enc.phase===2&&b==='a')||(enc.phase===1&&b==='j');
   if(state==='pet'||state==='petpick')return b==='j';
   if(state==='beetle')return b==='a';
@@ -735,10 +735,13 @@ function update(){frame++;if(tuneT>0){tuneT--;drawTune();}if(amb.on&&!muted&&sta
   else if(state==='petpick'){if(hit('b')||hit('j')){if(naming){naming=null;dirty();}else{snd('back');go('world');}}}
   else if(state==='petlapse'){const p=save.pet;if(frame%4===0){lapse.i++;const f=ui&&ui.querySelector('#q-frame');if(f&&p)f.textContent='frame '+(Math.min(lapse.i,p.snaps.length-1)+1)+' / '+p.snaps.length;}if(!p||lapse.i>=p.snaps.length+15||hit('a')||hit('b')||click)go('pet');}
   else if(state==='journal'){const L=jlist();
-    if(hit('left')){jr.filter=(jr.filter+JF-1)%JF;jr.cur=0;entry=null;snd('move',jr.filter);dirty();}
-    if(hit('right')){jr.filter=(jr.filter+1)%JF;jr.cur=0;entry=null;snd('move',jr.filter);dirty();}
-    if(entry&&hit('a')){if(shot){shot=false;snd('back');}else if(entry.image&&known(entry)){shot=true;snd('move',1);}else entry=null;dirty();}
-    if(hit('b')||hit('j')){if(shot){shot=false;snd('back');dirty();}else if(entry){entry=null;snd('back');dirty();}else{snd('back');go('world');}}}
+    if(entry&&L.length&&(hit('left')||hit('right'))){jr.cur=(L.indexOf(entry)+(hit('left')?-1:1)+L.length)%L.length;entry=L[jr.cur];shot=false;snd('move',jr.cur);dirty();}
+    else{if(hit('left')){jr.filter=(jr.filter+JF-1)%JF;jr.cur=0;entry=null;snd('move',jr.filter);dirty();}
+    if(hit('right')){jr.filter=(jr.filter+1)%JF;jr.cur=0;entry=null;snd('move',jr.filter);dirty();}}
+    if(entry&&hit('j')){info=!info;shot=false;snd('move',1);dirty();}
+    if(entry&&hit('a')&&shot){shot=false;snd('back');dirty();}
+    if(hit('b')){if(shot){shot=false;snd('back');dirty();}else if(info){info=false;snd('back');dirty();}else if(entry){entry=null;snd('back');dirty();}else{snd('back');go('world');}}
+    if(hit('j')&&!entry){snd('back');go('world');}}
   else if(state==='win'){if(hit('a')||hit('b')||click)go('world');}
   else if(state==='beetle'){if(hit('a')||hit('b')){card=null;go('world');}}
   else if(state==='shop'){if(hit('b')){if(!shop||shop.mode==='menu'){snd('back');go('world');}else{shop.mode='menu';shop.pick=[];snd('back');dirty();}}}
@@ -785,9 +788,10 @@ function act(name,arg){
   else if(name==='enc:answer')answer(Number(arg));
   else if(name==='enc:hint')useHint();
   else if(name==='enc:continue')encDone();
-  else if(name==='dex:open'){const s=SP.find(x=>String(x.key)===String(arg));if(s){entry=s;jr.cur=jlist().indexOf(s);dirty();}}
-  else if(name==='dex:back'){entry=null;shot=false;dirty();}
-  else if(name==='dex:shot'){if(entry&&entry.image){shot=true;snd('move',1);dirty();}}
+  else if(name==='dex:open'){const s=SP.find(x=>String(x.key)===String(arg));if(s){entry=s;shot=false;info=false;jr.cur=jlist().indexOf(s);dirty();}}
+  else if(name==='dex:back'){entry=null;shot=false;info=false;dirty();}
+  else if(name==='dex:info'){info=true;shot=false;dirty();}
+  else if(name==='dex:shot'){if(entry&&entry.image&&known(entry)){shot=true;info=false;snd('move',1);dirty();}}
   else if(name==='dex:discovered'){jr.filter=JF-1;jr.cur=0;entry=null;dirty();}
   else if(name==='dex:all'){jr.filter=0;jr.cur=0;entry=null;dirty();}
   else if(name==='dex:filter'){jr.filter=(jr.filter+Number(arg)+JF)%JF;jr.cur=0;entry=null;dirty();}
@@ -824,6 +828,9 @@ function beetleImg(name,dim,girl){const f=BEETLE_IMG[name];if(f)return `<img cla
   const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');g.imageSmoothingEnabled=false;g.drawImage(sprite(bm[0],{'1':k.col,'3':k.hi,g:k.col,d:k.hi}),0,0,16,16,0,0,64,64);return `<img class="q-beetle${dim?' q-dim':''}" src="${c.toDataURL()}" alt="${esc(name)}">`;}
 const beetleHome=name=>{const rs=CONT.filter(c=>THEMES[c].beetles.some(b=>b.name===name)).map(c=>titleCase(CN[c]));const bk=BEETLE_BOOK.find(x=>x[0]===name);
   if(bk&&bk[2]==='halloween')return 'anywhere, in October';if(bk&&bk[2]==='christmas')return (rs.length?rs.join(', ')+' all year, and ':'')+'anywhere in December';return rs.length?rs.join(', '):'not in the wild here';};
+function dexInfo(sp){const kn=known(sp);const regs=regionList(sp);const when=save.collected[sp.key]?new Date(save.collected[sp.key]).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):null;
+  const desc=kn?`${sp.name}${sp.common?', the '+low(sp.common)+',':''} is a moss of the family ${sp.family||'?'}${sp.order?' in the order '+sp.order:''}. GBIF holds ${sp.records.toLocaleString('en-US')} records of it, from ${regs}.${sp.image?' The photo is by '+sp.image.by+(/inaturalist/i.test(sp.image.src||'')?' on iNaturalist':'')+', '+lic(sp.image.license)+'.':''} ${when?'You logged it on '+when+'.':save.seen[sp.key]?'You have seen it but not yet named it.':''}`:'You have not found this one yet. Its entry is still missing from the MossDex.';
+  return `<div class="q-info"><h2>${esc(kn?sp.name:'?????')}${kn&&sp.author?` <span class="q-author">${esc(sp.author)}</span>`:''}</h2><p>${esc(desc)}</p><dl>${row('no.',String(sp.id).padStart(4,'0'))}${row('family',kn?sp.family||'?':'?')}${row('order',kn?sp.order||'?':'?')}${kn&&sp.genus?row('genus',sp.genus):''}${row('found in',regs)}${row('records',sp.records.toLocaleString('en-US')+' on GBIF')}${kn&&sp.image?row('photo',sp.image.by+' · '+lic(sp.image.license)):''}${row('status',status(sp))}</dl></div>`;}
 function speciesCard(sp,k){const known_=k==null?known(sp):k;return `<div class="q-card"><div class="q-stage">${photoEl(sp,!known_)}</div>
   <h2 class="q-name">${esc(known_?sp.name:'?????')}${known_&&sp.author?` <span class="q-author">${esc(sp.author)}</span>`:''}</h2>
   ${known_&&sp.common?`<p class="q-common">${esc(sp.common)}</p>`:''}
@@ -860,7 +867,11 @@ function render(){if(!ui)return;let h='',focus=0,scene='none';const u=user||GUES
       <ul class="menu item-links">${mi('continue','enc:continue',null,'return to quest')}</ul>`;}}
   else if(state==='journal'){const L=jlist();const name=jr.filter===0?'all regions':jr.filter===JF-1?'discovered':low(CN[CONT[jr.filter-1]]);const got=L.filter(s=>save.collected[s.key]).length;
     if(entry&&shot&&entry.image){scene='none';h=`<div class="q-shot"><img class="q-shotimg" src="${esc((opts.imgBase||'')+entry.image.file)}" alt="${esc(entry.name)}"></div>`;}
-    else if(entry){h=`<div class="lcd-header"><span class="lcd-header-title">MOSSDEX</span><span class="item-meta">${esc(name)} · ${jr.cur+1} / ${L.length}</span></div>${speciesCard(entry)}<ul class="menu item-links">${entry.image&&known(entry)?mi('view photo','dex:shot',null,'A: full screen'):''}${mi('back to the list','dex:back',null,'B: back')}</ul>`;focus=entry.image&&known(entry)?0:0;}
+    else if(entry&&info){scene='none';h=dexInfo(entry);}
+    else if(entry){scene='none';const kn=known(entry),idx=L.indexOf(entry);const lnk=(label,href,note)=>`<li><a class="menu-item focusable" href="${esc(href)}" target="_blank" rel="noopener" data-note="${esc(note)}">${esc(label)}</a></li>`;
+      h=`<div class="q-item"><button type="button" class="item-stage focusable" data-act="dex:shot" data-note="A: showcase · X: info · L/R: prev / next · B: back">${kn&&entry.image?`<img class="item-image" src="${esc((opts.imgBase||'')+entry.image.file)}" alt="${esc(entry.name)}">`:`<div class="item-image q-nophoto">${kn?'no photo':'???'}</div>`}</button>
+      <h2 class="item-name"><span>${esc(kn?entry.name:'?????')}</span><span class="item-meta">${idx+1} / ${L.length}</span></h2>
+      <ul class="item-links">${kn?lnk('GBIF','https://www.gbif.org/species/'+entry.key,'the species on gbif.org, in a new tab'):''}${kn&&entry.image&&entry.image.src?lnk(/inaturalist/i.test(entry.image.src)?'iNaturalist':'photo source',entry.image.src,'where the photo comes from, in a new tab'):''}${mi('INFO','dex:info',null,'X does it too')}${mi('BACK','dex:back',null,'B does it too')}</ul></div>`;focus=0;}
     else{h=`<div class="lcd-header"><span class="lcd-header-title">MOSSDEX</span><nav class="tabs"><button type="button" class="tab" data-act="dex:filter" data-arg="-1">◀</button><span class="tab active">${esc(name)} · ${got}/${L.length}</span><button type="button" class="tab" data-act="dex:filter" data-arg="1">▶</button></nav></div><ul class="menu item-links q-dexbtns">${jr.filter===JF-1?mi('all regions','dex:all',null,'every species, found or not'):mi('discovered · '+nCollected(),'dex:discovered',null,'everything you have logged, all continents')}</ul>`+
       (L.length?`<ul class="menu q-list">`+L.map(s=>{const st=status(s);return mi(`${String(s.id).padStart(4,'0')}  ${st==='unknown'?'-----':s.name}`,'dex:open',s.key,st==='collected'?'in the MossDex':st==='seen'?'seen, not yet named':'not found yet','q-'+st);}).join('')+'</ul>':`<p class="lcd-msg">${jr.filter===JF-1?'nothing collected yet':'nothing here'}</p>`);
       focus=jr.cur;}}
@@ -904,7 +915,7 @@ function render(){if(!ui)return;let h='',focus=0,scene='none';const u=user||GUES
   ui.innerHTML=h;const host=ui.closest('[data-scene]')||ui.parentElement;if(host)host.dataset.scene=scene;
   ui.querySelectorAll('canvas[data-char]').forEach(c=>{c.getContext('2d').drawImage(charPortrait(c.dataset.char),0,0);});
   // the same screen redrawn (a timer, a toast, a hint) keeps the cursor where the player left it: null asks the host to reuse its index
-  const sg=[state,menuOpen,enc&&enc.phase,entry&&entry.key,shot,naming&&naming.key,jr.filter,shop&&shop.mode].join('|');const keep=sg===screenSig;screenSig=sg;
+  const sg=[state,menuOpen,enc&&enc.phase,entry&&entry.key,shot,info,naming&&naming.key,jr.filter,shop&&shop.mode].join('|');const keep=sg===screenSig;screenSig=sg;
   if(opts.onRender)opts.onRender(keep?null:focus);
   if(opts.onStatus)opts.onStatus(statusText());lastStatus=statusText();uiDirty=false;}
 function meter(label,v){const n=Math.round(Math.max(0,Math.min(1,v))*10);return row(label,'█'.repeat(n)+'░'.repeat(10-n));}
@@ -977,7 +988,7 @@ function statusText(){const n=nCollected()+'/'+SP.length;
   if(state==='region')return 'A: travel · B: back';
   if(state==='world')return menuOpen?'A: ok · B: close':titleCase(CN[REG()])+' · '+n+' · d-pad: walk · A: look · B: menu · X: MossDex';
   if(state==='enc')return enc.phase===0?'A: identify':enc.phase===1?'A: answer · X: ask a beetle, 1 cheese':'A: continue';
-  if(state==='journal')return shot?'A or B: leave the photo':entry?'A: view photo · B: back to the list':'MossDex · L/R: region · A: open · B: back';
+  if(state==='journal')return shot?'A or B: leave showcase':info?'✚: scroll · L/R: prev / next · X or B: back':entry?'A: showcase · X: info · L/R: prev / next · B: back':'MossDex · L/R: region · A: open · X: back';
   if(state==='petpick')return naming?'A: name it · B: back':'GoodMoss · A: plant this cutting · B: back';
   if(state==='pet')return petMenu?'A: choose · B: close':'GoodMoss · A: do it · d-pad: pick · B: leave or release';
   if(state==='petlapse')return 'time-lapse · A: back';

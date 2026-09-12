@@ -964,6 +964,39 @@ body {
 }
 
 
+
+/* ---------- home: one random token in the bottom-right quarter ---------- */
+#view-home { position: relative; }
+.home-nft {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 46%;
+    max-height: 46%;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: calc(var(--u) * 0.8);
+    pointer-events: none;
+}
+.home-nft img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: calc(var(--u) * 46);
+    object-fit: contain;
+    border: calc(var(--u) * 0.5) solid var(--lcd-dark);
+    background: var(--lcd);
+}
+.home-nft figcaption {
+    font-size: calc(var(--u) * 2.8);
+    color: var(--lcd-mid);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+@media (max-width: 480px) { .home-nft { width: 52%; } }
+
 /* ---------- $MOSS page: the item view's layout, the Dealer where the picture goes ---------- */
 #view-token { height: 100%; display: flex; flex-direction: column; gap: calc(var(--u) * 1.2); }
 .token-stage { flex: 1 1 auto; min-height: 0; }

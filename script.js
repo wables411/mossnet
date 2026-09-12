@@ -1453,8 +1453,31 @@ function syncExpanders() {
 document.querySelectorAll('[data-expands]').forEach(item => {
   item.addEventListener('click', () => {
     const open = item.getAttribute('aria-expanded') === 'true';
+    // an accordion: opening one section folds its siblings, so the menu stays four lines plus one list
+    if (!open) {
+      const list = item.closest('ul');
+      list?.querySelectorAll('[data-expands]').forEach(other => { if (other !== item) other.setAttribute('aria-expanded', 'false'); });
+    }
     item.setAttribute('aria-expanded', String(!open));
     syncExpanders();
+
+// ---------- one random token on the menu, from the thumbnails already on disk ----------
+const HOME_ART = [
+  { key: 'sancigawa', name: 'sancigawa', n: 100, path: id => `assets/sancigawa-thumbs/${id}.webp` },
+  { key: 'mossnet', name: 'Moss:Net', n: 100, path: id => `assets/mossnet-thumbs/${id}.webp` },
+  { key: 'mossawrettes', name: 'Mossawrettes', n: 25, path: id => `assets/mossawrettes-thumbs/${id}.webp` }
+];
+function homeToken() {
+  const fig = document.getElementById('home-nft'), img = document.getElementById('home-nft-img'), cap = document.getElementById('home-nft-cap');
+  if (!fig || !img) return;
+  const c = HOME_ART[Math.floor(Math.random() * HOME_ART.length)];
+  const id = 1 + Math.floor(Math.random() * c.n);
+  img.onload = () => fig.classList.remove('hidden');
+  img.onerror = () => fig.classList.add('hidden');            // a missing thumbnail just leaves the corner empty
+  img.src = c.path(id);
+  if (cap) cap.textContent = `${c.name} #${id}`;
+}
+homeToken();
     const els = focusables();
     setFocus(els.indexOf(open ? item : els[els.indexOf(item) + 1]));
   });

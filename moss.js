@@ -251,7 +251,7 @@
       chg[x] = close - open;                                      // the column's whole move, in logs
       // a heavy sell should land as one cliff, not a gentle slope: take the low
       if (chg[x] < -0.10) close = close * 0.35 + low * 0.65;
-      const ground = Math.round(rows * 0.42);                        // sky above, world below
+      const ground = Math.min(Math.round(rows * 0.42), Math.max(1, rows - 7));   // sky above, world below; zoomed right in, the sky gives way so the price still has rows to move in
       // the lowest column still stands at least two blocks above bedrock, whatever the zoom
       surf[x] = Math.min(rows - 4, Math.round(rows - 1 - (0.06 + 0.90 * ((close - lo) / range)) * (rows - 1 - ground)));
       // volume is measured against a fixed reference, not against the world's own

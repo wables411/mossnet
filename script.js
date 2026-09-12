@@ -1,11 +1,11 @@
-import { createBackground } from './bg.js?v=bbedd670';
+import { createBackground } from './bg.js?v=39b1dd18';
 
 // ===================== moss quest — the handheld =====================
 // Everything on the site happens on the device screen. The d-pad, A and B
 // buttons, keyboard and mouse all drive one focus cursor per view.
 
 const lcd = document.getElementById('lcd');
-const APPKIT_BUNDLE = 'appkit.bundle.js?v=9c168907';
+const APPKIT_BUNDLE = 'appkit.bundle.js?v=a69c07e4';
 const lcdStatus = document.getElementById('lcd-status');
 const views = {
   help: document.getElementById('view-help'),

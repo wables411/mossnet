@@ -788,8 +788,10 @@ function openStation(){saveMsg=null;pcPlugged=false;snd('chime');go('station');}
 let pcPlugged=false;
 function stationSave(){save.saved=Date.now();persist();saveMsg='SAVE COMPLETE. '+nCollected()+' ENTRIES WRITTEN TO THE HANDHELD.';snd('ok');dirty();}
 async function stationCloud(){const c=opts.cloud;
-  if(!c||!c.save){saveMsg='backing up to a wallet is not switched on here.';snd('miss');dirty();return;}
-  saveMsg='talking to your wallet...';dirty();
+  save.saved=Date.now();persist();                                  // the handheld first, always
+  if(!c||!c.save){saveMsg='SAVED TO THE HANDHELD. THIS TERMINAL CANNOT REACH A WALLET.';snd('ok');dirty();return;}
+  if(c.status&&!c.status().connected){saveMsg='SAVED TO THE HANDHELD. NO WALLET CONNECTED, SO THERE IS NO COPY OFF THIS DEVICE.';snd('miss');dirty();return;}
+  saveMsg='SAVED TO THE HANDHELD. TALKING TO YOUR WALLET...';dirty();
   try{const r=await c.save();saveMsg=String(r&&r.message||r||'backed up.');
     if(r&&r.ok===false)snd('miss');else{save.backed=Date.now();snd('ok');}}   // only stamp it when it actually went
   catch(e){saveMsg=String(e&&e.message||e);snd('miss');}
@@ -912,6 +914,7 @@ function act(name,arg){
   else if(name==='menu:beetles'){menuOpen=false;bsel=null;go('beetles');}
   else if(name==='beetle:done'){card=null;go('world');}
   else if(name==='save:plug'){pcPlugged=true;saveMsg=null;snd('found');dirty();}
+  else if(name==='save:connect'){const c=opts.cloud;if(c&&c.connect){c.connect();saveMsg='LOOK FOR THE WALLET WINDOW. COME BACK WHEN IT SAYS CONNECTED.';snd('move',1);}else saveMsg='NO WALLET AVAILABLE HERE.';dirty();}
   else if(name==='save:device')stationSave();
   else if(name==='save:wallet')stationCloud();
   else if(name==='save:leave'){pcPlugged=false;snd('back');go('world');}
@@ -1034,16 +1037,16 @@ function render(){if(!ui)return;let h='',focus=0,scene='none';const u=user||GUES
     if(petMenu){h+=`<ul class="menu">${mi('return to quest','pet:back',null,'leave the jar, it keeps growing')}${mi('release '+low(p.name),'pet:release',null,'let it go and plant another cutting')}${mi('stay','pet:menu',null,'close this')}</ul>`;focus=0;}
     else{h+=`<ul class="menu item-links q-petacts">${acts.map(btn).join('')}</ul>${msg(toast&&toast.t)}`;focus=petCur;}}
   else if(state==='petlapse'&&save.pet){scene='jar';const p=save.pet;h=`<div class="lcd-header"><span class="lcd-header-title">TIME-LAPSE</span><span class="item-meta" id="q-frame">frame 1 / ${p.snaps.length}</span></div><p class="lcd-note">the jar so far, replayed. A: back to the jar</p>`;}
-  else if(state==='station'){scene='none';const c=opts.cloud;
+  else if(state==='station'){scene='none';const c=opts.cloud;const connected=!!(c&&c.save&&(!c.status||c.status().connected));
     h=`<div class="q-pc"><div class="q-pc-bar"><span>QUICK-E-MART \u00b7 PUBLIC TERMINAL</span></div>`;
     if(!pcPlugged){
       h+=`<p class="q-pc-line">&gt; NO DEVICE DETECTED</p><p class="q-pc-line q-pc-dim">&gt; INSERT A HANDHELD TO CONTINUE.</p>
         <ul class="menu item-links q-pc-acts">${mi('plug in Moss Quest device','save:plug',null,'A: connect the handheld to the terminal')}${mi('walk away','save:leave',null,'B does it too')}</ul>`;}
     else{
       h+=`<p class="q-pc-line">&gt; DEVICE FOUND: MQ-01</p>
-        <dl>${row('traveler',pname())}${row('logged',nCollected()+' / '+SP.length)}${row('handheld',ago(save.saved||save.last))}${row('wallet',save.backed?ago(save.backed):'no copy')}</dl>
+        <dl>${row('traveler',pname())}${row('logged',nCollected()+' / '+SP.length)}${row('handheld',ago(save.saved||save.last))}${row('wallet',save.backed?ago(save.backed):(connected?'no copy yet':'not connected'))}</dl>
         ${saveMsg?`<p class="q-pc-line">&gt; ${esc(saveMsg)}</p>`:`<p class="q-pc-line q-pc-dim">&gt; READY.</p>`}
-        <ul class="menu item-links q-pc-acts">${mi('save to handheld','save:device',null,'write it to the device you are holding')}${mi('save progress','save:wallet',null,c&&c.save?'keep a copy on your wallet, so it follows you to another screen':'this terminal cannot reach a wallet')}${mi('unplug and walk away','save:leave',null,'B does it too')}</ul>`;}
+        <ul class="menu item-links q-pc-acts">${connected?mi('save progress','save:wallet',null,'write the handheld and keep a copy on your wallet'):mi('connect a wallet','save:connect',null,'so your progress follows you to another screen')}${connected?'':mi('save handheld only','save:wallet',null,'keep it on this device, with no copy anywhere else')}${mi('unplug and walk away','save:leave',null,'B does it too')}</ul>`;}
     h+='</div>';}
   else if(state==='shop'&&shop){scene='shop';const c=REG();const cut=dailyCutting(c),st=shopState();
     if(shop.mode==='menu'){const stock=dailyStock(c);const coat=roster[c].filter(x=>save.collected[x.key]).sort((A,B)=>(save.collected[B.key]||0)-(save.collected[A.key]||0)).slice(0,5);const rows=Math.max(stock.length,coat.length,1);

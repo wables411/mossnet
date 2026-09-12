@@ -18,6 +18,7 @@ const views = {
   video: document.getElementById('view-video'),
   chart: document.getElementById('view-chart'),
   moss: document.getElementById('view-moss'),
+  token: document.getElementById('view-token'),
   quest: document.getElementById('view-quest')
 };
 const galleryGrid = document.getElementById('gallery-grid');
@@ -616,6 +617,7 @@ function move(dir) {
 }
 
 function showView(name, { focus = 0, scroll = true } = {}) {
+  if (name !== 'token') stopDealer();
   if (activeView === 'video') beetleVideo.pause();
   if (activeView === 'item' && name !== 'item') views.item.classList.remove('showcase');
   lastView = activeView;
@@ -1399,6 +1401,36 @@ async function showRemilia() {
 document.querySelectorAll('[data-action="gallery"]').forEach(el => el.addEventListener('click', () => openGallery('all', el.dataset.collection || collection.key)));
 document.querySelectorAll('[data-action="chart"]').forEach(el => el.addEventListener('click', () => showView('chart')));
 document.querySelectorAll('[data-action="garden"]').forEach(el => el.addEventListener('click', () => showView('moss', { focus: null })));
+
+// ---------- $MOSS page: the Dealer at the top, the links under him ----------
+const tokenDealer = document.getElementById('token-dealer');
+const dealerFrames = ['dealer', 'dealer2'].map(n => { const i = new Image(); i.src = `assets/quest/${n}.png`; return i; });
+let dealerTimer = 0;
+function drawDealer(t) {
+  if (!tokenDealer) return;
+  const ctx = tokenDealer.getContext('2d'), W = tokenDealer.width, H = tokenDealer.height;
+  ctx.imageSmoothingEnabled = false;
+  ctx.fillStyle = '#2f4a5e'; ctx.fillRect(0, 0, W, H);
+  let h = 7;                                                         // brick marks, the same every frame
+  for (let i = 0; i < 26; i++) { h = (h * 1103515245 + 12345) >>> 0; const x = h % W; h = (h * 1103515245 + 12345) >>> 0; const y = h % (H - 22); ctx.fillStyle = '#1f3242'; ctx.fillRect(x, y, 9, 1); ctx.fillRect(x + 4, y - 4, 1, 4); }
+  ctx.fillStyle = '#1c2b38'; ctx.fillRect(0, H - 14, W, 14); ctx.fillStyle = '#3d5870'; ctx.fillRect(0, H - 14, W, 1);
+  const blink = (t % 3000) < 150, bob = Math.floor(t / 600) % 2, img = dealerFrames[blink ? 1 : 0];
+  if (img.complete && img.naturalWidth) ctx.drawImage(img, Math.round(W / 2 - 25), H - 14 - 78 + bob, 50, 80);
+}
+function startDealer() { stopDealer(); const t0 = Date.now(); drawDealer(0); dealerTimer = setInterval(() => drawDealer(Date.now() - t0), 120); }
+function stopDealer() { if (dealerTimer) clearInterval(dealerTimer); dealerTimer = 0; }
+document.querySelectorAll('[data-action="token"]').forEach(el => el.addEventListener('click', () => { showView('token', { focus: 0 }); startDealer(); }));
+document.querySelectorAll('[data-action="copy-address"]').forEach(el => el.addEventListener('click', async () => {
+  const ca = el.dataset.copy;
+  const done = () => setNote(`copied ${ca.slice(0, 6)}…${ca.slice(-4)} to the clipboard`);
+  try { await navigator.clipboard.writeText(ca); done(); return; } catch (_) { /* no permission, or no secure context: fall through */ }
+  try {                                                             // the old way still works inside a click
+    const ta = document.createElement('textarea'); ta.value = ca; ta.setAttribute('readonly', ''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select(); const ok = document.execCommand('copy'); ta.remove();
+    if (ok) { done(); return; }
+  } catch (_) { /* nothing left to try */ }
+  setNote('could not copy · select the address instead');
+}));
 document.querySelectorAll('[data-action="quest"]').forEach(el => el.addEventListener('click', () => showView('quest', { focus: null })));
 document.querySelectorAll('[data-action="remilia"]').forEach(el => el.addEventListener('click', showRemilia));
 galleryConnectBtn.addEventListener('click', async () => {
@@ -1474,6 +1506,7 @@ const ACTIONS = {
   item:    { ...dirs, ...always, a: itemA, b: itemB, x: openInfo, y: toggleGreen, l: () => stepItem(-1), r: () => stepItem(1) },
   info:    { ...always, up: () => scrollLcd('up'), down: () => scrollLcd('down'), b: closeInfo, x: closeInfo, y: toggleGreen, l: () => stepItem(-1), r: () => stepItem(1) },
   chart:   { ...always, b: toHome },
+  token:   { ...dirs, ...always, a: activate, b: toHome },
   moss:    { ...dirs, ...always, a: activate, b: toHome, l: () => zoomMossChart(-1, true), r: () => zoomMossChart(1, true) },
   quest:   { up: questButton('up'), down: questButton('down'), left: questButton('left'), right: questButton('right'),
              a: questButton('a'), b: questButton('b'), x: questButton('j'), l: questButton('left'), r: questButton('right'),

@@ -963,6 +963,14 @@ body {
     .device { width: min(96vw, calc((100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 2vh) * 1.72)); }
 }
 
+
+/* ---------- $MOSS page ---------- */
+#view-token { display: flex; flex-direction: column; gap: calc(var(--u) * 1.6); }
+.token-dealer { display: block; width: 100%; max-width: calc(var(--u) * 84); margin: 0 auto; image-rendering: pixelated; border: calc(var(--u) * 0.5) solid var(--lcd-dark); background: #2f4a5e; }
+.token-links { margin-top: 0; }
+.token-address { width: 100%; text-align: left; font-size: calc(var(--u) * 3); word-break: break-all; padding: calc(var(--u) * 0.6) calc(var(--u) * 1.2); border: calc(var(--u) * 0.35) solid var(--lcd-dark); }
+.token-address.focused::before { content: none; }
+
 /* ---------- Moss Quest ---------- */
 /* pixel art on the canvas (map, lab, jar), sized by scene; the game's own HTML fills the rest of the LCD */
 #view-quest { display: flex; flex-direction: column; height: 100%; }

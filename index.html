@@ -19,7 +19,7 @@
     media-src 'self';
     ">
     <title>moss quest</title>
-    <link rel="stylesheet" href="styles.css?v=c4e06a9a">
+    <link rel="stylesheet" href="styles.css?v=b13afe30">
     <link rel="icon" href="assets/favicon.ico" type="image/x-icon">
     <link rel="apple-touch-icon" href="assets/icon-192.png">
     <link rel="manifest" href="manifest.webmanifest">
@@ -67,11 +67,7 @@
                             <li><button type="button" class="menu-item focusable" data-action="gallery" data-collection="mossnet" data-note="100 field research journal entries · Robinhood Chain">Moss:Net</button></li>
                             <li><button type="button" class="menu-item focusable" data-action="gallery" data-collection="mossawrettes" data-note="25 cigawrettes lost in the moss · Ethereum">Mossawrettes</button></li>
                             <li><button type="button" class="menu-item focusable" data-action="gallery" data-collection="kudzuwrettes" data-note="25 kudzuwrettes · Ethereum">Kudzuwrettes</button></li>
-                            <li><button type="button" class="menu-item focusable" id="moss-item" data-action="moss" data-expands="moss-sub" data-note="$MOSS RH token deployed live on Retake.TV · A: open" aria-expanded="false">$MOSS</button></li>
-                            <li class="moss-sub hidden"><p class="menu-note">moss growing on robinhood chain deployed on retake.tv</p></li>
-                            <li class="moss-sub hidden"><button type="button" class="menu-item focusable sub address" data-action="chart" data-note="$MOSS contract · A: live chart on this screen">0x81da740ffe60241ff526833bce21c5560fe9abc9</button></li>
-                            <li class="moss-sub hidden"><button type="button" class="menu-item focusable sub" data-action="garden" data-note="the $MOSS chart, grown as moss on stone">moss chart</button></li>
-                            <li class="moss-sub hidden"><a class="menu-item focusable sub" href="https://app.uniswap.org/swap?chain=robinhood&amp;inputCurrency=ETH&amp;outputCurrency=0x81da740ffe60241ff526833bce21c5560fe9abc9" target="_blank" rel="noopener" data-note="swap ETH for $MOSS on Uniswap, Robinhood Chain">uniswap</a></li>
+                            <li><button type="button" class="menu-item focusable" id="moss-item" data-action="token" data-note="$MOSS on Robinhood Chain · A: open">$MOSS</button></li>
                             <li><button type="button" class="menu-item focusable" data-action="gallery" data-collection="hashstanza" data-note="poems by twinstar · Solana">Hashstanza</button></li>
                             <li class="menu-heading">Connect</li>
                             <li><a class="menu-item focusable" href="https://x.com/mossmossmoss420" target="_blank" rel="noopener" data-note="follow along for more adventures.">Twitter</a></li>
@@ -198,6 +194,18 @@
                         </ul>
                     </section>
 
+                    <!-- $MOSS: the token page, the Dealer at the top -->
+                    <section id="view-token" class="view hidden" data-note="A: open · B: back">
+                        <canvas id="token-dealer" class="token-dealer" width="240" height="96" aria-label="the Dealer"></canvas>
+                        <h2 class="item-name"><span>$MOSS</span><span class="item-meta">Robinhood Chain</span></h2>
+                        <ul class="menu item-links token-links">
+                            <li><button type="button" class="menu-item focusable" data-action="garden" data-note="the $MOSS chart, grown as a block world">moss chart</button></li>
+                            <li><a class="menu-item focusable" href="https://app.uniswap.org/swap?chain=robinhood&amp;inputCurrency=ETH&amp;outputCurrency=0x81da740ffe60241ff526833bce21c5560fe9abc9" target="_blank" rel="noopener" data-note="swap ETH for $MOSS on Uniswap, in a new tab">uniswap</a></li>
+                            <li><a class="menu-item focusable" href="https://dexscreener.com/robinhood/0x2dc2647127120911e3d356465a07ffd08c84f026" target="_blank" rel="noopener" data-note="the pool on DexScreener, in a new tab">dex</a></li>
+                        </ul>
+                        <button type="button" class="menu-item focusable token-address" data-action="copy-address" data-copy="0x81da740ffe60241ff526833bce21c5560fe9abc9" data-note="A: copy the contract address">0x81da740ffe60241ff526833bce21c5560fe9abc9</button>
+                    </section>
+
                     <!-- $MOSS chart (SELECT) -->
                     <section id="view-chart" class="view view-full hidden" data-note="B: back">
                         <iframe id="chart-frame" title="$MOSS chart" data-src="https://dexscreener.com/robinhood/0x2dc2647127120911e3d356465a07ffd08c84f026?embed=1&amp;theme=dark&amp;trades=0&amp;info=0" allow="clipboard-write"></iframe>
@@ -240,6 +248,6 @@
 </main>
 
 <script src="moss.js?v=8f78ab56"></script>
-<script src="script.js?v=654757fe" type="module"></script>
+<script src="script.js?v=f1059d85" type="module"></script>
 </body>
 </html>

@@ -209,8 +209,8 @@ function buildTiles(th){const [g,gd,gl]=th.ground,[h,hd,hl]=th.ground2,[w,wl,wd]
   tl[ROCK]=sprite(ROCKBM,{'5':ra,'6':rb,'7':rc});tl[MTN]=sprite(MTNBM,{'5':ma,'6':mb,'7':mb,'d':mc});
   const tc=(cols)=>({'1':cols[0],'2':cols[1],'3':cols[2],'4':cols[3]});
   tl[TREE]=sprite(TREEBM[th.tree],tc(th.treeCol));tl[TREE2]=th.tree2?sprite(TREEBM[th.tree2],tc(th.tree2Col)):tl[TREE];tl[TREE3]=th.tree3?sprite(TREEBM[th.tree3],tc(th.tree3Col)):tl[TREE];
-  const bl=th.bldg;tl[BLDG]=[0,1].map(v=>tile(bl.wall,q=>{q(0,0,bl.roof,16,4);q(0,4,'#1a1a2e',16,1);q(0,0,'#1a1a2e',1,16);q(15,0,'#1a1a2e',1,16);
-    for(let y=6;y<13;y+=4)for(let x=2;x<14;x+=4){q(x,y,(x+y+v)%3?bl.win:'#2a2a3a',3,2);}q(6,12,bl.door,4,4);q(0,15,'#1a1a2e',16,1);
+  const bl=th.bldg;tl[BLDG]=[0,1,2].map(v=>tile(v===2?'#5a5048':bl.wall,q=>{q(0,0,v===2?'#3a3230':bl.roof,16,4);q(0,4,'#1a1a2e',16,1);q(0,0,'#1a1a2e',1,16);q(15,0,'#1a1a2e',1,16);
+    for(let y=6;y<13;y+=4)for(let x=2;x<14;x+=4){if(v===2){q(x,y,'#1c1a22',3,2);q(x,y+1,'#6a5a48',3,1);}else{q(x,y,bl.win,3,2);q(x+1,y,'#fff6c8');}}if(v===2){q(6,12,'#2a2420',4,4);q(5,13,'#6a5a48',6,1);q(5,15,'#6a5a48',6,1);}else q(6,12,bl.door,4,4);q(0,15,'#1a1a2e',16,1);
 }));
   return tl;}
 
@@ -270,10 +270,10 @@ const pname=()=>norm(playerName()).slice(0,18);
 
 /* ---------------- save ---------------- */
 const SAVE_V=2;
-const fresh=()=>({v:SAVE_V,name:null,char:null,jar:{},collected:{},seen:{},region:null,steps:0,last:null,cheese:0,beetles:{},pity:0,introDone:false,pet:null});
+const fresh=()=>({v:SAVE_V,name:null,char:null,jar:{},started:Date.now(),collected:{},seen:{},region:null,steps:0,last:null,cheese:0,beetles:{},pity:0,introDone:false,pet:null});
 let save=fresh();
 const saveKey=()=>'mossquest.save.'+(user?(user.id||user.handle):'guest');
-function loadSave(){save=fresh();try{const s=localStorage.getItem(saveKey())||(user&&user.guest?localStorage.getItem('mossquest.save'):null);if(s)save=Object.assign(save,JSON.parse(s));}catch(e){}pruneSave();}
+function loadSave(){save=fresh();try{const s=localStorage.getItem(saveKey())||(user&&user.guest?localStorage.getItem('mossquest.save'):null);if(s)save=Object.assign(save,JSON.parse(s));}catch(e){}if(!save.started)save.started=Date.now();pruneSave();}
 // species come and go between data builds; a save may only point at what exists now
 function pruneSave(){if(!SP)return;const have=new Set(SP.map(x=>String(x.key)));let dropped=0;
   for(const k of Object.keys(save.collected))if(!have.has(k)){delete save.collected[k];dropped++;}
@@ -304,6 +304,7 @@ const tap=(x,y,w,h)=>!!(click&&!click.top&&click.x>=x&&click.x<x+w&&click.y>=y&&
 
 /* ---------------- map ---------------- */
 const MW=36,MH=28,VW=W/T,VH=H/T;
+let dealerAt=null;
 let map=null,spots=[],beetles=[],player={x:0,y:0,px:0,py:0,dir:'down',mx:0,my:0,anim:0,path:[],goal:null},cam={x:0,y:0},TL=null,theme=null;
 function noise(r,w,h,cell){const gw=Math.ceil(w/cell)+1,gh=Math.ceil(h/cell)+1,g=[];for(let i=0;i<gw*gh;i++)g.push(r());
   const out=[];for(let y=0;y<h;y++)for(let x=0;x<w;x++){const gx=x/cell,gy=y/cell,x0=gx|0,y0=gy|0,fx=gx-x0,fy=gy-y0;
@@ -362,7 +363,7 @@ function faceTowards(x,y){player.dir=x>player.x?'right':x<player.x?'left':y>play
 function interactAhead(){const dx={left:-1,right:1}[player.dir]||0,dy={up:-1,down:1}[player.dir]||0;const tx=player.x+dx,ty=player.y+dy;
   const s=spots.findIndex(o=>o.x===tx&&o.y===ty);if(s>=0){startEnc(s);return true;}
   const bi=beetles.findIndex(o=>o.x===tx&&o.y===ty);if(bi>=0){catchBeetle(bi);return true;}
-  if(map[ty]&&map[ty][tx]===BLDG){openShop();return true;}return false;}
+  if(map[ty]&&map[ty][tx]===BLDG){if(dealerAt&&tx===dealerAt.x&&ty===dealerAt.y)openShop();else{snd('miss');toast={t:['LIGHTS ON. NOBODY ANSWERS.','THE CURTAIN TWITCHES. THE DOOR STAYS SHUT.','A DOG BARKS INSIDE. NO ONE COMES.','THEY ARE HOME. THEY ARE NOT OPENING.'][(tx*7+ty*13)%4],n:120};}return true;}return false;}
 
 /* ---------------- beetles (Beetleboy tiers) ---------------- */
 function rollBeetle(){const list=theme.beetles.concat(HOLIDAY());const pity=save.pity>=6;let pool=list.filter(b=>!pity||b.tier!=='TIN');if(!pool.length)pool=list;
@@ -633,9 +634,18 @@ function tierOf(sp,c){if(!TIERS[c]){const L=roster[c].slice().sort((a,b)=>(b.reg
 const dayKey=()=>new Date().toISOString().slice(0,10);
 function hashStr(t){let h=7;for(const ch of String(t))h=(h*31+ch.charCodeAt(0))>>>0;return h;}
 function shopState(){if(!save.shop||save.shop.day!==dayKey())save.shop={day:dayKey(),sold:{}};return save.shop;}
+const BUYP=[4,9,15],SELLP=[1,3,6];
+function dailyStock(c){const st=shopState();const r=rng(hashStr(dayKey()+'stock'+c));const pick=(t,n)=>{const L=roster[c].filter(x=>tierOf(x,c)===t&&!save.collected[x.key]).sort((A,B)=>String(A.key)<String(B.key)?-1:1);const out=[];for(let k=0;k<n&&L.length;k++)out.push(L.splice((r()*L.length)|0,1)[0]);return out;};
+  const rows=[...pick(0,2),...pick(1,2),...pick(2,1)];return rows.map(sp=>{const t=tierOf(sp,c);const wob=((hashStr(dayKey()+sp.key)%5)-2);const yest=((hashStr(String(Number(dayKey().slice(-2))-1)+sp.key)%5)-2);return {sp,t,price:Math.max(2,BUYP[t]+wob),up:wob>=yest,sold:!!st.sold[sp.key]};});}
+function shopBuy(key){const c=REG(),st=shopState();const it=dailyStock(c).find(x=>String(x.sp.key)===String(key));if(!it||it.sold)return;if(save.cheese<it.price){snd('miss');say(it.price+' CHEESE. NO CREDIT');return;}
+  save.cheese-=it.price;st.sold[it.sp.key]=true;save.collected[it.sp.key]=Date.now();save.seen[it.sp.key]=1;persist();snd('collect',it.sp.id);say('BOUGHT '+it.sp.name.toUpperCase()+'. IT NEVER HAPPENED.');dirty();}
+let confirmSell=null;
+function shopSell(key){const c=REG();const sp=SP.find(x=>String(x.key)===String(key));if(!sp||!save.collected[sp.key])return;const pr=SELLP[tierOf(sp,c)];
+  if(confirmSell!==String(key)){confirmSell=String(key);snd('miss');say('HE OFFERS '+pr+' CHEESE FOR '+sp.name.toUpperCase()+'. PRESS AGAIN TO SELL');return;}
+  confirmSell=null;delete save.collected[sp.key];save.seen[sp.key]=1;save.cheese+=pr;persist();snd('ok');say('SOLD. '+sp.name.toUpperCase()+' IS OFF YOUR MOSSDEX. +'+pr+' CHEESE');dirty();}
 function dailyCutting(c){const r=rng(hashStr(dayKey()+c));const L=roster[c].filter(x=>tierOf(x,c)===2&&!save.collected[x.key]);return L.length?L[(r()*L.length)|0]:null;}
-const QUIPS=['keep it down. the moss is listening.','fresh from somewhere. do not ask where.','two of a kind gets you one of the next kind. that is the only maths I do.','cheese talks. beetles walk.','the professor does not need to know about this.','everything in this coat is ethically sourced. probably.'];
-function openShop(){shopState();shop={mode:'menu',pick:[],quip:QUIPS[(Math.random()*QUIPS.length)|0],res:null};snd('move',2);go('shop');}
+const QUIPS=['heard the professor lost something. a thousand somethings. terrible business.','files go missing all the time. sometimes they turn up again. for a price.','I never click links. ask him if he does.','the moss remembers what the database forgot.','keep your voice down. these walls have spores.','somebody was shopping a very long moss list last night. was not me. I only buy.','every entry you bring back, somebody wanted gone. think about that.','you did not see me. you did not see the coat.'];
+function openShop(){shopState();confirmSell=null;shop={mode:'menu',pick:[],quip:QUIPS[(Math.random()*QUIPS.length)|0],res:null};snd('move',2);go('shop');}
 function shopTip(){if(save.cheese<3){snd('miss');say('THREE CHEESE FOR A TIP');return;}const c=REG();const unseen=roster[c].filter(x=>!known(x));if(!unseen.length){snd('miss');say('NOTHING LEFT TO SHOW YOU HERE');return;}
   let o=spots.find(q=>q.sp&&!known(q.sp)&&!q.tip);if(!o){o=spots.find(q=>!q.tip);if(!o){snd('miss');say('HE HAS ALREADY POINTED AT EVERYTHING');return;}o.sp=unseen[(Math.random()*unseen.length)|0];}
   o.tip=true;save.cheese-=3;persist();snd('ok');const dx=o.x-player.x,dy=o.y-player.y;const ns=dy<-2?'north':dy>2?'south':'',ew=dx<-2?'west':dx>2?'east':'';const dir=(ns&&ew)?ns+'-'+ew:(ns||ew||'right here');const steps=Math.abs(dx)+Math.abs(dy);shop.quip=steps<3?'you are standing next to it. the tuft with the question mark.':'about '+steps+' steps '+dir+' of this door. look for the question mark over the tuft. you did not hear it from me.';dirty();}
@@ -650,17 +660,19 @@ function shopDeal(){const c=REG();if(shop.pick.length!==2)return;const A=SP.find
   shop.pick=[];shop.mode='result';persist();dirty();}
 function drawShop(){rect(0,0,cv.width,cv.height,'#2f4a5e');const r=rng(99);for(let i=0;i<34;i++){const x=(r()*cv.width)|0,y=(r()*(cv.height-30))|0;px(x,y,'#1f3242',9,1);px(x+4,y-4,'#1f3242',1,4);}
   rect(0,cv.height-26,cv.width,26,'#1c2b38');rect(0,cv.height-26,cv.width,1,'#3d5870');
-  const blink=(frame%170)<6,bob=(frame>>5)&1;ctx.save();ctx.translate((cv.width>>1)-40,cv.height-26-128+bob);ctx.scale(2,2);ctx.drawImage(blink?DEALER2:DEALER,0,0);ctx.restore();
+  const blink=(frame%170)<6,bob=(frame>>5)&1;const k=Math.max(1,Math.min(2,(cv.height-26)/66));ctx.save();ctx.translate(Math.round(cv.width*0.5-20*k),cv.height-26-Math.round(64*k)+bob);ctx.scale(k,k);ctx.drawImage(blink?DEALER2:DEALER,0,0);ctx.restore();
   withFont(F7,()=>{const t='THE DEALER';const w=tw(t)+8;bevelOut(6,6,w,12,C.paper);text(t,10,9,C.ink);});}
 
 /* ---------------- states ---------------- */
-let state='title',cur=0,enc=null,jr={filter:0,cur:0},entry=null,card=null,bsel=null,toast=null,chimed=false,menuOpen=false,confirmNew=0,confirmRel=0,uiDirty=true,screenSig='';
+let state='title',cur=0,enc=null,jr={filter:0,cur:0},entry=null,shot=false,card=null,bsel=null,toast=null,chimed=false,menuOpen=false,confirmNew=0,confirmRel=0,uiDirty=true,screenSig='';
 const REG=()=>save.region;
 let JF=9;function jlist(){return jr.filter===0?SP:jr.filter===JF-1?SP.filter(s=>save.collected[s.key]):roster[CONT[jr.filter-1]];}
 function go(st){state=st;dirty();}
 function dirty(){uiDirty=true;if(ui&&SP&&running)render();}
 function say(t,n){toast={t,n:n||150};dirty();}
-function enterRegion(c){snd('ok');save.region=c;persist();genMap(c);menuOpen=false;toast={t:'WELCOME TO '+CN[c],n:120};ambientFor(CONT.indexOf(c));go('world');}
+function placeDealer(ci){dealerAt=null;const r=rng(ci*977+3);const cand=[];for(let y=1;y<MH-1;y++)for(let x=1;x<MW-1;x++)if(map[y][x]===BLDG&&[[0,1],[0,-1],[1,0],[-1,0]].some(([dx,dy])=>WALK[map[y+dy][x+dx]]))cand.push([x,y]);
+  if(cand.length){const [x,y]=cand[(r()*cand.length)|0];dealerAt={x,y};}}
+function enterRegion(c){snd('ok');save.region=c;persist();genMap(c);placeDealer(CONT.indexOf(c));menuOpen=false;toast={t:'WELCOME TO '+CN[c],n:120};ambientFor(CONT.indexOf(c));go('world');}
 function openJournal(){entry=null;jr.filter=CONT.indexOf(REG())+1;jr.cur=0;go('journal');}
 function startEnc(i){snd('found');const sp=spots[i].sp||pickSpecies(REG());img(sp);enc={spot:i,sp,opts:choices(sp,REG()),cur:0,phase:0,ok:false,gone:[],hinted:false};go('enc');}
 function toRegion(){if(!save.introDone)startIntro('region');else go('region');}
@@ -669,7 +681,7 @@ function titleAct(opt){if(!chimed){snd('chime');chimed=true;}
   if(opt==='title:continue'){if(save.region&&save.introDone)enterRegion(save.region);else toRegion();}
   else if(opt==='title:begin')toRegion();
   else if(opt==='title:new'){if(nCollected()&&confirmNew<=0){confirmNew=180;snd('miss');say('THIS ERASES YOUR MOSSDEX. PRESS AGAIN.',180);return;}confirmNew=0;save=fresh();persist();buildPlayer();toRegion();}}
-const MENU=[['MossDex','the 1000 species, and which ones you have','menu:mossdex'],['beetles','every beetle Beetleboy knows, and the ones you have caught','menu:beetles'],['GoodMoss','plant a cutting, keep it watered and lit','menu:goodmoss'],['map','travel to another continent','menu:map'],['tutorial','Professor Chaga, again','menu:tutorial'],['traveler','change who you play as','menu:traveler'],['close','back to the moss','menu:close']];
+const MENU=[['MossDex','the 1000 species, and which ones you have','menu:mossdex'],['beetles','every beetle Beetleboy knows, and the ones you have caught','menu:beetles'],['GoodMoss','plant a cutting, keep it watered and lit','menu:goodmoss'],['map','travel to another continent','menu:map'],['tutorial','Professor Chaga, again','menu:tutorial'],['traveler','change who you play as','menu:traveler'],['close','return to quest','menu:close']];
 function useHint(){if(enc.hinted||save.cheese<1){snd('miss');say(enc.hinted?'THE BEETLE ALREADY HELPED':'NO CHEESE. CATCH A BEETLE FIRST',120);return;}
   save.cheese--;enc.hinted=true;const wrong=enc.opts.map((o,i)=>i).filter(i=>enc.opts[i]!==enc.sp);for(let k=wrong.length-1;k>0;k--){const j=(Math.random()*(k+1))|0;[wrong[k],wrong[j]]=[wrong[j],wrong[k]];}
   enc.gone=wrong.slice(0,2);persist();snd('beetle');dirty();}
@@ -725,8 +737,8 @@ function update(){frame++;if(tuneT>0){tuneT--;drawTune();}if(amb.on&&!muted&&sta
   else if(state==='journal'){const L=jlist();
     if(hit('left')){jr.filter=(jr.filter+JF-1)%JF;jr.cur=0;entry=null;snd('move',jr.filter);dirty();}
     if(hit('right')){jr.filter=(jr.filter+1)%JF;jr.cur=0;entry=null;snd('move',jr.filter);dirty();}
-    if(entry&&hit('a')){entry=null;dirty();}
-    if(hit('b')||hit('j')){if(entry){entry=null;snd('back');dirty();}else{snd('back');go('world');}}}
+    if(entry&&hit('a')){if(shot){shot=false;snd('back');}else if(entry.image&&known(entry)){shot=true;snd('move',1);}else entry=null;dirty();}
+    if(hit('b')||hit('j')){if(shot){shot=false;snd('back');dirty();}else if(entry){entry=null;snd('back');dirty();}else{snd('back');go('world');}}}
   else if(state==='win'){if(hit('a')||hit('b')||click)go('world');}
   else if(state==='beetle'){if(hit('a')||hit('b')){card=null;go('world');}}
   else if(state==='shop'){if(hit('b')){if(!shop||shop.mode==='menu'){snd('back');go('world');}else{shop.mode='menu';shop.pick=[];snd('back');dirty();}}}
@@ -754,6 +766,9 @@ function act(name,arg){
   else if(name==='menu:beetles'){menuOpen=false;bsel=null;go('beetles');}
   else if(name==='beetle:done'){card=null;go('world');}
   else if(name==='shop:tip')shopTip();
+  else if(name==='shop:buy')shopBuy(arg);
+  else if(name==='shop:sell')shopSell(arg);
+  else if(name==='shop:none'){}
   else if(name==='shop:cutting')shopCutting();
   else if(name==='shop:swap'){shop.mode='swap';shop.pick=[];dirty();}
   else if(name==='shop:goods'){shop.mode='goods';dirty();}
@@ -771,7 +786,10 @@ function act(name,arg){
   else if(name==='enc:hint')useHint();
   else if(name==='enc:continue')encDone();
   else if(name==='dex:open'){const s=SP.find(x=>String(x.key)===String(arg));if(s){entry=s;jr.cur=jlist().indexOf(s);dirty();}}
-  else if(name==='dex:back'){entry=null;dirty();}
+  else if(name==='dex:back'){entry=null;shot=false;dirty();}
+  else if(name==='dex:shot'){if(entry&&entry.image){shot=true;snd('move',1);dirty();}}
+  else if(name==='dex:discovered'){jr.filter=JF-1;jr.cur=0;entry=null;dirty();}
+  else if(name==='dex:all'){jr.filter=0;jr.cur=0;entry=null;dirty();}
   else if(name==='dex:filter'){jr.filter=(jr.filter+Number(arg)+JF)%JF;jr.cur=0;entry=null;dirty();}
   else if(name==='pet:act')petAct(Number(arg));
   else if(name==='pet:pick'){const s=SP.find(x=>String(x.key)===String(arg));if(s){naming=s;dirty();}}
@@ -839,10 +857,11 @@ function render(){if(!ui)return;let h='',focus=0,scene='none';const u=user||GUES
     else{h=`<div class="q-result">${photoEl(sp)}<div><h2 class="q-name">${enc.ok?'correct.':'not this one.'}</h2><p class="q-name">${esc(sp.name)}${sp.author?` <span class="q-author">${esc(sp.author)}</span>`:''}</p>${sp.common?`<p class="q-common">${esc(sp.common)}</p>`:''}</div></div>
       <dl>${row('entry',String(sp.id).padStart(4,'0'))}${row('family',sp.family||'?')}${row('found in',regionList(sp))}${sp.image?row('photo',sp.image.by+' · '+lic(sp.image.license)):''}</dl>
       <p class="lcd-msg">${enc.ok?'entry '+String(sp.id).padStart(4,'0')+' is back in the MossDex.':'it stays marked as seen. find it again and name it to collect.'}</p>
-      <ul class="menu item-links">${mi('continue','enc:continue',null,'back to the moss')}</ul>`;}}
-  else if(state==='journal'){const L=jlist();const name=jr.filter===0?'all regions':jr.filter===JF-1?'collected':low(CN[CONT[jr.filter-1]]);const got=L.filter(s=>save.collected[s.key]).length;
-    if(entry){h=`<div class="lcd-header"><span class="lcd-header-title">MOSSDEX</span><span class="item-meta">${esc(name)} · ${jr.cur+1} / ${L.length}</span></div>${speciesCard(entry)}<ul class="menu item-links">${mi('back to the list','dex:back',null,'B: back')}</ul>`;}
-    else{h=`<div class="lcd-header"><span class="lcd-header-title">MOSSDEX</span><nav class="tabs"><button type="button" class="tab" data-act="dex:filter" data-arg="-1">◀</button><span class="tab active">${esc(name)} · ${got}/${L.length}</span><button type="button" class="tab" data-act="dex:filter" data-arg="1">▶</button></nav></div>`+
+      <ul class="menu item-links">${mi('continue','enc:continue',null,'return to quest')}</ul>`;}}
+  else if(state==='journal'){const L=jlist();const name=jr.filter===0?'all regions':jr.filter===JF-1?'discovered':low(CN[CONT[jr.filter-1]]);const got=L.filter(s=>save.collected[s.key]).length;
+    if(entry&&shot&&entry.image){scene='none';h=`<div class="q-shot"><img class="q-shotimg" src="${esc((opts.imgBase||'')+entry.image.file)}" alt="${esc(entry.name)}"></div>`;}
+    else if(entry){h=`<div class="lcd-header"><span class="lcd-header-title">MOSSDEX</span><span class="item-meta">${esc(name)} · ${jr.cur+1} / ${L.length}</span></div>${speciesCard(entry)}<ul class="menu item-links">${entry.image&&known(entry)?mi('view photo','dex:shot',null,'A: full screen'):''}${mi('back to the list','dex:back',null,'B: back')}</ul>`;focus=entry.image&&known(entry)?0:0;}
+    else{h=`<div class="lcd-header"><span class="lcd-header-title">MOSSDEX</span><nav class="tabs"><button type="button" class="tab" data-act="dex:filter" data-arg="-1">◀</button><span class="tab active">${esc(name)} · ${got}/${L.length}</span><button type="button" class="tab" data-act="dex:filter" data-arg="1">▶</button></nav></div><ul class="menu item-links q-dexbtns">${jr.filter===JF-1?mi('all regions','dex:all',null,'every species, found or not'):mi('discovered · '+nCollected(),'dex:discovered',null,'everything you have logged, all continents')}</ul>`+
       (L.length?`<ul class="menu q-list">`+L.map(s=>{const st=status(s);return mi(`${String(s.id).padStart(4,'0')}  ${st==='unknown'?'-----':s.name}`,'dex:open',s.key,st==='collected'?'in the MossDex':st==='seen'?'seen, not yet named':'not found yet','q-'+st);}).join('')+'</ul>':`<p class="lcd-msg">${jr.filter===JF-1?'nothing collected yet':'nothing here'}</p>`);
       focus=jr.cur;}}
   else if(state==='petpick'){const L=pickList();
@@ -854,18 +873,27 @@ function render(){if(!ui)return;let h='',focus=0,scene='none';const u=user||GUES
     h=`<div class="lcd-header"><span class="lcd-header-title">${esc(p.name)}</span><span class="item-meta">${esc(sp.name)} · ${esc(low(petAge(p)))} old</span></div>
       <div class="q-needs-row">${need('water',p.hyd)}${need('light',p.light)}${need('health',p.health)}</div>
       <p class="lcd-msg q-advice">${esc(petAdvice(p))} <span class="item-meta">· grown ${pips(p.growth,5)}${p.spores?' · spores '+p.spores:''}</span></p>`;
-    if(petMenu){h+=`<ul class="menu">${mi('back to the moss','pet:back',null,'leave the jar, it keeps growing')}${mi('release '+low(p.name),'pet:release',null,'let it go and plant another cutting')}${mi('stay','pet:menu',null,'close this')}</ul>`;focus=0;}
+    if(petMenu){h+=`<ul class="menu">${mi('return to quest','pet:back',null,'leave the jar, it keeps growing')}${mi('release '+low(p.name),'pet:release',null,'let it go and plant another cutting')}${mi('stay','pet:menu',null,'close this')}</ul>`;focus=0;}
     else{h+=`<ul class="menu item-links q-petacts">${acts.map(btn).join('')}</ul>${msg(toast&&toast.t)}`;focus=petCur;}}
   else if(state==='petlapse'&&save.pet){scene='jar';const p=save.pet;h=`<div class="lcd-header"><span class="lcd-header-title">TIME-LAPSE</span><span class="item-meta" id="q-frame">frame 1 / ${p.snaps.length}</span></div><p class="lcd-note">the jar so far, replayed. A: back to the jar</p>`;}
-  else if(state==='shop'&&shop){scene='lab';const c=REG();const cut=dailyCutting(c),st=shopState();
-    if(shop.mode==='menu'){h=`<div class="lcd-header"><span class="lcd-header-title">THE DEALER</span><span class="item-meta">${save.cheese} cheese</span></div><p class="lcd-msg">${esc(shop.quip)}</p><ul class="menu">${mi('a tip · 3 cheese','shop:tip',null,'he points out a moss you have never seen on this map')}${mi(cut&&!st.sold[c]?'a cutting · 15 cheese':'a cutting · sold out today','shop:cutting',null,cut&&!st.sold[c]?'one rare species from this continent, no questions asked. one a day':'come back tomorrow')}${mi('swap two for one','shop:swap',null,'two of a kind for one of the next kind up. sometimes he keeps a cut')}${mi('jar goods','shop:goods',null,'things for the GoodMoss terrarium')}${mi('leave','shop:leave',null,'back to the moss')}</ul>`;}
+  else if(state==='shop'&&shop){scene='shop';const c=REG();const cut=dailyCutting(c),st=shopState();
+    if(shop.mode==='menu'){const stock=dailyStock(c);const coat=roster[c].filter(x=>save.collected[x.key]).sort((A,B)=>(save.collected[B.key]||0)-(save.collected[A.key]||0)).slice(0,5);const rows=Math.max(stock.length,coat.length,1);
+      const day=Math.floor((Date.now()-(save.started||Date.now()))/86400000)+1;const ph=save.pet?Math.round(save.pet.health*100):null;
+      const cell=(label,act,arg,note,cls)=>`<button type="button" class="menu-item focusable${cls?' '+cls:''}" data-act="${act}"${arg!=null?` data-arg="${esc(arg)}"`:''}${note?` data-note="${esc(note)}"`:''}>${esc(label)}</button>`;
+      let grid='';for(let i=0;i<rows;i++){const it=stock[i],sp=coat[i];
+        grid+=it?(it.sold?cell('sold','shop:none',null,'gone for today','q-gone'):cell(`${it.up?'▲':'▼'} ${it.sp.name} · ${it.price}`,'shop:buy',it.sp.key,`A: buy for ${it.price} cheese · ${TIERN[it.t]}`)):cell('—','shop:none',null,'nothing here','q-gone');
+        grid+=sp?cell(`${sp.name} · ${SELLP[tierOf(sp,c)]}`,'shop:sell',sp.key,`A: sell for ${SELLP[tierOf(sp,c)]} cheese, press twice · ${TIERN[tierOf(sp,c)]}`):cell('—','shop:none',null,'nothing in the coat','q-gone');}
+      h=`<div class="q-dw"><div class="q-dw-top"><div class="q-dw-bank"><span class="q-dw-k">day</span><b>${day}</b><span class="q-dw-k">cheese</span><b class="q-dw-g">${save.cheese}</b><span class="q-dw-k">logged</span><b>${nCollected()}/${SP.length}</b><span class="q-dw-k">moss health</span><span class="q-dw-bar">${ph==null?'<i style="width:0"></i><em>no jar</em>':`<i style="width:${ph}%"></i><em>${ph}%</em>`}</span></div><div class="q-dw-city"><b>${esc(titleCase(CN[c]))}</b><span>the Dealer · abandoned house</span></div></div>
+        <p class="q-dw-news">${esc(shop.quip)}</p>
+        <div class="grid q-dw-cols"><div class="q-dw-h">available moss</div><div class="q-dw-h">your coat · ${roster[c].filter(x=>save.collected[x.key]).length}</div>${grid}</div>
+        <ul class="menu item-links q-dw-btns">${mi('swap two for one','shop:swap',null,'two of a kind for one of the next kind up. sometimes he keeps a cut')}${mi('a tip · 3','shop:tip',null,'he points out a moss you have never seen on this map')}${mi('jar goods','shop:goods',null,'things for the GoodMoss terrarium')}${mi('leave','shop:leave',null,'return to quest')}</ul>${msg(toast&&toast.t)}</div>`;}
     else if(shop.mode==='goods'){h=`<div class="lcd-header"><span class="lcd-header-title">JAR GOODS</span><span class="item-meta">${save.cheese} cheese</span></div><p class="lcd-note">for the terrarium. bought once, kept for every cutting after.</p><ul class="menu">${JARGOODS.map(gd=>jarHas(gd[0])?`<li><button type="button" class="menu-item q-gone" disabled>${esc(gd[1])} · yours</button></li>`:mi(gd[1]+' · '+gd[2]+' cheese','shop:buy',gd[0],gd[3])).join('')}${mi('back','shop:back',null,'B does it too')}</ul>`;}
     else if(shop.mode==='swap'){const L=roster[c].filter(x=>save.collected[x.key]&&tierOf(x,c)<2);const ready=shop.pick.length===2;const t=ready?tierOf(SP.find(x=>String(x.key)===shop.pick[0]),c):0;const on=x=>shop.pick.includes(String(x.key));
       h=`<div class="lcd-header"><span class="lcd-header-title">TWO FOR ONE</span><span class="item-meta">${shop.pick.length} / 2 offered</span></div><p class="lcd-note">${L.length?'two of the same kind from this continent. common pairs become uncommon, uncommon pairs become rare. eight deals in ten go through.':'nothing to trade. collect some common moss here first.'}</p><ul class="menu item-links">${ready?mi('deal','shop:deal',null,'trade the two for one '+TIERN[t+1]+' species'):''}${mi('back','shop:back',null,'B does it too')}</ul><ul class="menu q-list">${L.map(x=>mi((on(x)?'✓ ':'')+x.name+'  ·  '+TIERN[tierOf(x,c)],'shop:pick',x.key,'A: '+(on(x)?'take it back':'offer it'),on(x)?'q-collected':'')).join('')}</ul>`;}
     else{h=`<div class="lcd-header"><span class="lcd-header-title">THE DEALER</span><span class="item-meta">${save.cheese} cheese</span></div><p class="lcd-msg">${esc(shop.res.t)}</p>${shop.res.sp?speciesCard(shop.res.sp,true):''}<ul class="menu item-links">${mi('continue','shop:ok',null,'back to the coat')}</ul>`;}}
   else if(state==='beetle'&&card){h=`<div class="q-stage q-duo">${beetleImg(card.kind.name,false,true)}${beetleImg(card.kind.name)}</div><h2 class="q-name">caught a ${esc(low(card.kind.name))}!</h2>
       <dl>${row('tier',cap(card.kind.tier))}${row('cheese','+'+card.cheese+' · you have '+save.cheese)}${row('caught',card.count+'×')}</dl>
-      <ul class="menu item-links">${mi('continue','beetle:done',null,'back to the moss')}</ul>`;}
+      <ul class="menu item-links">${mi('continue','beetle:done',null,'return to quest')}</ul>`;}
   else if(state==='beetles'){const have=BEETLE_BOOK.filter(b=>save.beetles[b[0]]).length;
     if(bsel){const n=save.beetles[bsel[0]]||0;h=`<div class="lcd-header"><span class="lcd-header-title">BEETLES</span><span class="item-meta">${have} / ${BEETLE_BOOK.length}</span></div><div class="q-stage q-duo">${beetleImg(bsel[0],!n,true)}${beetleImg(bsel[0],!n)}</div><h2 class="q-name">${esc(low(bsel[0]))}</h2>
       <dl>${row('tier',cap(bsel[1])+' · '+TIER[bsel[1]].cheese+' cheese')}${row('found',beetleHome(bsel[0]))}${row('caught',n?n+'×':'not yet')}${bsel[2]==='craft'?row('in Beetleboy','a crafted beetle. here it lives in the wild'):''}</dl>
@@ -876,14 +904,14 @@ function render(){if(!ui)return;let h='',focus=0,scene='none';const u=user||GUES
   ui.innerHTML=h;const host=ui.closest('[data-scene]')||ui.parentElement;if(host)host.dataset.scene=scene;
   ui.querySelectorAll('canvas[data-char]').forEach(c=>{c.getContext('2d').drawImage(charPortrait(c.dataset.char),0,0);});
   // the same screen redrawn (a timer, a toast, a hint) keeps the cursor where the player left it: null asks the host to reuse its index
-  const sg=[state,menuOpen,enc&&enc.phase,entry&&entry.key,naming&&naming.key,jr.filter,shop&&shop.mode].join('|');const keep=sg===screenSig;screenSig=sg;
+  const sg=[state,menuOpen,enc&&enc.phase,entry&&entry.key,shot,naming&&naming.key,jr.filter,shop&&shop.mode].join('|');const keep=sg===screenSig;screenSig=sg;
   if(opts.onRender)opts.onRender(keep?null:focus);
   if(opts.onStatus)opts.onStatus(statusText());lastStatus=statusText();uiDirty=false;}
 function meter(label,v){const n=Math.round(Math.max(0,Math.min(1,v))*10);return row(label,'█'.repeat(n)+'░'.repeat(10-n));}
 
 /* ---------------- the pixel-art scene ---------------- */
 function drawTileAt(t,x,y,tx,ty){const base=OVER[t]?TL[G0]:null;if(base)ctx.drawImage(base,x,y);
-  let img_=TL[t];if(t===WATER)img_=TL[WATER][(frame>>5)&1];else if(t===BLDG)img_=TL[BLDG][(tx+ty)&1];ctx.drawImage(img_,x,y);}
+  let img_=TL[t];if(t===WATER)img_=TL[WATER][(frame>>5)&1];else if(t===BLDG)img_=(dealerAt&&tx===dealerAt.x&&ty===dealerAt.y)?TL[BLDG][2]:TL[BLDG][(tx+ty)&1];ctx.drawImage(img_,x,y);}
 function drawWorld(){const ox=-cam.x|0,oy=-cam.y|0;const x0=Math.max(0,(cam.x/T)|0),y0=Math.max(0,(cam.y/T)|0);const VH=cv.height/T,VW=cv.width/T;
   for(let y=y0;y<Math.min(MH,y0+VH+1);y++)for(let x=x0;x<Math.min(MW,x0+VW+1);x++)drawTileAt(map[y][x],x*T+ox,y*T+oy,x,y);
   const mf=((frame>>4)&3)===0?1:0;for(const s of spots){if(s.x>=x0-1&&s.x<x0+VW+1&&s.y>=y0-1&&s.y<y0+VH+1)ctx.drawImage(MOSS[mf],s.x*T+ox,s.y*T+oy);}
@@ -898,7 +926,7 @@ function drawWorld(){const ox=-cam.x|0,oy=-cam.y|0;const x0=Math.max(0,(cam.x/T)
   if(player.goal||player.path.length){const g=player.goal;if(g){rect(g.x*T+ox+7,g.y*T+oy-3+((frame>>3)&1),2,2,C.red);}}
   if(menuOpen){ctx.fillStyle='rgba(27,51,32,0.35)';ctx.fillRect(0,0,cv.width,cv.height);}}
 // on the map the canvas is as tall as the box it sits in, so no letterbox: 256 wide, 192..320 tall
-function fitWorld(){let ww=CW,hh=CH;if(state==='region')hh=MAPH;else if((state==='world'||state==='pet'||state==='petlapse')&&cv.clientWidth>0&&cv.clientHeight>0){const a=cv.clientWidth/cv.clientHeight;if(a>CW/CH)ww=Math.min(400,Math.round(CH*a));else hh=Math.min(320,Math.round(CW/a));}
+function fitWorld(){let ww=CW,hh=CH;if(state==='region')hh=MAPH;else if((state==='world'||state==='pet'||state==='petlapse'||state==='shop')&&cv.clientWidth>0&&cv.clientHeight>0){const a=cv.clientWidth/cv.clientHeight;if(a>CW/CH)ww=Math.min(400,Math.round(CH*a));else hh=Math.min(320,Math.round(CW/a));}
   if(cv.width!==ww||cv.height!==hh){cv.width=ww;cv.height=hh;ctx.imageSmoothingEnabled=false;}jarRect();}
 // shadows of clouds crossing the map: two fluffy ones and the face, each drifting at its own pace
 const SHADOWS=(()=>{const mk=(w,h,fn)=>{const c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d');g.fillStyle='#08183a';fn(g,w,h);return c;};
@@ -949,13 +977,13 @@ function statusText(){const n=nCollected()+'/'+SP.length;
   if(state==='region')return 'A: travel · B: back';
   if(state==='world')return menuOpen?'A: ok · B: close':titleCase(CN[REG()])+' · '+n+' · d-pad: walk · A: look · B: menu · X: MossDex';
   if(state==='enc')return enc.phase===0?'A: identify':enc.phase===1?'A: answer · X: ask a beetle, 1 cheese':'A: continue';
-  if(state==='journal')return entry?'B: back to the list':'MossDex · L/R: region · A: open · B: back';
+  if(state==='journal')return shot?'A or B: leave the photo':entry?'A: view photo · B: back to the list':'MossDex · L/R: region · A: open · B: back';
   if(state==='petpick')return naming?'A: name it · B: back':'GoodMoss · A: plant this cutting · B: back';
   if(state==='pet')return petMenu?'A: choose · B: close':'GoodMoss · A: do it · d-pad: pick · B: leave or release';
   if(state==='petlapse')return 'time-lapse · A: back';
   if(state==='beetle')return 'A: continue';
   if(state==='beetles')return bsel?'B: back to the book':'beetles · A: look · B: back';
-  if(state==='shop')return shop&&shop.mode==='swap'?'A: offer · B: back':shop&&shop.mode==='goods'?'A: buy · B: back':'the Dealer · A: choose · B: leave';
+  if(state==='shop')return shop&&shop.mode==='swap'?'A: offer · B: back':shop&&shop.mode==='goods'?'A: buy · B: back':'the Dealer · left: buy · right: sell · B: leave';
   if(state==='win')return 'every moss found · A: keep exploring';return '';}
 function pushStatus(){const t=statusText();if(t!==lastStatus){lastStatus=t;if(opts.onStatus)opts.onStatus(t);}}
 let raf=0,running=false;

@@ -1439,18 +1439,27 @@ galleryConnectBtn.addEventListener('click', async () => {
 views.gallery.querySelectorAll('.tab').forEach(tab => tab.addEventListener('click', () => {
   if (galleryMode !== tab.dataset.mode) openGallery(tab.dataset.mode);
 }));
+// Folding sections. A group inside a folded group stays folded, so opening RIP does not
+// spill Sanko's own sub-items onto the screen.
+function syncExpanders() {
+  document.querySelectorAll('[data-expands]').forEach(item => {          // document order: parents first
+    const li = item.closest('li');
+    const open = item.getAttribute('aria-expanded') === 'true' && !(li && li.classList.contains('hidden'));
+    document.querySelectorAll(`.${item.dataset.expands}`).forEach(el => el.classList.toggle('hidden', !open));
+    const base = (item.dataset.note || '').replace(/ · A: (open|close)$/, '');
+    item.dataset.note = `${base} · A: ${item.getAttribute('aria-expanded') === 'true' ? 'close' : 'open'}`;
+  });
+}
 document.querySelectorAll('[data-expands]').forEach(item => {
-  const subs = document.querySelectorAll(`.${item.dataset.expands}`);
-  const baseNote = item.dataset.note.replace(/ · A: (open|close)$/, '');
   item.addEventListener('click', () => {
     const open = item.getAttribute('aria-expanded') === 'true';
     item.setAttribute('aria-expanded', String(!open));
-    subs.forEach(li => li.classList.toggle('hidden', open));
-    item.dataset.note = `${baseNote} · A: ${open ? 'open' : 'close'}`;
+    syncExpanders();
     const els = focusables();
     setFocus(els.indexOf(open ? item : els[els.indexOf(item) + 1]));
   });
 });
+syncExpanders();
 itemStage.addEventListener('click', () => { sound.tick(); setShowcase(!views.item.classList.contains('showcase')); });
 
 function toTitle() { if (activeView !== 'title') { sound.close(); showView('title'); } }

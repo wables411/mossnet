@@ -531,7 +531,8 @@
     canvas.width = cols * bs; canvas.height = rows * bs;
     const candles = currentCandles(opts);
     const t = drawTerrain(cols, rows, bs, candles, seed);
-    canvas.__world = { ...t, cols, rows, bs, W: canvas.width, H: canvas.height, seed, sig: signature(candles), count: candles.length };
+    canvas.__world = { ...t, cols, rows, bs, W: canvas.width, H: canvas.height, seed, sig: signature(candles), count: candles.length,
+      first: candles.length ? candles[0][0] : 0, last: candles.length ? candles[candles.length - 1][0] : 0 };
     return canvas.__world;
   }
 
@@ -571,7 +572,9 @@
     ctx.textBaseline = 'top';
     const clock = `${String(Math.floor(h)).padStart(2, '0')}:${String(Math.floor(h % 1 * 60)).padStart(2, '0')} ${local ? 'LOCAL' : 'UTC'}`;
     const state = feeds.get(feedUrl(level()));
-    const feed = `$MOSS · ${level().key} · ${world.count} CANDLES${state && state.error ? ' · CACHED' : ''}`;
+    // the span the blocks actually cover, which is not the span the button asks for:
+    // the pool trades in bursts and the feed only returns periods that traded
+    const feed = `$MOSS · ${level().key} · ${world.count} CANDLES${spanLabel(world)}${state && state.error ? ' · CACHED' : ''}`;
     const chip = (text, x0) => {
       const w = ctx.measureText(text).width + pad * 1.6;
       ctx.fillStyle = 'rgba(0,0,0,0.42)'; ctx.fillRect(x0, pad, w, fs * 1.5);
@@ -580,6 +583,16 @@
     };
     const used = chip(clock, pad);
     chip(feed, pad + used + pad * 0.6);
+  }
+
+  // "44H", "6D" - the real distance between the oldest and newest candle on screen
+  function spanLabel(world) {
+    const span = world.last > world.first ? world.last - world.first : 0;
+    if (!span) return '';
+    const mins = Math.round(span / 60);
+    if (mins < 90) return ` · ${mins}M`;
+    if (mins < 2880) return ` · ${Math.round(mins / 60)}H`;
+    return ` · ${Math.round(mins / 1440)}D`;
   }
 
   function start(canvas, opts = {}) {
@@ -656,7 +669,7 @@
     { key: 'MONTH', tf: 'day', limit: 30, cols: 22 },
     { key: 'DAY', tf: 'hour', limit: 24, cols: 16 },
     { key: 'HOUR', tf: 'minute', limit: 60, cols: 12 },
-    { key: '1 MIN', tf: 'minute', limit: 12, cols: 8 }
+    { key: '12 MIN', tf: 'minute', limit: 12, cols: 8 }
   ];
   const STRIDE = { day: 86400, hour: 3600, minute: 60 };
   let zoom = 0;

@@ -67,10 +67,14 @@ export async function onRequestGet({ request, env }) {
       if (!Array.isArray(rows)) { lastError = 'upstream sent no ohlcv_list'; continue; }
 
       // GeckoTerminal returns newest first; the world is grown oldest to newest
-      const candles = rows
-        .map(r => r.map(Number))
-        .filter(r => r.length >= 6 && r.every(Number.isFinite) && r[4] > 0)
-        .sort((a, b) => a[0] - b[0]);
+      // upstream repeats a candle now and then, which draws the same column twice
+      const byTime = new Map();
+      for (const row of rows) {
+        const r = row.map(Number);
+        if (r.length < 6 || !r.every(Number.isFinite) || r[4] <= 0) continue;
+        byTime.set(r[0], r);                                  // last one wins
+      }
+      const candles = [...byTime.values()].sort((a, b) => a[0] - b[0]);
 
       const body = JSON.stringify({
         pool: POOL, network: NETWORK, timeframe: tf,

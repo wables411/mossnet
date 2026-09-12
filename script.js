@@ -696,7 +696,16 @@ async function startQuest() {
       // null: the same screen was redrawn, keep the cursor where it is
       onRender: (focus) => { if (activeView === 'quest') setFocus(focus == null ? (focusIndex.quest || 0) : focus, { scroll: false }); }
     });
-    if (typeof cloudWatch === 'function') { cloudWatch(true); cloudSync().catch(() => { /* offline, or cloud saves are off: play on */ }); }
+    if (typeof cloudWatch === 'function') {
+      cloudWatch(true);
+      // A save sitting in storage that nobody asks for is a lost save. If this handheld has
+      // nothing on it and there is a wallet to ask, ask -- rather than starting a fresh game
+      // on top of a MossDex that is still there.
+      const held = window.mossQuest.getSave ? window.mossQuest.getSave() : null;
+      const bare = !held || (!held.introDone && !Object.keys(held.collected || {}).length);
+      const wallet = Boolean(window.mossWallet?.isConnected?.());
+      cloudSync({ signIn: bare && wallet }).catch(() => { /* offline, or cloud saves are off: play on */ });
+    }
   } catch (error) {
     setNote(`Moss Quest could not start: ${error.message}`);
   }
@@ -1545,7 +1554,14 @@ async function cloudSync({ signIn = false } = {}) {
   if (!window.mossQuest?.getSave) { saveNote('open Moss Quest first'); return; }
   let token = cloudLive();
   if (!token && signIn) token = await cloudSignIn();
-  if (!token) return;                                  // cloudSignIn has already said why
+  if (!token) {
+    // Never fail silently here: the player cannot tell an empty backup from one that was
+    // simply never requested, and that is exactly what it looks like when a save goes missing.
+    if (!signIn) saveNote(window.mossWallet?.isConnected?.()
+      ? 'a wallet copy may exist \u00b7 use the Quick-E-Mart terminal to sign in and restore it'
+      : 'not signed in \u00b7 connect a wallet to restore a saved MossDex');
+    return;
+  }
 
   const pulled = await cloudCall('', { token: token.token });
   if (pulled.status === 401) { setCloudToken(null); saveNote('that sign-in expired · try again'); return; }

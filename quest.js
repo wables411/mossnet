@@ -222,7 +222,6 @@ function buildTiles(th){const [g,gd,gl]=th.ground,[h,hd,hl]=th.ground2,[w,wl,wd]
     q(1,2,'#7f755f',14,5);q(1,9,'#7f755f',14,5);
     q(2,3,'#c8543c',2,4);q(5,4,'#e0b040',2,3);q(11,3,'#4a7ec0',2,4);q(8,10,'#5c9c46',2,4);});
   tl[COUNTER]=tile('#b9b0a0',q=>{q(0,0,'#6a6255',16,3);q(0,3,'#8f8778',16,1);q(2,6,'#3f8f4a',5,4);q(3,7,'#f0ece0',3,2);q(10,6,'#2a2a32',4,4);q(11,7,'#8fd45f',2,1);});
-  tl[CLERK]=tile('#e6e2d6',q=>{q(4,1,'#3f8f4a',8,3);q(3,4,'#f2c9a0',10,5);q(5,6,'#1b1b20',2,1);q(9,6,'#1b1b20',2,1);q(6,8,'#c06a6a',4,1);q(3,9,'#4a6ea0',10,6);q(2,10,'#4a6ea0',2,4);q(12,10,'#4a6ea0',2,4);});
   tl[TERMINAL]=tile('#d8d4c8',q=>{q(1,1,'#6a6a72',14,10);q(2,2,'#2a3a2a',12,7);q(3,3,'#8fd45f',4,1);q(3,5,'#8fd45f',7,1);q(3,7,'#8fd45f',5,1);
     q(5,11,'#6a6a72',6,2);q(2,13,'#9a9aa2',12,2);q(4,14,'#3a3a42',8,1);});
   return tl;}
@@ -443,7 +442,6 @@ function storeExit(){if(!store)return;const sh=STORE.length;if(player.y>=store.o
 function faceTowards(x,y){player.dir=x>player.x?'right':x<player.x?'left':y>player.y?'down':'up';}
 function interactAhead(){const dx={left:-1,right:1}[player.dir]||0,dy={up:-1,down:1}[player.dir]||0;const tx=player.x+dx,ty=player.y+dy;
   if(store){const t=map[ty]&&map[ty][tx];
-    if(t===CLERK){snd('move',2);toast={t:CLERK_LINES[(frame>>4)%CLERK_LINES.length],n:200};dirty();return true;}
     if(t===TERMINAL){openStation();return true;}
     return true;}
   const s=spots.findIndex(o=>o.x===tx&&o.y===ty);if(s>=0){startEnc(s);return true;}
@@ -761,7 +759,7 @@ const STORE=[
 '#.SS..S........#',
 '#..............#',
 '#CCCC..........#',
-'#...E..........#',
+'#..............#',
 '#..............#',
 '#######..#######'];
 const STORE_T={'#':IWALL,'.':IFLOOR,'S':SHELF,'C':COUNTER,'E':CLERK,'T':TERMINAL};
@@ -781,16 +779,13 @@ function leaveStore(){
   player.x=outside.x;player.y=outside.y;player.px=outside.px;player.py=outside.py;player.dir='down';player.mx=player.my=0;player.path=[];player.goal=null;
   cam.x=outside.cam.x;cam.y=outside.cam.y;outside=null;store=null;snd('back');dirty();}
 let store=null;
-const CLERK_LINES=['the terminal takes the old handhelds. quarter a minute, no refunds.','you want the computer, not me. corner, by the mops.','plug it in, press the buttons, take your receipt.','if it asks for a wallet, that is between you and the wallet.'];
 /* ---------------- the terminal ---------------- */
 // The game writes to this device after every action anyway; the station is where you can
 // see that it happened, and where you send a copy somewhere this device cannot lose it.
 const ago=(t)=>{if(!t)return 'never';const m=Math.round((Date.now()-t)/60000);
   return m<1?'just now':m<60?m+(m===1?' minute ago':' minutes ago'):m<1440?Math.round(m/60)+'h ago':Math.round(m/1440)+'d ago';};
-function openStation(){saveMsg=null;pcPlugged=false;pcStart=Date.now();snd('chime');go('station');}
-let pcPlugged=false,pcStart=0;
-const pcMeter=()=>{const sec=Math.max(0,Math.floor((Date.now()-pcStart)/1000));
-  return '$'+(0.25*Math.max(1,Math.ceil(sec/60))).toFixed(2)+' \u00b7 '+String((sec/60)|0).padStart(2,'0')+':'+String(sec%60).padStart(2,'0');};
+function openStation(){saveMsg=null;pcPlugged=false;snd('chime');go('station');}
+let pcPlugged=false;
 function stationSave(){save.saved=Date.now();persist();saveMsg='SAVE COMPLETE. '+nCollected()+' ENTRIES WRITTEN TO THE HANDHELD.';snd('ok');dirty();}
 async function stationCloud(){const c=opts.cloud;
   if(!c||!c.save){saveMsg='backing up to a wallet is not switched on here.';snd('miss');dirty();return;}
@@ -853,7 +848,6 @@ const pad=()=>state==='world'&&!menuOpen;
 // the game's own input, for the states it handles. Menus, lists and buttons are clicked by the host.
 function update(){frame++;if(tuneT>0){tuneT--;drawTune();}if(amb.on&&!muted&&state!=='title')ambient();if(confirmNew>0)confirmNew--;if(confirmRel>0)confirmRel--;
   if(toast&&--toast.n<=0){toast=null;dirty();}
-  if(state==='station'&&ui){const m=ui.querySelector('#q-meter');if(m)m.textContent=pcMeter();}
   if(state==='intro'){const pg=intro.pages[intro.page],txt=pageText();if(intro.ch<txt.length){intro.ch+=2;if(frame%3===0)snd('talk',intro.ch);const d=ui&&ui.querySelector('#q-dialog');if(d)d.textContent=txt.slice(0,intro.ch);}
     if(intro.ch>=txt.length&&pg.ask&&!intro.opt){intro.opt=true;dirty();}
     if(hit('a')||(click&&click.top)){if(intro.ch<txt.length){intro.ch=txt.length;const d=ui&&ui.querySelector('#q-dialog');if(d)d.textContent=txt;if(pg.ask){intro.opt=true;dirty();}}else if(!pg.ask)introNext();}
@@ -918,7 +912,6 @@ function act(name,arg){
   else if(name==='menu:beetles'){menuOpen=false;bsel=null;go('beetles');}
   else if(name==='beetle:done'){card=null;go('world');}
   else if(name==='save:plug'){pcPlugged=true;saveMsg=null;snd('found');dirty();}
-  else if(name==='save:unplug'){pcPlugged=false;saveMsg=null;snd('back');dirty();}
   else if(name==='save:device')stationSave();
   else if(name==='save:wallet')stationCloud();
   else if(name==='save:leave'){pcPlugged=false;snd('back');go('world');}
@@ -1042,15 +1035,15 @@ function render(){if(!ui)return;let h='',focus=0,scene='none';const u=user||GUES
     else{h+=`<ul class="menu item-links q-petacts">${acts.map(btn).join('')}</ul>${msg(toast&&toast.t)}`;focus=petCur;}}
   else if(state==='petlapse'&&save.pet){scene='jar';const p=save.pet;h=`<div class="lcd-header"><span class="lcd-header-title">TIME-LAPSE</span><span class="item-meta" id="q-frame">frame 1 / ${p.snaps.length}</span></div><p class="lcd-note">the jar so far, replayed. A: back to the jar</p>`;}
   else if(state==='station'){scene='none';const c=opts.cloud;
-    h=`<div class="q-pc"><div class="q-pc-bar"><span>QUICK-E-MART \u00b7 PUBLIC TERMINAL</span><span class="q-pc-meter" id="q-meter">${esc(pcMeter())}</span></div>`;
+    h=`<div class="q-pc"><div class="q-pc-bar"><span>QUICK-E-MART \u00b7 PUBLIC TERMINAL</span></div>`;
     if(!pcPlugged){
-      h+=`<p class="q-pc-line">&gt; NO DEVICE DETECTED</p><p class="q-pc-line q-pc-dim">&gt; 25 CENTS A MINUTE. NO REFUNDS. NO PRINTING.</p>
+      h+=`<p class="q-pc-line">&gt; NO DEVICE DETECTED</p><p class="q-pc-line q-pc-dim">&gt; INSERT A HANDHELD TO CONTINUE.</p>
         <ul class="menu item-links q-pc-acts">${mi('plug in Moss Quest device','save:plug',null,'A: connect the handheld to the terminal')}${mi('walk away','save:leave',null,'B does it too')}</ul>`;}
     else{
       h+=`<p class="q-pc-line">&gt; DEVICE FOUND: MQ-01</p>
         <dl>${row('traveler',pname())}${row('logged',nCollected()+' / '+SP.length)}${row('handheld',ago(save.saved||save.last))}${row('wallet',save.backed?ago(save.backed):'no copy')}</dl>
         ${saveMsg?`<p class="q-pc-line">&gt; ${esc(saveMsg)}</p>`:`<p class="q-pc-line q-pc-dim">&gt; READY.</p>`}
-        <ul class="menu item-links q-pc-acts">${mi('save to handheld','save:device',null,'write it to the device you are holding')}${mi('upload to wallet','save:wallet',null,c&&c.save?'sign once and it follows the wallet':'this terminal cannot reach a wallet')}${mi('unplug','save:unplug',null,'take the handheld back')}${mi('walk away','save:leave',null,'B does it too')}</ul>`;}
+        <ul class="menu item-links q-pc-acts">${mi('save to handheld','save:device',null,'write it to the device you are holding')}${mi('save progress','save:wallet',null,c&&c.save?'keep a copy on your wallet, so it follows you to another screen':'this terminal cannot reach a wallet')}${mi('unplug and walk away','save:leave',null,'B does it too')}</ul>`;}
     h+='</div>';}
   else if(state==='shop'&&shop){scene='shop';const c=REG();const cut=dailyCutting(c),st=shopState();
     if(shop.mode==='menu'){const stock=dailyStock(c);const coat=roster[c].filter(x=>save.collected[x.key]).sort((A,B)=>(save.collected[B.key]||0)-(save.collected[A.key]||0)).slice(0,5);const rows=Math.max(stock.length,coat.length,1);

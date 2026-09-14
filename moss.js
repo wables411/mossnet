@@ -531,7 +531,11 @@
     for (let x = 0; x < cols; x++) {
       let y0 = rows;
       for (let y = 0; y < rows; y++) if (at(x, y)) { y0 = y; break; }     // the real skyline, stacks included
-      const top = Math.max(0, Math.min(y0, surf[x]));
+      // ...and it starts at the first solid block, never above it. A sell can knock the top
+      // block off a column with nothing stacked on it, which leaves surf[x] pointing at an
+      // empty cell; starting there painted cave dark onto the open sky -- a black notch in
+      // the skyline, or a black bar where a run of columns from one candle all lost theirs.
+      const top = Math.max(0, y0);
       const Y0 = top * bs;
       const g = ctx.createLinearGradient(0, Y0, 0, rows * bs);
       g.addColorStop(0, '#14161d');

@@ -841,13 +841,22 @@ function useHint(){if(enc.hinted||save.cheese<1){snd('miss');say(enc.hinted?'THE
 function answer(i){if(enc.phase!==1||enc.gone.includes(i))return;const ok=enc.opts[i]===enc.sp;enc.ok=ok;enc.cur=i;enc.phase=2;save.seen[enc.sp.key]=1;save.last=enc.sp.key;
   if(ok)save.collected[enc.sp.key]=Date.now();persist();snd(ok?'collect':'miss',enc.sp.id);dirty();}
 function encDone(){respawnSpot(enc.spot);toast=null;if(nCollected()>=SP.length){snd('win');go('win');}else go('world');}
-function finishIntro(){if(intro.bail){snd('back');go('title');return;}save.introDone=true;persist();snd('ok');if(intro.ret==='world'&&map)go('world');else go('region');}
+// Whether the intro has ever been finished ON THIS DEVICE. save.introDone dies with the save;
+// this does not, which is the whole point -- a restored player should not be taught again.
+const INTRO_SEEN='mossquest.introSeen';
+function introSeen(){try{return localStorage.getItem(INTRO_SEEN)==='1';}catch(e){return false;}}
+// the next page that asks something: skipping must never step over consent, name or Traveler
+function introAsk(){for(let i=intro.page+1;i<intro.pages.length;i++)if(intro.pages[i].ask)return i;return -1;}
+function introSkippable(){return introSeen()&&!intro.bail&&!intro.kb&&!(intro.opt&&(intro.pages[intro.page]||{}).ask);}
+function introSkip(){const i=introAsk();if(i<0){finishIntro();return;}
+  intro.page=i;intro.ch=pageText().length;intro.opt=true;intro.kb=false;snd('ok');dirty();}
+function finishIntro(){if(intro.bail){snd('back');go('title');return;}save.introDone=true;persist();try{localStorage.setItem(INTRO_SEEN,'1');}catch(e){}snd('ok');if(intro.ret==='world'&&map)go('world');else go('region');}
 
 // which buttons the game wants for itself right now; the host's focus cursor takes the rest
 function handles(b){
   if(b==='b')return true;
   if(state==='world')return !menuOpen;
-  if(state==='intro'){const pg=intro.pages[intro.page]||{};if(b==='a')return !(pg.ask&&intro.opt);return false;}
+  if(state==='intro'){const pg=intro.pages[intro.page]||{};if(b==='a')return !(pg.ask&&intro.opt);if(b==='j')return introSkippable();return false;}
   if(state==='petlapse'||state==='win')return true;
   if(state==='journal')return b==='left'||b==='right'||b==='j'||(entry&&(shot||info)&&b==='a');
   if(state==='enc')return (enc.phase===2&&b==='a')||(enc.phase===1&&b==='j');
@@ -865,6 +874,7 @@ function update(){frame++;if(tuneT>0){tuneT--;drawTune();}if(amb.on&&!muted&&sta
   if(state==='intro'){const pg=intro.pages[intro.page],txt=pageText();if(intro.ch<txt.length){intro.ch+=2;if(frame%3===0)snd('talk',intro.ch);const d=ui&&ui.querySelector('#q-dialog');if(d)d.textContent=txt.slice(0,intro.ch);}
     if(intro.ch>=txt.length&&pg.ask&&!intro.opt){intro.opt=true;dirty();}
     if(hit('a')||(click&&click.top)){if(intro.ch<txt.length){intro.ch=txt.length;const d=ui&&ui.querySelector('#q-dialog');if(d)d.textContent=txt;if(pg.ask){intro.opt=true;dirty();}}else if(!pg.ask)introNext();}
+    if(hit('j')&&introSkippable()){introSkip();return;}
     if(hit('b')){if(intro.kb&&intro.buf){intro.buf=intro.buf.slice(0,-1);dirty();}else if(intro.kb){intro.kb=false;dirty();}else if(intro.page>0&&!intro.bail){intro.page--;intro.ch=pageText().length;intro.opt=!!intro.pages[intro.page].ask;snd('back');dirty();}else snd('miss');}}
   else if(state==='region'){if(hit('b')&&save.region&&map){snd('back');go('world');}}
   else if(state==='world'){stepBeetles();if(store)storeExit();
@@ -1157,7 +1167,7 @@ function drawTune(){if(!tuneEl)return;const g=tuneEl.getContext('2d'),w=tuneEl.w
   const sy=(frame*11)%h;g.fillStyle='rgba(228,235,196,0.55)';g.fillRect(0,sy,w,2);}
 function statusText(){const n=nCollected()+'/'+SP.length;
   if(state==='title')return 'A: ok · '+n+' logged';
-  if(state==='intro')return intro.kb?'spell your name · A: type · B: delete':intro.opt?((intro.pages[intro.page]||{}).ask==='char'?'pick a Traveler · A: choose':'Prof. Chaga · A: choose'):'Prof. Chaga · A: next · B: back';
+  if(state==='intro')return intro.kb?'spell your name · A: type · B: delete':intro.opt?((intro.pages[intro.page]||{}).ask==='char'?'pick a Traveler · A: choose':'Prof. Chaga · A: choose'):('Prof. Chaga · A: next · B: back'+(introSkippable()?' · X: skip':''));
   if(state==='region')return 'A: travel · B: back';
   if(state==='world')return menuOpen?'A: ok · B: close':titleCase(CN[REG()])+' · '+n+' · d-pad: walk · A: look · B: menu · X: MossDex';
   if(state==='enc')return enc.phase===0?'A: identify':enc.phase===1?'A: answer · X: ask a beetle, 1 cheese':'A: continue';

@@ -829,10 +829,19 @@ function enterRegion(c){snd('ok');save.region=c;persist();genMap(c);placeDealer(
 function openJournal(){entry=null;jr.filter=CONT.indexOf(REG())+1;jr.cur=0;go('journal');}
 function startEnc(i){snd('found');const sp=spots[i].sp||pickSpecies(REG());img(sp);enc={spot:i,sp,opts:choices(sp,REG()),cur:0,phase:0,ok:false,gone:[],hinted:false};go('enc');}
 function toRegion(){if(!save.introDone)startIntro('region');else go('region');}
-function titleOpts(){const o=[];if(nCollected()||save.region)o.push(['continue','pick up where you left off','title:continue']);o.push(o.length?['new game','start over with an empty MossDex','title:new']:['begin','Professor Chaga is waiting','title:begin']);return o;}
+function titleOpts(){const o=[];if(nCollected()||save.region)o.push(['continue','pick up where you left off','title:continue']);o.push(o.length?['new game','start over with an empty MossDex','title:new']:['begin','Professor Chaga is waiting','title:begin']);
+  // Nothing on this handheld does not mean nothing anywhere: a MossDex backed up to a
+  // wallet outlives the browser it was played in. Offer it rather than leaving the only
+  // way forward a new game on top of a save that still exists.
+  if(!nCollected()&&!save.region&&opts.cloud&&opts.cloud.restore)o.push(['restore','bring back a MossDex saved to your wallet','title:restore']);
+  return o;}
 function titleAct(opt){if(!chimed){snd('chime');chimed=true;}
   if(opt==='title:continue'){if(save.region&&save.introDone)enterRegion(save.region);else toRegion();}
   else if(opt==='title:begin')toRegion();
+  else if(opt==='title:restore'){const c=opts.cloud;if(!c||!c.restore){snd('miss');return;}
+    snd('ok');say('CHECK YOUR WALLET AND SIGN.',240);
+    // the host merges whatever comes back through setSave, which redraws the title
+    Promise.resolve(c.restore()).catch(()=>{});}
   else if(opt==='title:new'){if(nCollected()&&confirmNew<=0){confirmNew=180;snd('miss');say('THIS ERASES YOUR MOSSDEX. PRESS AGAIN.',180);return;}confirmNew=0;save=fresh();persist();buildPlayer();toRegion();}}
 const MENU=[['MossDex','the 1000 species, and which ones you have','menu:mossdex'],['beetles','every beetle Beetleboy knows, and the ones you have caught','menu:beetles'],['GoodMoss','plant a cutting, keep it watered and lit','menu:goodmoss'],['map','travel to another continent','menu:map'],['tutorial','Professor Chaga, again','menu:tutorial'],['traveler','change who you play as','menu:traveler'],['close','return to quest','menu:close']];
 function useHint(){if(enc.hinted||save.cheese<1){snd('miss');say(enc.hinted?'THE BEETLE ALREADY HELPED':'NO CHEESE. CATCH A BEETLE FIRST',120);return;}

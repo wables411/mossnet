@@ -641,7 +641,7 @@ function showView(name, { focus = 0, scroll = true } = {}) {
 // The game paints its pixel art (the map, the lab, the jar) on a canvas at the top of the LCD and renders the
 // rest of itself as the LCD's own HTML: menus, lists, tabs, photos. So the handheld's focus cursor, notes and
 // blips work on it like on every other screen. quest.js and its species data load the first time it is opened.
-const QUEST_SRC = 'quest.js?v=a2251ded';
+const QUEST_SRC = 'quest.js?v=f4a6ad60';
 const questCanvas = document.getElementById('quest-canvas');
 const questUi = document.getElementById('quest-ui');
 let questLoading = null;
@@ -688,7 +688,9 @@ async function startQuest() {
       cloud: {
         save: () => (typeof cloudBackup === 'function' ? cloudBackup() : { ok: false, message: 'backing up is not switched on here' }),
         status: () => ({ connected: Boolean(window.mossWallet?.isConnected?.()), address: window.mossWallet?.address?.() || null }),
-        connect: () => window.mossWallet?.open?.()
+        connect: () => window.mossWallet?.open?.(),
+        // the title's "restore": load the connector, sign, pull the save down and merge it in
+        restore: () => cloudSync({ signIn: true })
       },
       muted: !sound.enabled,
       dev: ['127.0.0.1', 'localhost'].includes(location.hostname),
@@ -701,10 +703,11 @@ async function startQuest() {
       // A save sitting in storage that nobody asks for is a lost save. If this handheld has
       // nothing on it and there is a wallet to ask, ask -- rather than starting a fresh game
       // on top of a MossDex that is still there.
-      const held = window.mossQuest.getSave ? window.mossQuest.getSave() : null;
-      const bare = !held || (!held.introDone && !Object.keys(held.collected || {}).length);
-      const wallet = Boolean(window.mossWallet?.isConnected?.());
-      cloudSync({ signIn: bare && wallet }).catch(() => { /* offline, or cloud saves are off: play on */ });
+      // A session token, if this browser holds one, is enough on its own: the save comes back with
+      // no wallet, no connector and no signature. If there is no token, nothing is demanded here --
+      // the title offers "restore" instead, so asking for a signature is the player's decision and
+      // not a modal thrown at everyone who opens the game.
+      cloudSync().catch(() => { /* offline, or cloud saves are off: play on */ });
     }
   } catch (error) {
     setNote(`Moss Quest could not start: ${error.message}`);
@@ -1528,8 +1531,14 @@ async function cloudCall(path, { method = 'GET', body, token } = {}) {
 
 // A signature, not a transaction: nothing moves and nothing is spent.
 async function cloudSignIn() {
-  const wallet = window.mossWallet;
-  if (!wallet?.isConnected?.()) { saveNote('connect a wallet first'); wallet?.open?.(); return null; }
+  // The connector is fetched on demand, so on a cold page window.mossWallet does not exist yet --
+  // not for a wallet that is connected and would answer on sight. Reading the global and giving up
+  // was the bug behind every "connect a wallet first" seen with a wallet already connected.
+  // loadWallet() hands back the live connector if it is here and loads it once if it is not.
+  let wallet = null;
+  try { wallet = await loadWallet(); }
+  catch (_) { saveNote('the wallet connector could not load'); return null; }
+  if (!wallet?.isConnected?.()) { saveNote('connect a wallet to restore your MossDex'); wallet?.open?.(); return null; }
   const address = wallet.address();
   const provider = wallet.provider();
   if (!address || !provider) { saveNote('that wallet cannot sign right now'); return null; }

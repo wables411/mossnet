@@ -684,7 +684,7 @@ async function questUser() {
       beetles = beetleKeys(cards);
       beetleCards = Array.isArray(cards) ? cards.length : Object.keys(cards).length;
     } catch (_) { /* scope not granted, or no Beetle yet */ }
-    return { handle: u.username || 'remilia', displayName: u.displayName || u.username || 'remilia', pfpUrl: u.pfpUrl || null, id: u.username || u.id || 'remilia', guest: false, beetles, beetleCards };
+    return { handle: u.username || 'remilia', displayName: u.displayName || u.username || 'remilia', pfpUrl: (typeof remiliaPfpUrl === 'function' ? remiliaPfpUrl(u.pfpUrl) : u.pfpUrl) || null, id: u.username || u.id || 'remilia', guest: false, beetles, beetleCards };
   } catch (error) {
     questNotice = `RemiliaNET did not answer (${error.message}). playing as a guest for now.`;
     return null;
@@ -1383,10 +1383,18 @@ async function remiliaProfile(handle) {
   return payload.user || payload;
 }
 
+// A default pfp is an absolute pfp.remilia.net URL; an NFT pfp (Milady, Fumo404, ...) is a
+// relative /imgproxy/... path meant for www.remilia.net. Resolved there, or it 404s here.
+function remiliaPfpUrl(url) {
+  if (!url) return null;
+  try { return new URL(url, 'https://www.remilia.net').href; } catch (_) { return null; }
+}
+
 function remiliaCard(user) {
-  remiliaPfp.src = user.pfpUrl || '';
+  const pic = remiliaPfpUrl(user.pfpUrl);
+  remiliaPfp.src = pic || '';
   remiliaPfp.alt = user.displayName ? `${user.displayName}'s picture` : '';
-  remiliaPfp.classList.toggle('hidden', !user.pfpUrl);
+  remiliaPfp.classList.toggle('hidden', !pic);
   remiliaName.textContent = user.displayName || user.username || '';
   remiliaHandle.textContent = [user.username && `@${user.username}`, user.location].filter(Boolean).join(' · ');
   remiliaBio.textContent = user.bio || '';

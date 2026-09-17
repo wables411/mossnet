@@ -275,7 +275,11 @@ function ambientFor(i){amb.on=true;amb.seed=i+1;if(AC&&amb.next<AC.currentTime)a
 
 /* ---------------- identity ---------------- */
 let user=null;
-function setUser(u){user=u;if(u){pfpImg=null;if(u.pfpUrl){pfpImg=new Image();pfpImg.src=u.pfpUrl;}loadSave();buildPlayer();}}
+// The Beetleboy cards this player holds on RemiliaNET, as loose keys (letters and digits only) so
+// the card's codename, its name, or the wiki slug all match: a beetle caught here that they hold there pays double.
+let heldBeetles=new Set(),heldCards=0;const bkey=s=>norm(s).replace(/[^A-Z0-9]+/g,'');
+function holdsBeetle(kind){if(!heldBeetles.size)return false;const n=bkey(kind.name);return [n,n.replace(/BEETLE$/,''),bkey(BEETLE_IMG[kind.name]||'')].some(k=>k&&heldBeetles.has(k));}
+function setUser(u){user=u;heldBeetles=new Set(((u&&u.beetles)||[]).map(bkey).filter(Boolean));heldCards=(u&&u.beetleCards)|0;if(u){pfpImg=null;if(u.pfpUrl){pfpImg=new Image();pfpImg.src=u.pfpUrl;}loadSave();buildPlayer();}}
 const GUEST={handle:'GUEST',displayName:'Explorer',pfpUrl:null,id:'guest',guest:true};
 const playerName=()=>(save&&save.name)||(user&&!user.guest?'~'+user.handle:null)||'Traveler';
 const pname=()=>norm(playerName()).slice(0,18);
@@ -294,7 +298,11 @@ function pruneSave(){if(!SP)return;const have=new Set(SP.map(x=>String(x.key)));
   if(save.pet&&!have.has(String(save.pet.key))){save.pet=null;dropped++;}
   if(!CONT.includes(save.region))save.region=null;
   if(save.v!==SAVE_V||dropped){save.v=SAVE_V;persist();}}
-function persist(){try{localStorage.setItem(saveKey(),JSON.stringify(save));}catch(e){}}
+// Whether the last write to this device failed. A full or blocked localStorage used to lose
+// the game quietly; now it says so once, and the station reports it instead of SAVE COMPLETE.
+let saveErr=false;
+function persist(){try{localStorage.setItem(saveKey(),JSON.stringify(save));saveErr=false;return true;}
+  catch(e){if(!saveErr)say('THIS DEVICE WILL NOT HOLD THE SAVE. BACK IT UP AT A TERMINAL',300);saveErr=true;return false;}}
 /* Two saves of the same MossDex, reconciled. Nothing found is ever lost: a species you
    logged on your phone and one you logged on your laptop both survive. */
 function mergeSaves(a,b){
@@ -456,8 +464,8 @@ function mkBeetle(x,y){const k=rollBeetle();const midge=k.name.includes('MIDGE')
 function stepBeetles(){for(const b of beetles){if(--b.t>0)continue;b.t=30+(Math.random()*70|0);const d=[[1,0],[-1,0],[0,1],[0,-1]][(Math.random()*4)|0];const nx=b.x+d[0],ny=b.y+d[1];
     if(nx>0&&ny>0&&nx<MW-1&&ny<MH-1&&WALK[map[ny][nx]]&&!occupied(nx,ny)){b.x=nx;b.y=ny;}}
   for(let i=respawnQ.length-1;i>=0;i--){if(--respawnQ[i]<=0){respawnQ.splice(i,1);const reach=spots.reach;for(let k=0;k<50;k++){const [x,y]=reach[(Math.random()*reach.length)|0];if(Math.abs(x-player.x)+Math.abs(y-player.y)<4||occupied(x,y))continue;beetles.push(mkBeetle(x,y));break;}}}}
-function catchBeetle(i){const b=beetles[i];beetles.splice(i,1);respawnQ.push(600+(Math.random()*600|0));const tier=TIER[b.kind.tier];save.cheese+=tier.cheese;save.beetles[b.kind.name]=(save.beetles[b.kind.name]||0)+1;
-  save.pity=b.kind.tier==='TIN'?save.pity+1:0;persist();snd('beetle');card={kind:b.kind,cheese:tier.cheese,count:save.beetles[b.kind.name]};go('beetle');}
+function catchBeetle(i){const b=beetles[i];beetles.splice(i,1);respawnQ.push(600+(Math.random()*600|0));const tier=TIER[b.kind.tier];const held=holdsBeetle(b.kind);const gain=tier.cheese*(held?2:1);save.cheese+=gain;save.beetles[b.kind.name]=(save.beetles[b.kind.name]||0)+1;
+  save.pity=b.kind.tier==='TIN'?save.pity+1:0;persist();snd('beetle');card={kind:b.kind,cheese:gain,count:save.beetles[b.kind.name],held};go('beetle');}
 
 /* ---------------- intro (Professor Chaga) ---------------- */
 const INTRO=()=>[
@@ -501,7 +509,8 @@ const word=(v,lo,mid,hi)=>v<.4?lo:v<.7?mid:hi;
 const PETNAMES=['MOSSY','PIP','BRYO','TUFT','SPRIG','VELVET','PUFF','CLOVER','FERN','DEWY','NUBBIN','SPORE'];
 function newPet(sp,name){const pr=prefs(sp);return {key:sp.key,name:(name||PETNAMES[(Math.random()*PETNAMES.length)|0]).slice(0,12),born:Date.now(),last:Date.now(),hyd:.7,light:.6,air:.5,sub:pr.sub,growth:.08,health:.9,algae:0,spor:0,spores:0,fruited:0,dormant:false,dead:false,fit:.7,snaps:[],log:[]};}
 function petSp(p){return SP.find(s=>s.key===p.key);}
-function simPet(p,now){if(!p||p.dead)return;const pr=prefs(petSp(p));let dt=(now-p.last)/3600000;if(dt<=0.0005)return;if(dt>72){p.log.unshift('YOU WERE AWAY '+Math.round(dt/24)+' DAYS. GROWTH CAPPED AT 3.');dt=72;}
+function simPet(p,now){if(!p||p.dead)return;const pr=prefs(petSp(p));let dt=(now-p.last)/3600000;if(dt<0){p.last=now;return;}   // the clock went backwards: carry on from now, nothing grows in negative time
+  if(dt<=0.0005)return;if(dt>72){p.log.unshift('YOU WERE AWAY '+Math.round(dt/24)+' DAYS. GROWTH CAPPED AT 3.');dt=72;}
   const steps=Math.max(1,Math.ceil(dt));const h=dt/steps;
   for(let i=0;i<steps;i++){const t=p.last+i*h*3600000;const hour=new Date(t).getHours();const day=hour>=7&&hour<=19?1:.35;
     p.air=.5;p.sub=pr.sub;const evap=.012*(1+p.light*2)*.75*day*h;p.hyd=Math.max(0,p.hyd-evap);
@@ -798,12 +807,12 @@ const ago=(t)=>{if(!t)return 'never';const m=Math.round((Date.now()-t)/60000);
   return m<1?'just now':m<60?m+(m===1?' minute ago':' minutes ago'):m<1440?Math.round(m/60)+'h ago':Math.round(m/1440)+'d ago';};
 function openStation(){saveMsg=null;pcPlugged=false;snd('chime');go('station');}
 let pcPlugged=false;
-function stationSave(){save.saved=Date.now();persist();saveMsg='SAVE COMPLETE. '+nCollected()+' ENTRIES WRITTEN TO THE HANDHELD.';snd('ok');dirty();}
+function stationSave(){save.saved=Date.now();const ok=persist();saveMsg=ok?'SAVE COMPLETE. '+nCollected()+' ENTRIES WRITTEN TO THE HANDHELD.':'SAVE FAILED. THE HANDHELD WOULD NOT TAKE IT. BACK IT UP TO A WALLET INSTEAD.';snd(ok?'ok':'miss');dirty();}
 async function stationCloud(){const c=opts.cloud;
   save.saved=Date.now();persist();                                  // the handheld first, always
   if(!c||!c.save){saveMsg='SAVED TO THE HANDHELD. THIS TERMINAL CANNOT REACH A WALLET.';snd('ok');dirty();return;}
-  if(c.status&&!c.status().connected){saveMsg='SAVED TO THE HANDHELD. NO WALLET CONNECTED, SO THERE IS NO COPY OFF THIS DEVICE.';snd('miss');dirty();return;}
-  saveMsg='SAVED TO THE HANDHELD. TALKING TO YOUR WALLET...';dirty();
+  if(c.status&&!c.status().connected){saveMsg='SAVED TO THE HANDHELD. NO WALLET OR REMILIANET SIGN-IN, SO THERE IS NO COPY OFF THIS DEVICE.';snd('miss');dirty();return;}
+  saveMsg='SAVED TO THE HANDHELD. SENDING A COPY UP...';dirty();
   try{const r=await c.save();saveMsg=String(r&&r.message||r||'backed up.');
     if(r&&r.ok===false)snd('miss');else{save.backed=Date.now();snd('ok');}}   // only stamp it when it actually went
   catch(e){saveMsg=String(e&&e.message||e);snd('miss');}
@@ -833,7 +842,7 @@ function titleOpts(){const o=[];if(nCollected()||save.region)o.push(['continue',
   // Nothing on this handheld does not mean nothing anywhere: a MossDex backed up to a
   // wallet outlives the browser it was played in. Offer it rather than leaving the only
   // way forward a new game on top of a save that still exists.
-  if(!nCollected()&&!save.region&&opts.cloud&&opts.cloud.restore)o.push(['restore','bring back a MossDex saved to your wallet','title:restore']);
+  if(!nCollected()&&!save.region&&opts.cloud&&opts.cloud.restore)o.push(['restore','bring back a MossDex saved to your wallet or RemiliaNET','title:restore']);
   return o;}
 function titleAct(opt){if(!chimed){snd('chime');chimed=true;}
   if(opt==='title:continue'){if(save.region&&save.introDone)enterRegion(save.region);else toRegion();}
@@ -1020,7 +1029,7 @@ function speciesCard(sp,k){const known_=k==null?known(sp):k;return `<div class="
 function render(){if(!ui)return;let h='',focus=0,scene='none';const u=user||GUEST;
   const pkey=state+'|'+(!!entry)+(!!bsel)+menuOpen+intro.kb+(!!naming)+(!!card);if(lastPage&&pkey!==lastPage)tune();lastPage=pkey;
   if(state==='title'){scene='lab';h=`<h1 class="q-title">moss quest</h1><p class="lcd-note q-center">${esc(SP.length)} species · seven continents · one MossDex</p>
-    <div class="q-who">${u.pfpUrl?`<img class="rn-pfp q-pfp" src="${esc(u.pfpUrl)}" alt="">`:''}<div><b>${esc(playerName())}</b><span class="rn-handle">${u.guest?'guest · saved on this device':'@'+esc(u.handle)+' · RemiliaNET'}${nCollected()?' · '+nCollected()+' / '+SP.length+' logged · '+save.cheese+' cheese':''}</span></div></div>
+    <div class="q-who">${u.pfpUrl?`<img class="rn-pfp q-pfp" src="${esc(u.pfpUrl)}" alt="">`:''}<div><b>${esc(playerName())}</b><span class="rn-handle">${u.guest?'guest · saved on this device':'@'+esc(u.handle)+' · RemiliaNET'+(heldCards?' · '+heldCards+' beetle card'+(heldCards===1?'':'s'):'')}${nCollected()?' · '+nCollected()+' / '+SP.length+' logged · '+save.cheese+' cheese':''}</span></div></div>
     ${msg(toast&&toast.t)}<ul class="menu">${titleOpts().map(o=>mi(o[0],o[2],null,o[1])).join('')}</ul>`;}
   else if(state==='intro'){scene=intro.kb?'none':'lab';const pg=intro.pages[intro.page],txt=pageText();h=`<div class="lcd-header"><span class="lcd-header-title">PROF. CHAGA</span><span class="item-meta">page ${intro.page+1} / ${intro.pages.length}</span></div><p class="q-dialog" id="q-dialog">${esc(txt.slice(0,intro.ch))}</p>`;
     if(intro.opt&&pg.ask==='quest')h+=`<ul class="menu">${mi('gladly','intro:yes',null,'the moss quest begins')}${mi('not today','intro:no',null,'the professor will wait')}</ul>`;
@@ -1068,16 +1077,16 @@ function render(){if(!ui)return;let h='',focus=0,scene='none';const u=user||GUES
     if(petMenu){h+=`<ul class="menu">${mi('return to quest','pet:back',null,'leave the jar, it keeps growing')}${mi('release '+low(p.name),'pet:release',null,'let it go and plant another cutting')}${mi('stay','pet:menu',null,'close this')}</ul>`;focus=0;}
     else{h+=`<ul class="menu item-links q-petacts">${acts.map(btn).join('')}</ul>${msg(toast&&toast.t)}`;focus=petCur;}}
   else if(state==='petlapse'&&save.pet){scene='jar';const p=save.pet;h=`<div class="lcd-header"><span class="lcd-header-title">TIME-LAPSE</span><span class="item-meta" id="q-frame">frame 1 / ${p.snaps.length}</span></div><p class="lcd-note">the jar so far, replayed. A: back to the jar</p>`;}
-  else if(state==='station'){scene='none';const c=opts.cloud;const connected=!!(c&&c.save&&(!c.status||c.status().connected));
+  else if(state==='station'){scene='none';const c=opts.cloud;const st=(c&&c.status&&c.status())||{};const connected=!!(c&&c.save&&(!c.status||st.connected));
     h=`<div class="q-pc"><div class="q-pc-bar"><span>QUICK-E-MART \u00b7 PUBLIC TERMINAL</span></div>`;
     if(!pcPlugged){
       h+=`<p class="q-pc-line">&gt; NO DEVICE DETECTED</p><p class="q-pc-line q-pc-dim">&gt; INSERT A HANDHELD TO CONTINUE.</p>
         <ul class="menu item-links q-pc-acts">${mi('plug in Moss Quest device','save:plug',null,'A: connect the handheld to the terminal')}${mi('walk away','save:leave',null,'B does it too')}</ul>`;}
     else{
       h+=`<p class="q-pc-line">&gt; DEVICE FOUND: MQ-01</p>
-        <dl>${row('traveler',pname())}${row('logged',nCollected()+' / '+SP.length)}${row('handheld',ago(save.saved||save.last))}${row('wallet',save.backed?ago(save.backed):(connected?'no copy yet':'not connected'))}</dl>
+        <dl>${row('traveler',pname())}${row('logged',nCollected()+' / '+SP.length)}${row('handheld',ago(save.saved||save.last))}${row('backup',save.backed?ago(save.backed):(connected?'no copy yet':'not signed in'))}${st.label?row('kept under',st.label):''}</dl>
         ${saveMsg?`<p class="q-pc-line">&gt; ${esc(saveMsg)}</p>`:`<p class="q-pc-line q-pc-dim">&gt; READY.</p>`}
-        <ul class="menu item-links q-pc-acts">${connected?mi('save progress','save:wallet',null,'write the handheld and keep a copy on your wallet'):mi('connect a wallet','save:connect',null,'so your progress follows you to another screen')}${connected?'':mi('save handheld only','save:wallet',null,'keep it on this device, with no copy anywhere else')}${mi('unplug and walk away','save:leave',null,'B does it too')}</ul>`;}
+        <ul class="menu item-links q-pc-acts">${connected?mi('save progress','save:wallet',null,'write the handheld and keep a copy under '+(st.label||'your sign-in')):mi('connect a wallet','save:connect',null,'or sign in to RemiliaNET from the home menu · either keeps a copy off this device')}${connected?'':mi('save handheld only','save:wallet',null,'keep it on this device, with no copy anywhere else')}${mi('unplug and walk away','save:leave',null,'B does it too')}</ul>`;}
     h+='</div>';}
   else if(state==='shop'&&shop){scene='shop';const c=REG();const cut=dailyCutting(c),st=shopState();
     if(shop.mode==='menu'){const stock=dailyStock(c);const coat=roster[c].filter(x=>save.collected[x.key]).sort((A,B)=>(save.collected[B.key]||0)-(save.collected[A.key]||0)).slice(0,5);const rows=Math.max(stock.length,coat.length,1);
@@ -1095,7 +1104,7 @@ function render(){if(!ui)return;let h='',focus=0,scene='none';const u=user||GUES
       h=`<div class="lcd-header"><span class="lcd-header-title">TWO FOR ONE</span><span class="item-meta">${shop.pick.length} / 2 offered</span></div><p class="lcd-note">${L.length?'two of the same kind from this continent. common pairs become uncommon, uncommon pairs become rare. eight deals in ten go through.':'nothing to trade. collect some common moss here first.'}</p><ul class="menu item-links">${ready?mi('deal','shop:deal',null,'trade the two for one '+TIERN[t+1]+' species'):''}${mi('back','shop:back',null,'B does it too')}</ul><ul class="menu q-list">${L.map(x=>mi((on(x)?'✓ ':'')+x.name+'  ·  '+TIERN[tierOf(x,c)],'shop:pick',x.key,'A: '+(on(x)?'take it back':'offer it'),on(x)?'q-collected':'')).join('')}</ul>`;}
     else{h=`<div class="lcd-header"><span class="lcd-header-title">THE DEALER</span><span class="item-meta">${save.cheese} cheese</span></div><p class="lcd-msg">${esc(shop.res.t)}</p>${shop.res.sp?speciesCard(shop.res.sp,true):''}<ul class="menu item-links">${mi('continue','shop:ok',null,'back to the Dealer')}</ul>`;}}
   else if(state==='beetle'&&card){h=`<div class="q-stage q-duo">${beetleImg(card.kind.name,false,true)}${beetleImg(card.kind.name)}</div><h2 class="q-name">caught a ${esc(low(card.kind.name))}!</h2>
-      <dl>${row('tier',cap(card.kind.tier))}${row('cheese','+'+card.cheese+' · you have '+save.cheese)}${row('caught',card.count+'×')}</dl>
+      <dl>${row('tier',cap(card.kind.tier))}${row('cheese','+'+card.cheese+(card.held?' · doubled':'')+' · you have '+save.cheese)}${row('caught',card.count+'×')}</dl>${card.held?`<p class="lcd-note">you hold this beetle on RemiliaNET, so it pays double</p>`:''}
       <ul class="menu item-links">${mi('continue','beetle:done',null,'return to quest')}</ul>`;}
   else if(state==='beetles'){const have=BEETLE_BOOK.filter(b=>save.beetles[b[0]]).length;
     if(bsel){const n=save.beetles[bsel[0]]||0;h=`<div class="lcd-header"><span class="lcd-header-title">BEETLES</span><span class="item-meta">${have} / ${BEETLE_BOOK.length}</span></div><div class="q-stage q-duo">${beetleImg(bsel[0],!n,true)}${beetleImg(bsel[0],!n)}</div><h2 class="q-name">${esc(low(bsel[0]))}</h2>

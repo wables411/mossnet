@@ -1,4 +1,4 @@
-// Cloud saves for Moss Quest, keyed by wallet address.
+// Cloud saves for Moss Quest, keyed by wallet address or by RemiliaNET handle.
 //
 // The browser keeps playing from localStorage no matter what happens here; this is a
 // backup that lets one player pick the same game up on another device. Nothing here is
@@ -7,13 +7,16 @@
 //
 //   POST /save/challenge  {address}              -> {message, expires}
 //   POST /save/session    {address, signature}   -> {token, address, expires}
+//   POST /save/remilia    {access_token}         -> {token, address: 'rn:<handle>', handle, expires}
 //   GET  /save            Bearer token           -> {save, updated} | 404
 //   PUT  /save            Bearer token + body    -> {ok, updated}
 //   DELETE /save          Bearer token           -> {ok}
 //
 // The challenge is a one-shot nonce: signing it proves the wallet without ever handing
 // the site a key, and the token it buys is a plain HMAC that this Worker can check on
-// its own. Needs a KV namespace bound as SAVES and a random string in SAVE_SECRET.
+// its own. The RemiliaNET door needs no signature: the site hands over the login it already
+// holds and RemiliaNET says whose it is. Needs a KV namespace bound as SAVES and a random
+// string in SAVE_SECRET.
 
 import { recoverPersonalSigner } from '../_lib/ethverify.js';
 
@@ -21,6 +24,9 @@ const NONCE_TTL = 300;                    // five minutes to sign
 const TOKEN_DAYS = 60;
 const MAX_BYTES = 256 * 1024;             // a full 1000-species save is ~40KB
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
+const HANDLE = /^[a-z0-9_.-]{1,64}$/;
+const IDENT = /^(0x[0-9a-f]{40}|rn:[a-z0-9_.-]{1,64})$/;   // what a token is minted for: a lowercased address, or rn:<handle>
+const REMILIA_ME = 'https://www.remilia.net/api/v1/me';
 
 const json = (body, status = 200) => new Response(JSON.stringify(body), {
   status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store' }
@@ -55,7 +61,7 @@ async function readToken(secret, request) {
   const parts = token.split('.');
   if (parts.length !== 3) return null;
   const [address, expires, mac] = parts;
-  if (!ADDRESS.test(address) || !/^\d+$/.test(expires)) return null;
+  if (!IDENT.test(address) || !/^\d+$/.test(expires)) return null;
   if (Number(expires) < Date.now()) return null;
   return same(mac, await hmac(secret, `${address}.${expires}`)) ? address : null;
 }
@@ -101,6 +107,22 @@ export async function onRequest({ request, env, params }) {
       await env.SAVES.delete(key);                             // one nonce, one session
       const { token, expires } = await mintToken(env.SAVE_SECRET, address);
       return json({ token, address: address.toLowerCase(), expires });
+    }
+
+    // The RemiliaNET door. The access token never leaves this request: it is shown to RemiliaNET
+    // once, to learn the handle, and what the browser gets back is the same plain HMAC session.
+    if (method === 'POST' && route === 'remilia') {
+      const { access_token } = await request.json();
+      if (typeof access_token !== 'string' || !access_token) return json({ error: 'a RemiliaNET access token, please' }, 400);
+      const who = await fetch(REMILIA_ME, { headers: { authorization: `Bearer ${access_token}`, accept: 'application/json' } });
+      if (who.status === 401 || who.status === 403) return json({ error: 'RemiliaNET did not accept that sign-in' }, 401);
+      if (!who.ok) return json({ error: `RemiliaNET answered ${who.status}` }, 502);
+      const me = await who.json();
+      const handle = String((me.user && me.user.username) || me.username || '').toLowerCase();
+      if (!HANDLE.test(handle)) return json({ error: 'RemiliaNET did not say who that is' }, 502);
+      const ident = `rn:${handle}`;
+      const { token, expires } = await mintToken(env.SAVE_SECRET, ident);
+      return json({ token, address: ident, handle, expires });
     }
 
     // POST is the same write as PUT: it is what sendBeacon can send as a tab closes

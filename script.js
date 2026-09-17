@@ -641,7 +641,7 @@ function showView(name, { focus = 0, scroll = true } = {}) {
 // The game paints its pixel art (the map, the lab, the jar) on a canvas at the top of the LCD and renders the
 // rest of itself as the LCD's own HTML: menus, lists, tabs, photos. So the handheld's focus cursor, notes and
 // blips work on it like on every other screen. quest.js and its species data load the first time it is opened.
-const QUEST_SRC = 'quest.js?v=f4a6ad60';
+const QUEST_SRC = 'quest.js?v=1e661e26';
 const questCanvas = document.getElementById('quest-canvas');
 const questUi = document.getElementById('quest-ui');
 let questLoading = null;
@@ -658,6 +658,16 @@ function loadScript(src) {
 
 // signed in on RemiliaNET: play as yourself, saves keyed by your handle. Otherwise a guest save on this device.
 let questNotice = null;
+// The Beetleboy cards a player holds, as loose keys the game matches its beetles against: the card's
+// codename (the key), plus any name-like field on it. The game strips everything but letters and digits.
+function beetleKeys(cards) {
+  const out = new Set();
+  const add = (v) => { if (typeof v === 'string' && v.trim()) out.add(v); };
+  const walk = (k, v) => { add(k); if (v && typeof v === 'object') ['codename', 'name', 'title', 'slug', 'id'].forEach(f => add(v[f])); };
+  if (Array.isArray(cards)) cards.forEach(c => (typeof c === 'string' ? add(c) : walk(c && (c.codename || c.name || c.id), c)));
+  else if (cards && typeof cards === 'object') Object.entries(cards).forEach(([k, v]) => walk(k, v));
+  return [...out];
+}
 async function questUser() {
   questNotice = null;
   const token = REMILIA.clientId ? await remiliaAccessToken() : null;
@@ -665,7 +675,16 @@ async function questUser() {
   try {
     const me = await remiliaApi('/me');
     const u = me.user || me;
-    return { handle: u.username || 'remilia', displayName: u.displayName || u.username || 'remilia', pfpUrl: u.pfpUrl || null, id: u.username || u.id || 'remilia', guest: false };
+    if (u.username) store.set('remilia-handle', u.username);
+    // remilia:beetle.read: a beetle caught here that they hold there pays double cheese
+    let beetles = [], beetleCards = 0;
+    try {
+      const p = (await remiliaApi('/me/beetle/cards')).data || {};
+      const cards = p.cards || p;
+      beetles = beetleKeys(cards);
+      beetleCards = Array.isArray(cards) ? cards.length : Object.keys(cards).length;
+    } catch (_) { /* scope not granted, or no Beetle yet */ }
+    return { handle: u.username || 'remilia', displayName: u.displayName || u.username || 'remilia', pfpUrl: u.pfpUrl || null, id: u.username || u.id || 'remilia', guest: false, beetles, beetleCards };
   } catch (error) {
     questNotice = `RemiliaNET did not answer (${error.message}). playing as a guest for now.`;
     return null;
@@ -687,7 +706,12 @@ async function startQuest() {
       notice: questNotice,
       cloud: {
         save: () => (typeof cloudBackup === 'function' ? cloudBackup() : { ok: false, message: 'backing up is not switched on here' }),
-        status: () => ({ connected: Boolean(window.mossWallet?.isConnected?.()), address: window.mossWallet?.address?.() || null }),
+        // either door counts as signed in; the label names whichever are open, for the station's 'kept under' row
+        status: () => {
+          const w = window.mossWallet?.isConnected?.() ? (window.mossWallet.address?.() || null) : null;
+          const rn = typeof remiliaHandleNow === 'function' ? remiliaHandleNow() : null;
+          return { connected: Boolean(w || rn), address: w, remilia: rn, label: [w && `${w.slice(0, 6)}…${w.slice(-4)}`, rn && `@${rn}`].filter(Boolean).join(' · ') };
+        },
         connect: () => window.mossWallet?.open?.(),
         // the title's "restore": load the connector, sign, pull the save down and merge it in
         restore: () => cloudSync({ signIn: true })
@@ -1277,6 +1301,9 @@ async function remiliaToken(body) {
   return payload;
 }
 
+// why the last sign-in attempt failed, shown once on the profile view
+let remiliaError = null;
+
 // the authorization server sends the visitor back here with ?code=&state=
 async function remiliaHandleReturn() {
   const url = new URL(location.href);
@@ -1288,12 +1315,12 @@ async function remiliaHandleReturn() {
   history.replaceState({}, '', url.pathname); // do not leave the code in the address bar
   store.drop('remilia-state');
   store.drop('remilia-verifier');
-  if (!expected || state !== expected || !verifier) { setNote('sign-in did not match this browser'); return false; }
+  if (!expected || state !== expected || !verifier) { remiliaError = 'this browser did not start that sign-in'; return false; }
   try {
     await remiliaToken({ grant_type: 'authorization_code', code, redirect_uri: REMILIA.redirect, code_verifier: verifier });
     return true;
   } catch (error) {
-    console.warn('RemiliaNET sign-in failed:', error);
+    remiliaError = error.message;
     return false;
   }
 }
@@ -1321,8 +1348,12 @@ async function remiliaApi(path) {
   return response.json();
 }
 
+// the handle behind the current login, for readers that cannot wait on the API (the game's save station)
+const remiliaHandleNow = () => (store.get('remilia-access') ? (store.get('remilia-handle') || 'remilia') : null);
+
 function remiliaSignOut(redirect = true) {
-  ['remilia-access', 'remilia-refresh', 'remilia-expires'].forEach(store.drop);
+  ['remilia-access', 'remilia-refresh', 'remilia-expires', 'remilia-handle'].forEach(store.drop);
+  if (typeof setCloudToken === 'function') setCloudToken(null, 'remilia');   // the save door closes with the login
   if (redirect) showRemilia();
 }
 
@@ -1386,16 +1417,25 @@ async function showRemilia() {
     try {
       const me = await remiliaApi('/me');
       const user = me.user || me;
+      if (user.username) store.set('remilia-handle', user.username);
       remiliaMsg.textContent = `signed in as ${user.username || 'you'}`;
       remiliaCard(user);
     } catch (error) {
       remiliaMsg.textContent = `Could not read your profile: ${error.message}`;
     }
+    // remilia:stats.read: per-platform stats, of which the ethereum block and the aggregate scores matter here
+    try {
+      const stats = (await remiliaApi('/me/stats')).data || {};
+      const eth = stats.stats && stats.stats.ethereum;
+      if (eth && eth.cult_tier) remiliaRow('cult tier', String(eth.cult_tier));
+      if (eth && eth.total_owned != null) remiliaRow('remilia nfts', Number(eth.total_owned).toLocaleString());
+      Object.entries(stats.aggregate_scores || {}).slice(0, 6).forEach(([k, v]) => { if (typeof v === 'number') remiliaRow(k.replace(/_/g, ' '), v.toLocaleString()); });
+    } catch (_) { /* scope not granted */ }
     // the Beetle needs remilia:beetle.read; without it the call answers 403
     try {
-      const beetle = await remiliaApi('/me/beetle');
+      const beetle = (await remiliaApi('/me/beetle')).data || {};
       if (beetle.level != null) remiliaRow('beetle level', beetle.level);
-      if (beetle.xp != null) remiliaRow('beetle xp', beetle.xp);
+      if (beetle.xp != null) remiliaRow('beetle xp', Number(beetle.xp).toLocaleString());
     } catch (_) { /* scope not granted, or no beetle yet */ }
     remiliaButton('SIGN OUT', 'forget this session on this device', () => remiliaSignOut());
     setFocus(0, { scroll: false });
@@ -1410,6 +1450,7 @@ async function showRemilia() {
   } catch (error) {
     remiliaMsg.textContent = `Could not reach RemiliaNET: ${error.message}`;
   }
+  if (remiliaError) { remiliaMsg.textContent = `sign-in failed: ${remiliaError}`; remiliaError = null; }
   remiliaButton('VIEW ON REMILIA.NET', 'open this profile on remilia.net', () => window.open(`https://www.remilia.net/~${REMILIA.handle}`, '_blank', 'noopener'));
   if (REMILIA.clientId) remiliaButton('SIGN IN', 'see your own profile and Beetle here', remiliaSignIn);
   setFocus(0, { scroll: false });
@@ -1506,16 +1547,23 @@ itemStage.addEventListener('click', () => { sound.tick(); setShowcase(!views.ite
 
 // ---------- cloud saves ----------
 // The MossDex lives in localStorage and always will; this copies it to /save under the
-// wallet that signed for it, so the same game opens on another device. Every step here is
-// allowed to fail: the game never waits on it and never breaks when it is switched off.
-const SAVE_TOKEN = 'moss-save-token';
+// wallet that signed for it and/or the RemiliaNET account that is logged in, so the same game
+// opens on another device. Two doors, one MossDex: a sync reads every copy there is, merges
+// them (nothing found is ever lost) and writes the result back through each door. Every step
+// here is allowed to fail: the game never waits on it and never breaks when it is switched off.
+const SAVE_TOKEN = 'moss-save-token';                  // the wallet's session
+const SAVE_TOKEN_RN = 'moss-save-token-remilia';       // the RemiliaNET login's session
 let savePushed = '';                                   // the last JSON this tab wrote to the cloud
 let saveTimer = 0;
 const saveNote = (text) => setTimeout(() => setNote(text), 0);   // land after the click's own focus note, not before
 
-const cloudToken = () => { try { return JSON.parse(localStorage.getItem(SAVE_TOKEN) || 'null'); } catch (_) { return null; } };
-function setCloudToken(v) { try { v ? localStorage.setItem(SAVE_TOKEN, JSON.stringify(v)) : localStorage.removeItem(SAVE_TOKEN); } catch (_) { /* private mode */ } }
-const cloudLive = () => { const t = cloudToken(); return t && t.expires > Date.now() ? t : null; };
+const tokenKey = (kind) => (kind === 'remilia' ? SAVE_TOKEN_RN : SAVE_TOKEN);
+const cloudToken = (kind) => { try { return JSON.parse(localStorage.getItem(tokenKey(kind)) || 'null'); } catch (_) { return null; } };
+function setCloudToken(v, kind) { try { v ? localStorage.setItem(tokenKey(kind), JSON.stringify(v)) : localStorage.removeItem(tokenKey(kind)); } catch (_) { /* private mode */ } }
+const cloudLive = (kind) => { const t = cloudToken(kind); return t && t.expires > Date.now() ? t : null; };
+const cloudTokens = () => [cloudLive('wallet'), cloudLive('remilia')].filter(Boolean);
+const cloudKind = (t) => (t.address.startsWith('rn:') ? 'remilia' : 'wallet');
+const cloudLabel = (t) => (cloudKind(t) === 'remilia' ? `@${t.handle || t.address.slice(3)}` : `${t.address.slice(0, 6)}…${t.address.slice(-4)}`);
 
 async function cloudCall(path, { method = 'GET', body, token } = {}) {
   const response = await fetch(`/save${path}`, {
@@ -1554,36 +1602,67 @@ async function cloudSignIn() {
 
   const session = await cloudCall('/session', { method: 'POST', body: { address, signature } });
   if (!session.ok) { saveNote(session.data.error || 'that signature was not accepted'); return null; }
-  setCloudToken(session.data);
+  setCloudToken(session.data, 'wallet');
   return session.data;
 }
 
-/** Pull what the cloud has, fold it into the game, push the result back. */
+// The RemiliaNET door needs no signature: the login this site already holds is the proof, so
+// this runs on every sync and costs the player nothing. Without a login it simply answers null.
+async function cloudSignInRemilia() {
+  const access = typeof remiliaAccessToken === 'function' ? await remiliaAccessToken() : null;
+  if (!access) return null;
+  const session = await cloudCall('/remilia', { method: 'POST', body: { access_token: access } });
+  if (!session.ok) { saveNote(session.data.error || 'RemiliaNET did not vouch for this sign-in'); return null; }
+  setCloudToken(session.data, 'remilia');
+  return session.data;
+}
+
+// Open every door there is a key for: the RemiliaNET one is free; the wallet one asks for a
+// signature, so it is only asked for when the wallet is connected or there is no other door.
+async function cloudOpenDoors({ signIn = false } = {}) {
+  if (!cloudLive('remilia')) await cloudSignInRemilia().catch(() => null);
+  if (signIn && !cloudLive('wallet') && (window.mossWallet?.isConnected?.() || !cloudLive('remilia'))) await cloudSignIn();
+  return cloudTokens();
+}
+
+// Read each door's copy, fold them all into the game, write the merged MossDex back through each.
+async function cloudPullPush(tokens) {
+  let merged = window.mossQuest.getSave();
+  const live = [];
+  for (const t of tokens) {
+    const pulled = await cloudCall('', { token: t.token });
+    if (pulled.status === 401) { setCloudToken(null, cloudKind(t)); continue; }
+    if (pulled.status === 503) return { error: pulled.data.error };
+    if (pulled.ok && pulled.data.save) merged = window.mossQuest.setSave(pulled.data.save, { merge: true });
+    live.push(t);
+  }
+  if (!live.length) return { error: 'that sign-in expired · try again' };
+  const body = JSON.stringify(merged);
+  const labels = [];
+  for (const t of live) {
+    const pushed = await cloudCall('', { method: 'PUT', token: t.token, body: merged });
+    if (!pushed.ok) return { error: pushed.data.error || 'could not back up' };
+    labels.push(cloudLabel(t));
+  }
+  savePushed = body;
+  return { labels };
+}
+
+/** Pull what every door has, fold it into the game, push the result back through each. */
 async function cloudSync({ signIn = false } = {}) {
   if (!window.mossQuest?.getSave) { saveNote('open Moss Quest first'); return; }
-  let token = cloudLive();
-  if (!token && signIn) token = await cloudSignIn();
-  if (!token) {
+  const tokens = await cloudOpenDoors({ signIn });
+  if (!tokens.length) {
     // Never fail silently here: the player cannot tell an empty backup from one that was
     // simply never requested, and that is exactly what it looks like when a save goes missing.
     if (!signIn) saveNote(window.mossWallet?.isConnected?.()
       ? 'a wallet copy may exist \u00b7 use the Quick-E-Mart terminal to sign in and restore it'
-      : 'not signed in \u00b7 connect a wallet to restore a saved MossDex');
+      : 'not signed in \u00b7 connect a wallet or sign in to RemiliaNET to restore a saved MossDex');
     return;
   }
-
-  const pulled = await cloudCall('', { token: token.token });
-  if (pulled.status === 401) { setCloudToken(null); saveNote('that sign-in expired · try again'); return; }
-  if (pulled.status === 503) { saveNote(pulled.data.error); return; }
-
-  const merged = pulled.ok && pulled.data.save
-    ? window.mossQuest.setSave(pulled.data.save, { merge: true })
-    : window.mossQuest.getSave();
-
-  const body = JSON.stringify(merged);
-  const pushed = await cloudCall('', { method: 'PUT', token: token.token, body: merged });
-  if (pushed.ok) { savePushed = body; saveNote(`MossDex backed up to ${token.address.slice(0, 6)}…${token.address.slice(-4)}`); }
-  else saveNote(pushed.data.error || 'could not back up');
+  const r = await cloudPullPush(tokens);
+  if (r.error) saveNote(r.error);
+  else saveNote(`MossDex backed up to ${r.labels.join(' and ')}`);
 }
 
 // while the game is open, send the save up when it has actually changed
@@ -1591,42 +1670,32 @@ function cloudWatch(on) {
   clearInterval(saveTimer); saveTimer = 0;
   if (!on) return;
   saveTimer = setInterval(async () => {
-    const token = cloudLive();
-    if (!token || !window.mossQuest?.getSave || document.hidden) return;
+    const tokens = cloudTokens();
+    if (!tokens.length || !window.mossQuest?.getSave || document.hidden) return;
     const body = JSON.stringify(window.mossQuest.getSave());
     if (body === savePushed) return;
-    const r = await cloudCall('', { method: 'PUT', token: token.token, body: JSON.parse(body) });
-    if (r.ok) savePushed = body;
+    let ok = true;
+    for (const t of tokens) { const r = await cloudCall('', { method: 'PUT', token: t.token, body: JSON.parse(body) }); ok = ok && r.ok; }
+    if (ok) savePushed = body;
   }, 60000);
 }
 addEventListener('pagehide', () => {
-  const token = cloudLive();
-  if (!token || !window.mossQuest?.getSave) return;
+  const tokens = cloudTokens();
+  if (!tokens.length || !window.mossQuest?.getSave) return;
   const body = JSON.stringify(window.mossQuest.getSave());
   if (body === savePushed) return;
   // a Blob keeps the content type; sendBeacon cannot set an Authorization header, so the
   // token rides in the query and the endpoint is happy either way
-  navigator.sendBeacon?.(`/save?t=${encodeURIComponent(token.token)}`, new Blob([body], { type: 'application/json' }));
+  for (const t of tokens) navigator.sendBeacon?.(`/save?t=${encodeURIComponent(t.token)}`, new Blob([body], { type: 'application/json' }));
 });
 // what the save station calls: the same sync, but it answers rather than only setting a note
 async function cloudBackup() {
   if (!window.mossQuest?.getSave) return { ok: false, message: 'the game is not open' };
-  let token = cloudLive();
-  if (!token) token = await cloudSignIn();
-  if (!token) return { ok: false, message: 'not backed up · connect a wallet and sign' };
-
-  const pulled = await cloudCall('', { token: token.token });
-  if (pulled.status === 401) { setCloudToken(null); return { ok: false, message: 'that sign-in expired · try again' }; }
-  if (pulled.status === 503) return { ok: false, message: pulled.data.error };
-
-  const merged = pulled.ok && pulled.data.save
-    ? window.mossQuest.setSave(pulled.data.save, { merge: true })
-    : window.mossQuest.getSave();
-  const body = JSON.stringify(merged);
-  const pushed = await cloudCall('', { method: 'PUT', token: token.token, body: merged });
-  if (!pushed.ok) return { ok: false, message: pushed.data.error || 'could not back up' };
-  savePushed = body;
-  return { ok: true, message: `kept on ${token.address.slice(0, 6)}…${token.address.slice(-4)} · it will follow you to another screen` };
+  const tokens = await cloudOpenDoors({ signIn: true });
+  if (!tokens.length) return { ok: false, message: 'not backed up · connect a wallet or sign in to RemiliaNET' };
+  const r = await cloudPullPush(tokens);
+  if (r.error) return { ok: false, message: r.error };
+  return { ok: true, message: `kept under ${r.labels.join(' and ')} · it will follow you to another screen` };
 }
 
 function toTitle() { if (activeView !== 'title') { sound.close(); showView('title'); } }
@@ -1752,3 +1821,7 @@ document.addEventListener('keyup', (e) => {
 renderWallet();
 sound.render();
 setFocus(0, { scroll: false });
+
+// a visitor coming back from RemiliaNET lands on the title with ?code= in the address: finish the
+// sign-in and open their own profile, so there is proof it took (or a reason it did not)
+if (new URL(location.href).searchParams.has('code')) remiliaHandleReturn().then(() => showRemilia());

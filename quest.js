@@ -286,7 +286,12 @@ const pname=()=>norm(playerName()).slice(0,18);
 
 /* ---------------- save ---------------- */
 const SAVE_V=2;
-const fresh=()=>({v:SAVE_V,name:null,char:null,jar:{},started:Date.now(),collected:{},seen:{},region:null,steps:0,last:null,cheese:0,beetles:{},pity:0,introDone:false,pet:null});
+const fresh=()=>({v:SAVE_V,name:null,char:null,jar:{},started:Date.now(),collected:{},seen:{},gone:{},region:null,steps:0,last:null,cheese:0,beetles:{},pity:0,introDone:false,pet:null,updated:0});
+// A species enters the MossDex with the time it was logged, and leaves it (sold, swapped) with a
+// tombstone. The merge keeps whichever happened later, so a sale on one device is not undone by
+// the copy on another that still lists the moss.
+function gain(key){save.collected[key]=Date.now();if(save.gone)delete save.gone[key];}
+function lose(key){delete save.collected[key];(save.gone=save.gone||{})[key]=Date.now();}
 let save=fresh();
 const saveKey=()=>'mossquest.save.'+(user?(user.id||user.handle):'guest');
 function loadSave(){save=fresh();try{const s=localStorage.getItem(saveKey())||(user&&user.guest?localStorage.getItem('mossquest.save'):null);if(s)save=Object.assign(save,JSON.parse(s));}catch(e){}if(!save.started)save.started=Date.now();pruneSave();}
@@ -294,6 +299,7 @@ function loadSave(){save=fresh();try{const s=localStorage.getItem(saveKey())||(u
 function pruneSave(){if(!SP)return;const have=new Set(SP.map(x=>String(x.key)));let dropped=0;
   for(const k of Object.keys(save.collected))if(!have.has(k)){delete save.collected[k];dropped++;}
   for(const k of Object.keys(save.seen))if(!have.has(k))delete save.seen[k];
+  for(const k of Object.keys(save.gone||{}))if(!have.has(k))delete save.gone[k];
   if(save.last!=null&&!have.has(String(save.last)))save.last=null;
   if(save.pet&&!have.has(String(save.pet.key))){save.pet=null;dropped++;}
   if(!CONT.includes(save.region))save.region=null;
@@ -301,22 +307,36 @@ function pruneSave(){if(!SP)return;const have=new Set(SP.map(x=>String(x.key)));
 // Whether the last write to this device failed. A full or blocked localStorage used to lose
 // the game quietly; now it says so once, and the station reports it instead of SAVE COMPLETE.
 let saveErr=false;
-function persist(){try{localStorage.setItem(saveKey(),JSON.stringify(save));saveErr=false;return true;}
+function persist(){save.updated=Date.now();try{localStorage.setItem(saveKey(),JSON.stringify(save));saveErr=false;return true;}
   catch(e){if(!saveErr)say('THIS DEVICE WILL NOT HOLD THE SAVE. BACK IT UP AT A TERMINAL',300);saveErr=true;return false;}}
 /* Two saves of the same MossDex, reconciled. Nothing found is ever lost: a species you
    logged on your phone and one you logged on your laptop both survive. */
 function mergeSaves(a,b){
   if(!a)return b?JSON.parse(JSON.stringify(b)):null;
   if(!b)return JSON.parse(JSON.stringify(a));
-  const newer=(Number(b.last)||Number(b.started)||0)>=(Number(a.last)||Number(a.started)||0)?b:a,older=newer===b?a:b;
+  // The copy touched last is the one the player was actually playing; everything single-valued
+  // (cheese, the jar's moss, the name, the day's shop) is its word. A copy with nothing in it (a
+  // new phone, a cleared browser) is never the newer one, whatever its clock says; a copy from
+  // before saves were stamped falls back to the time of its last station save.
+  const has=x=>Object.keys(x.collected||{}).length||Number(x.cheese)||x.pet||Object.keys(x.jar||{}).length||Object.keys(x.beetles||{}).length;
+  const stamp=x=>has(x)?(Number(x.updated)||Number(x.saved)||1):0;
+  const newer=stamp(b)>=stamp(a)?b:a,older=newer===b?a:b;
   const out=Object.assign({},older,newer);
-  const earliest=(x,y)=>{const o={};for(const k of new Set([...Object.keys(x||{}),...Object.keys(y||{})])){const p=Number(x&&x[k])||0,q=Number(y&&y[k])||0;o[k]=Math.min(p||q||1,q||p||1);}return o;};
-  out.collected=earliest(a.collected,b.collected);
+  const ts=v=>Number(v)||1;
+  // logged on either side, unless it was sold or swapped away after it was logged
+  const gone={};for(const k of new Set([...Object.keys(a.gone||{}),...Object.keys(b.gone||{})]))gone[k]=Math.max(Number(a.gone&&a.gone[k])||0,Number(b.gone&&b.gone[k])||0);
+  out.collected={};
+  for(const k of new Set([...Object.keys(a.collected||{}),...Object.keys(b.collected||{})])){
+    const p=a.collected&&a.collected[k],q=b.collected&&b.collected[k];
+    const when=p&&q?Math.min(ts(p),ts(q)):ts(p||q);
+    if(gone[k]&&gone[k]>when)continue;
+    out.collected[k]=when;delete gone[k];}
+  out.gone=gone;
   out.seen=Object.assign({},a.seen,b.seen);
   const most={};for(const k of new Set([...Object.keys(a.beetles||{}),...Object.keys(b.beetles||{})]))most[k]=Math.max(Number(a.beetles&&a.beetles[k])||0,Number(b.beetles&&b.beetles[k])||0);
   out.beetles=most;
-  out.jar=Object.assign({},a.jar,b.jar);
-  for(const k of ['cheese','steps','pity'])out[k]=Math.max(Number(a[k])||0,Number(b[k])||0);
+  out.jar=Object.assign({},a.jar,b.jar);            // jar goods are bought once and kept
+  out.steps=Math.max(Number(a.steps)||0,Number(b.steps)||0);
   out.started=Math.min(Number(a.started)||Date.now(),Number(b.started)||Date.now());
   out.introDone=!!(a.introDone||b.introDone);
   out.v=SAVE_V;
@@ -742,11 +762,11 @@ const BUYP=[4,9,15],SELLP=[1,3,6];
 function dailyStock(c){const st=shopState();const r=rng(hashStr(dayKey()+'stock'+c));const pick=(t,n)=>{const L=roster[c].filter(x=>tierOf(x,c)===t&&!save.collected[x.key]).sort((A,B)=>String(A.key)<String(B.key)?-1:1);const out=[];for(let k=0;k<n&&L.length;k++)out.push(L.splice((r()*L.length)|0,1)[0]);return out;};
   const rows=[...pick(0,2),...pick(1,2),...pick(2,1)];return rows.map(sp=>{const t=tierOf(sp,c);const wob=((hashStr(dayKey()+sp.key)%5)-2);const yest=((hashStr(String(Number(dayKey().slice(-2))-1)+sp.key)%5)-2);return {sp,t,price:Math.max(2,BUYP[t]+wob),up:wob>=yest,sold:!!st.sold[sp.key]};});}
 function shopBuy(key){const c=REG(),st=shopState();const it=dailyStock(c).find(x=>String(x.sp.key)===String(key));if(!it||it.sold)return;if(save.cheese<it.price){snd('miss');say(it.price+' CHEESE. NO CREDIT');return;}
-  save.cheese-=it.price;st.sold[it.sp.key]=true;save.collected[it.sp.key]=Date.now();save.seen[it.sp.key]=1;persist();snd('collect',it.sp.id);say('BOUGHT '+it.sp.name.toUpperCase()+'. IT NEVER HAPPENED.');dirty();}
+  save.cheese-=it.price;st.sold[it.sp.key]=true;gain(it.sp.key);save.seen[it.sp.key]=1;persist();snd('collect',it.sp.id);say('BOUGHT '+it.sp.name.toUpperCase()+'. IT NEVER HAPPENED.');dirty();}
 let confirmSell=null;
 function shopSell(key){const c=REG();const sp=SP.find(x=>String(x.key)===String(key));if(!sp||!save.collected[sp.key])return;const pr=SELLP[tierOf(sp,c)];
   if(confirmSell!==String(key)){confirmSell=String(key);snd('miss');say('HE OFFERS '+pr+' CHEESE FOR '+sp.name.toUpperCase()+'. PRESS AGAIN TO SELL');return;}
-  confirmSell=null;delete save.collected[sp.key];save.seen[sp.key]=1;save.cheese+=pr;persist();snd('ok');say('SOLD. '+sp.name.toUpperCase()+' IS OFF YOUR MOSSDEX. +'+pr+' CHEESE');dirty();}
+  confirmSell=null;lose(sp.key);save.seen[sp.key]=1;save.cheese+=pr;persist();snd('ok');say('SOLD. '+sp.name.toUpperCase()+' IS OFF YOUR MOSSDEX. +'+pr+' CHEESE');dirty();}
 function dailyCutting(c){const r=rng(hashStr(dayKey()+c));const L=roster[c].filter(x=>tierOf(x,c)===2&&!save.collected[x.key]);return L.length?L[(r()*L.length)|0]:null;}
 const QUIPS=['heard the professor lost something. a thousand somethings. terrible business.','files go missing all the time. sometimes they turn up again. for a price.','I never click links. ask him if he does.','the moss remembers what the database forgot.','keep your voice down. these walls have spores.','somebody was shopping a very long moss list last night. was not me. I only buy.','every entry you bring back, somebody wanted gone. think about that.','you did not see me. you did not see the coat.'];
 function openShop(){shopState();confirmSell=null;shop={mode:'menu',pick:[],quip:QUIPS[(Math.random()*QUIPS.length)|0],res:null};snd('move',2);go('shop');}
@@ -754,12 +774,12 @@ function shopTip(){if(save.cheese<3){snd('miss');say('THREE CHEESE FOR A TIP');r
   let o=spots.find(q=>q.sp&&!known(q.sp)&&!q.tip);if(!o){o=spots.find(q=>!q.tip);if(!o){snd('miss');say('HE HAS ALREADY POINTED AT EVERYTHING');return;}o.sp=unseen[(Math.random()*unseen.length)|0];}
   o.tip=true;save.cheese-=3;persist();snd('ok');const dx=o.x-player.x,dy=o.y-player.y;const ns=dy<-2?'north':dy>2?'south':'',ew=dx<-2?'west':dx>2?'east':'';const dir=(ns&&ew)?ns+'-'+ew:(ns||ew||'right here');const steps=Math.abs(dx)+Math.abs(dy);shop.quip=steps<3?'you are standing next to it. the tuft with the question mark.':'about '+steps+' steps '+dir+' of this door. look for the question mark over the tuft. you did not hear it from me.';dirty();}
 function shopCutting(){const c=REG(),st=shopState();const sp=dailyCutting(c);if(!sp||st.sold[c]){snd('miss');say('SOLD OUT. COME BACK TOMORROW');return;}if(save.cheese<15){snd('miss');say('FIFTEEN CHEESE. NO CREDIT');return;}
-  save.cheese-=15;st.sold[c]=true;save.collected[sp.key]=Date.now();save.seen[sp.key]=1;persist();snd('collect',sp.id);shop.res={sp,t:'a cutting of '+sp.name+'. this never happened.'};shop.mode='result';dirty();}
+  save.cheese-=15;st.sold[c]=true;gain(sp.key);save.seen[sp.key]=1;persist();snd('collect',sp.id);shop.res={sp,t:'a cutting of '+sp.name+'. this never happened.'};shop.mode='result';dirty();}
 function shopPick(key){key=String(key);const i=shop.pick.indexOf(key);if(i>=0)shop.pick.splice(i,1);else if(shop.pick.length<2)shop.pick.push(key);else{snd('miss');say('TWO AT A TIME');return;}snd('move',shop.pick.length);dirty();}
 function shopDeal(){const c=REG();if(shop.pick.length!==2)return;const A=SP.find(x=>String(x.key)===shop.pick[0]),B=SP.find(x=>String(x.key)===shop.pick[1]);if(!A||!B)return;const t=tierOf(A,c);if(tierOf(B,c)!==t){snd('miss');say('TWO OF THE SAME KIND');return;}
   const pool=roster[c].filter(x=>tierOf(x,c)===t+1&&!save.collected[x.key]);if(!pool.length){snd('miss');say('HE HAS NOTHING OF THAT KIND LEFT');return;}
-  delete save.collected[A.key];save.seen[A.key]=1;
-  if(Math.random()<0.8){delete save.collected[B.key];save.seen[B.key]=1;const sp=pool[(Math.random()*pool.length)|0];save.collected[sp.key]=Date.now();save.seen[sp.key]=1;shop.res={sp,t:'done. '+sp.name+' is yours. '+A.name+' and '+B.name+' are his now.'};snd('collect',sp.id);}
+  lose(A.key);save.seen[A.key]=1;
+  if(Math.random()<0.8){lose(B.key);save.seen[B.key]=1;const sp=pool[(Math.random()*pool.length)|0];gain(sp.key);save.seen[sp.key]=1;shop.res={sp,t:'done. '+sp.name+' is yours. '+A.name+' and '+B.name+' are his now.'};snd('collect',sp.id);}
   else{shop.res={sp:null,t:'the deal fell through. he kept '+A.name+' anyway. '+B.name+' is still yours. that is the risk.'};snd('miss');}
   shop.pick=[];shop.mode='result';persist();dirty();}
 function drawShop(){rect(0,0,cv.width,cv.height,'#2f4a5e');const r=rng(99);for(let i=0;i<34;i++){const x=(r()*cv.width)|0,y=(r()*(cv.height-30))|0;px(x,y,'#1f3242',9,1);px(x+4,y-4,'#1f3242',1,4);}
@@ -857,7 +877,7 @@ function useHint(){if(enc.hinted||save.cheese<1){snd('miss');say(enc.hinted?'THE
   save.cheese--;enc.hinted=true;const wrong=enc.opts.map((o,i)=>i).filter(i=>enc.opts[i]!==enc.sp);for(let k=wrong.length-1;k>0;k--){const j=(Math.random()*(k+1))|0;[wrong[k],wrong[j]]=[wrong[j],wrong[k]];}
   enc.gone=wrong.slice(0,2);persist();snd('beetle');dirty();}
 function answer(i){if(enc.phase!==1||enc.gone.includes(i))return;const ok=enc.opts[i]===enc.sp;enc.ok=ok;enc.cur=i;enc.phase=2;save.seen[enc.sp.key]=1;save.last=enc.sp.key;
-  if(ok)save.collected[enc.sp.key]=Date.now();persist();snd(ok?'collect':'miss',enc.sp.id);dirty();}
+  if(ok)gain(enc.sp.key);persist();snd(ok?'collect':'miss',enc.sp.id);dirty();}
 function encDone(){respawnSpot(enc.spot);toast=null;if(nCollected()>=SP.length){snd('win');go('win');}else go('world');}
 // Whether the intro has ever been finished ON THIS DEVICE. save.introDone dies with the save;
 // this does not, which is the whole point -- a restored player should not be taught again.
@@ -1201,17 +1221,21 @@ function statusText(){const n=nCollected()+'/'+SP.length;
 function pushStatus(){const t=statusText();if(t!==lastStatus){lastStatus=t;if(opts.onStatus)opts.onStatus(t);}}
 let raf=0,running=false;
 function loop(){if(!running)return;syncKeys();update();for(const k in just)just[k]=false;if(uiDirty)render();drawScene();pushStatus();raf=requestAnimationFrame(loop);}
+// Resolves once the species data is in and the player's own save is loaded: until then getSave()
+// is an empty save, and a host that syncs against it will happily adopt a stale copy over the real one.
+let readyResolve=null,ready=new Promise(r=>{readyResolve=r;});
 function start(canvas,o){opts=o||{};cv=canvas;ctx=cv.getContext('2d');cv.width=CW;cv.height=CH;ctx.imageSmoothingEnabled=false;ui=opts.ui||null;
+  ready=new Promise(r=>{readyResolve=r;});
   if(!cv.__mossQuest){cv.__mossQuest=true;bindPointer(cv);}
   if(ui&&!ui.__mossQuest){ui.__mossQuest=true;ui.addEventListener('click',e=>{const el=e.target.closest('[data-act]');if(el&&ui.contains(el))act(el.dataset.act,el.dataset.arg);});}
   const begin=()=>{if(!SP)loadData(opts.data);setUser(opts.user||GUEST);setMute(!!opts.muted);for(const k in held)held[k]=false;
-    if(state!=='title'&&save.region)ambientFor(CONT.indexOf(save.region));lastStatus='';running=true;if(opts.notice){toast={t:opts.notice,n:400};opts.notice=null;}dirty();cancelAnimationFrame(raf);raf=requestAnimationFrame(loop);};
+    if(state!=='title'&&save.region)ambientFor(CONT.indexOf(save.region));lastStatus='';running=true;if(opts.notice){toast={t:opts.notice,n:400};opts.notice=null;}dirty();cancelAnimationFrame(raf);raf=requestAnimationFrame(loop);readyResolve();};
   const fail=e=>{if(opts.onStatus)opts.onStatus('the MossDex could not load');if(ui){ui.innerHTML=`<p class="lcd-msg">the MossDex could not load: ${esc(e&&e.message||e)}</p><ul class="menu item-links"><li><button type="button" class="menu-item focusable" data-act="sys:retry" data-note="fetch the species data again">try again</button></li></ul>`;if(opts.onRender)opts.onRender(0);}};
   if(SP||opts.data)begin();else fetch(opts.dataUrl||'mossdex.json').then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json();}).then(d=>{loadData(d);begin();}).catch(fail);
   if(opts.dev&&!window.MQ)window.MQ=DEBUG;
   return api;}
 function stop(){running=false;cancelAnimationFrame(raf);amb.on=false;if(AC&&AC.state==='running')AC.suspend();}
-const api={start,stop,press:pressKey,hold:holdKey,handles,pad,setMuted:setMute,setUser,act,getSave,setSave,mergeSaves,get saveKey(){return saveKey();},get state(){return state;},get user(){return user;}};
+const api={start,stop,press:pressKey,hold:holdKey,handles,pad,setMuted:setMute,setUser,act,getSave,setSave,mergeSaves,get saveKey(){return saveKey();},get state(){return state;},get user(){return user;},get ready(){return ready;},get loaded(){return !!SP&&running;}};
 
 const DEBUG={get map(){return map;},get spots(){return spots;},get beetles(){return beetles;},get player(){return player;},get state(){return state;},get save(){return save;},get enc(){return enc;},get user(){return user;},
   setUser,go(c){enterRegion(c);},intro(){startIntro('world');dirty();},pet(){openPet();},ff(h){if(save.pet){save.pet.last-=h*3600000;simPet(save.pet,Date.now());persist();dirty();}},act,

@@ -641,7 +641,7 @@ function showView(name, { focus = 0, scroll = true } = {}) {
 // The game paints its pixel art (the map, the lab, the jar) on a canvas at the top of the LCD and renders the
 // rest of itself as the LCD's own HTML: menus, lists, tabs, photos. So the handheld's focus cursor, notes and
 // blips work on it like on every other screen. quest.js and its species data load the first time it is opened.
-const QUEST_SRC = 'quest.js?v=1e661e26';
+const QUEST_SRC = 'quest.js?v=297e8625';
 const questCanvas = document.getElementById('quest-canvas');
 const questUi = document.getElementById('quest-ui');
 let questLoading = null;
@@ -1570,6 +1570,14 @@ const cloudToken = (kind) => { try { return JSON.parse(localStorage.getItem(toke
 function setCloudToken(v, kind) { try { v ? localStorage.setItem(tokenKey(kind), JSON.stringify(v)) : localStorage.removeItem(tokenKey(kind)); } catch (_) { /* private mode */ } }
 const cloudLive = (kind) => { const t = cloudToken(kind); return t && t.expires > Date.now() ? t : null; };
 const cloudTokens = () => [cloudLive('wallet'), cloudLive('remilia')].filter(Boolean);
+// The game fetches its species data before it loads the player's save; until then its save is an
+// empty one, and a merge against it would adopt whatever the cloud holds. Wait for the real thing.
+async function gameReady() {
+  const q = window.mossQuest;
+  if (!q?.getSave) return false;
+  if (q.ready) await q.ready;
+  return true;
+}
 const cloudKind = (t) => (t.address.startsWith('rn:') ? 'remilia' : 'wallet');
 const cloudLabel = (t) => (cloudKind(t) === 'remilia' ? `@${t.handle || t.address.slice(3)}` : `${t.address.slice(0, 6)}…${t.address.slice(-4)}`);
 
@@ -1658,7 +1666,7 @@ async function cloudPullPush(tokens) {
 
 /** Pull what every door has, fold it into the game, push the result back through each. */
 async function cloudSync({ signIn = false } = {}) {
-  if (!window.mossQuest?.getSave) { saveNote('open Moss Quest first'); return; }
+  if (!(await gameReady())) { saveNote('open Moss Quest first'); return; }
   const tokens = await cloudOpenDoors({ signIn });
   if (!tokens.length) {
     // Never fail silently here: the player cannot tell an empty backup from one that was
@@ -1679,7 +1687,7 @@ function cloudWatch(on) {
   if (!on) return;
   saveTimer = setInterval(async () => {
     const tokens = cloudTokens();
-    if (!tokens.length || !window.mossQuest?.getSave || document.hidden) return;
+    if (!tokens.length || !window.mossQuest?.loaded || document.hidden) return;
     const body = JSON.stringify(window.mossQuest.getSave());
     if (body === savePushed) return;
     let ok = true;
@@ -1689,7 +1697,7 @@ function cloudWatch(on) {
 }
 addEventListener('pagehide', () => {
   const tokens = cloudTokens();
-  if (!tokens.length || !window.mossQuest?.getSave) return;
+  if (!tokens.length || !window.mossQuest?.loaded) return;
   const body = JSON.stringify(window.mossQuest.getSave());
   if (body === savePushed) return;
   // a Blob keeps the content type; sendBeacon cannot set an Authorization header, so the
@@ -1698,7 +1706,7 @@ addEventListener('pagehide', () => {
 });
 // what the save station calls: the same sync, but it answers rather than only setting a note
 async function cloudBackup() {
-  if (!window.mossQuest?.getSave) return { ok: false, message: 'the game is not open' };
+  if (!(await gameReady())) return { ok: false, message: 'the game is not open' };
   const tokens = await cloudOpenDoors({ signIn: true });
   if (!tokens.length) return { ok: false, message: 'not backed up · connect a wallet or sign in to RemiliaNET' };
   const r = await cloudPullPush(tokens);

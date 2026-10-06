@@ -1212,7 +1212,7 @@ function drawMap(){dots(0,0,cv.width,cv.height,'rgba(27,51,32,0.10)');const my=(
     if(cur){rect(x-5,y-5,11,1,C.red);rect(x-5,y+5,11,1,C.red);rect(x-5,y-5,1,11,C.red);rect(x+5,y-5,1,11,C.red);
       withFont(F7,()=>{const t=titleCase(CN[c])+' '+nCollectedIn(c)+'/'+roster[c].length;const w=tw(t)+6,lx=Math.max(2,Math.min(cv.width-w-2,x-(w>>1))),ly=y<my+30?y+9:y-19;bevelOut(lx,ly,w,12,C.paper);text(t,lx+3,ly+3,C.ink);});}}}
 function drawScene(){fitWorld();rect(0,0,cv.width,cv.height,C.paper);
-  if(state==='world')drawWorld();
+  if(state==='world'){if(!(plugin&&plugin.drawField&&plugin.drawField()))drawWorld();}
   else if(state==='region')drawMap();
   else if(state==='shop')drawShop();
   else if(state==='intro'&&intro.draw)intro.draw();

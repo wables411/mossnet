@@ -350,7 +350,7 @@ function setSave(next,{merge=false}={}){if(!next||typeof next!=='object')return 
   // a save with no continent cannot be stood in: send the player back to the title rather than into a map that is not there
   if(state!=='title'&&(!save.region||!map))go('title');else dirty();return getSave();}
 const nCollected=()=>Object.keys(save.collected).length;
-const nCollectedIn=c=>roster[c].filter(s=>save.collected[s.key]).length;
+const nCollectedIn=c=>(roster[c]||[]).filter(s=>save.collected[s.key]).length;
 const known=s=>save.collected[s.key]||save.seen[s.key];
 const nBeetles=()=>Object.values(save.beetles).reduce((a,b)=>a+b,0);
 
@@ -1082,7 +1082,7 @@ function render(){if(!ui)return;let h='',focus=0,scene='none';const u=user||GUES
   else if(state==='region'){scene='map';h=`<div class="lcd-header"><span class="lcd-header-title">WHERE TO?</span><span class="item-meta">${nCollected()} / ${SP.length} logged</span></div><div class="grid q-regions">`+
     CONT.map(c=>{const R=roster[c],g=nCollectedIn(c);return `<button type="button" class="menu-item focusable${c===save.region?' q-here':''}" data-act="region:go" data-arg="${c}" data-note="${esc(g+' / '+R.length+' here · '+low(THEMES[c].blurb))}">${esc(titleCase(CN[c]))}</button>`;}).join('')+'</div>';
     focus=Math.max(0,CONT.indexOf(save.region));}
-  else if(state==='world'){scene='world';const c=REG(),R=roster[c],g=nCollectedIn(c);const last=SP.find(s=>s.key===save.last);
+  else if(state==='world'){scene='world';const c=REG(),R=roster[c]||[],g=nCollectedIn(c);const last=SP.find(s=>s.key===save.last);
     const pm=plugin&&plugin.menu&&plugin.menu(),ph=!menuOpen&&plugin&&plugin.worldHtml&&plugin.worldHtml();
     if(menuOpen){h=`<ul class="menu">${heading(titleCase(CN[c]))}${(pm||MENU).map(m=>mi(m[0],m[2],null,m[1])).join('')}</ul>`;}
     else if(ph){h=ph;}

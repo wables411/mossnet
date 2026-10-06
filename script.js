@@ -698,6 +698,9 @@ async function questUser() {
 // RemiliaNET says who you are, not what you hold.
 async function questDisc() {
   if (typeof cloudOpenDoors !== 'function') return { ok: false, message: 'the disc needs cloud saves, which are off here' };
+  // first with whatever this browser already holds (a live session, or a local build with DISC_OPEN): no prompt
+  const quiet = await import('/disc/1.js').catch(() => null);
+  if (quiet && quiet.default) return { ok: true, disc: quiet.default, holdings: null, collections: [] };
   const tokens = await cloudOpenDoors({ signIn: true });
   const w = tokens.find(t => !t.address.startsWith('rn:'));
   let data = {};

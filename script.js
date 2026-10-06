@@ -1842,8 +1842,9 @@ lcd.addEventListener('click', (e) => {
 
 const KEYS = {
   ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
+  w: 'up', W: 'up', a: 'left', A: 'left', s: 'down', S: 'down', d: 'right', D: 'right',
   Enter: 'a', ' ': 'a', z: 'a', Z: 'a', Escape: 'b', Backspace: 'b',
-  x: 'x', X: 'x', y: 'y', Y: 'y', q: 'l', Q: 'l', e: 'r', E: 'r', s: 'start', S: 'start', c: 'select', C: 'select'
+  x: 'x', X: 'x', y: 'y', Y: 'y', q: 'l', Q: 'l', e: 'r', E: 'r', p: 'start', P: 'start', Tab: 'start', c: 'select', C: 'select'
 };
 const HELD_DIRS = new Set(['up', 'down', 'left', 'right']);
 document.addEventListener('keydown', (e) => {

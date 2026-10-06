@@ -339,6 +339,8 @@ function mergeSaves(a,b){
   out.steps=Math.max(Number(a.steps)||0,Number(b.steps)||0);
   out.started=Math.min(Number(a.started)||Date.now(),Number(b.started)||Date.now());
   out.introDone=!!(a.introDone||b.introDone);
+  // the disc: whichever copy got further into it
+  if(a.d1||b.d1)out.d1=(Number(a.d1&&a.d1.ch)||0)>=(Number(b.d1&&b.d1.ch)||0)?(a.d1||b.d1):b.d1;
   out.v=SAVE_V;
   return out;}
 /* the site's hooks: read the save, replace it, or fold another one into it */
@@ -380,7 +382,9 @@ function genMap(cont){const ci=CONT.indexOf(cont);theme=THEMES[cont];TL=buildTil
     if(x===0||y===0||x===MW-1||y===MH-1)t=theme.border;row.push(t);}map.push(row);}
   const tn=theme.town;if(tn){const tr=rng(ci*131+5);for(let y=tn.y;y<tn.y+tn.h;y++)for(let x=tn.x;x<tn.x+tn.w;x++){if(x<=0||y<=0||x>=MW-1||y>=MH-1)continue;const dx=x-tn.x,dy=y-tn.y;
     if(dx%4===0||dy%4===0||dx===tn.w-1||dy===tn.h-1)map[y][x]=tn.soft?PATH:ROAD;else{const q=tr();map[y][x]=q<tn.dens?BLDG:q<tn.dens+.25?PATH:G0;}}}
-  let sx=MW>>1,sy=MH>>1;for(let y=sy-1;y<=sy+1;y++)for(let x=sx-1;x<=sx+1;x++)if(!WALK[map[y][x]])map[y][x]=G0;
+  if(theme.tiles)Object.assign(TL,theme.tiles);   // a theme may bring tiles of its own (a disc's city)
+  let sx=MW>>1,sy=MH>>1;if(theme.start){sx=theme.start[0];sy=theme.start[1];}
+  if(theme.stamp)theme.stamp(map,r);for(let y=sy-1;y<=sy+1;y++)for(let x=sx-1;x<=sx+1;x++)if(!WALK[map[y][x]])map[y][x]=G0;
   if(cont==='EUROPE')stampPond(rng(ci*311+9),sx,sy);
   [sx,sy]=connectMap(sx,sy);
   player.x=sx;player.y=sy;player.px=sx*T;player.py=sy*T;player.mx=player.my=0;player.path=[];player.goal=null;
@@ -466,9 +470,10 @@ function pathTo(tx,ty){ // BFS from player to tx,ty (or to a tile adjacent to it
 function tapWorld(){const tx=Math.floor((click.x+cam.x)/T),ty=Math.floor((click.topy+cam.y)/T);if(tx<0||ty<0||tx>=MW||ty>=MH)return;
   if(tx===player.x&&ty===player.y)return;const path=pathTo(tx,ty);if(!path){snd('miss');return;}
   player.path=path;player.goal=thing(tx,ty)?{x:tx,y:ty}:null;snd('move',path.length);}
-function storeExit(){if(!store)return;const sh=STORE.length;if(player.y>=store.oy+sh-1)leaveStore();}
+function storeExit(){if(!store)return;const sh=store.h;if(player.y>=store.oy+sh-1){if(store.leave)store.leave();else leaveStore();}}
 function faceTowards(x,y){player.dir=x>player.x?'right':x<player.x?'left':y>player.y?'down':'up';}
 function interactAhead(){const dx={left:-1,right:1}[player.dir]||0,dy={up:-1,down:1}[player.dir]||0;const tx=player.x+dx,ty=player.y+dy;
+  if(plugin&&plugin.interact&&plugin.interact(tx,ty))return true;
   if(store){const t=map[ty]&&map[ty][tx];
     if(t===TERMINAL){openStation();return true;}
     return true;}
@@ -507,7 +512,8 @@ const INTRO=()=>[
  {t:'RECOVER ALL '+SP.length+' ENTRIES AND MY LIFE\'S WORK IS SAFE AGAIN. {NAME}, YOUR MOSS QUEST BEGINS NOW!'}];
 const INTRO_NO=[{t:'I UNDERSTAND. THE MOSS WILL WAIT, IT ALWAYS HAS. COME BACK WHEN YOU ARE READY, TRAVELER.'}];
 let intro={page:0,ch:0,ret:'region',pages:[],opt:false,kb:false,buf:'',bail:false};
-function startIntro(ret,pages){intro={page:0,ch:0,ret:ret||'region',pages:pages||INTRO(),opt:false,kb:false,buf:'',bail:false};state='intro';snd('chime');}
+function startIntro(ret,pages,who,draw){intro={page:0,ch:0,ret:ret||'region',pages:pages||INTRO(),opt:false,kb:false,buf:'',bail:false,who:who||null,draw:draw||null};state='intro';snd('chime');}
+const introWho=()=>((intro.pages[intro.page]||{}).who||intro.who||'PROF. CHAGA');
 const pageText=()=>sentence((intro.pages[intro.page]||{t:''}).t);
 function introNext(){if(intro.page<intro.pages.length-1){intro.page++;intro.ch=0;intro.opt=false;intro.kb=false;snd('move',intro.page);dirty();}else finishIntro();}
 
@@ -805,15 +811,17 @@ const STORE=[
 '#######..#######'];
 const STORE_T={'#':IWALL,'.':IFLOOR,'S':SHELF,'C':COUNTER,'E':CLERK,'T':TERMINAL};
 let outside=null;                                  // where the map and the player were before we came in
-function enterStore(){
-  outside={map,spots,beetles,x:player.x,y:player.y,px:player.px,py:player.py,dir:player.dir,cam:{x:cam.x,y:cam.y}};
-  const sw=STORE[0].length,sh=STORE.length,ox=(MW-sw)>>1,oy=(MH-sh)>>1;
-  const m=[];for(let y=0;y<MH;y++){const row=[];for(let x=0;x<MW;x++)row.push(IWALL);m.push(row);}
-  for(let y=0;y<sh;y++)for(let x=0;x<sw;x++)m[oy+y][ox+x]=STORE_T[STORE[y][x]];
+function enterStore(){enterRoom(STORE,STORE_T,'QUICK-E-MART',7);}
+// any room: a tile picture, its legend, a name for the toast, and the door column (the player stands on the row above the bottom wall)
+function enterRoom(rows,legend,label,doorX,o){o=o||{};
+  if(!outside)outside={map,spots,beetles,x:player.x,y:player.y,px:player.px,py:player.py,dir:player.dir,cam:{x:cam.x,y:cam.y}};
+  const sw=rows[0].length,sh=rows.length,ox=(MW-sw)>>1,oy=(MH-sh)>>1;
+  const m=[];for(let y=0;y<MH;y++){const row=[];for(let x=0;x<MW;x++)row.push(o.fill==null?IWALL:o.fill);m.push(row);}
+  for(let y=0;y<sh;y++)for(let x=0;x<sw;x++)m[oy+y][ox+x]=legend[rows[y][x]];
   map=m;spots=[];spots.pool=[];spots.reach=[];beetles=[];
-  const dx=ox+7,dy=oy+sh-2;                        // just inside the door
-  player.x=dx;player.y=dy;player.px=dx*T;player.py=dy*T;player.dir='up';player.mx=player.my=0;player.path=[];player.goal=null;
-  store={ox,oy};snd('ok');toast={t:'QUICK-E-MART',n:110};dirty();}
+  const dx=ox+(doorX==null?7:doorX),dy=o.at?oy+o.at[1]:oy+sh-2;   // just inside the door, unless told where
+  player.x=o.at?ox+o.at[0]:dx;player.y=dy;player.px=player.x*T;player.py=player.y*T;player.dir=o.dir||'up';player.mx=player.my=0;player.path=[];player.goal=null;
+  store={ox,oy,w:sw,h:sh,leave:o.leave||null,name:label};snd('ok');if(label)toast={t:label,n:110};dirty();}
 function leaveStore(){
   if(!outside)return;
   map=outside.map;spots=outside.spots;beetles=outside.beetles;
@@ -840,6 +848,7 @@ async function stationCloud(){const c=opts.cloud;
 
 /* ---------------- states ---------------- */
 let state='title',cur=0,enc=null,jr={filter:0,cur:0},entry=null,shot=false,info=false,card=null,bsel=null,toast=null,chimed=false,menuOpen=false,confirmNew=0,confirmRel=0,uiDirty=true,screenSig='';
+let plugin=null,discBusy=false;   // the disc, once a holder's wallet has fetched it (see openDisc at the end)
 const REG=()=>save.region;
 let JF=9;function jlist(){return jr.filter===0?SP:jr.filter===JF-1?SP.filter(s=>save.collected[s.key]):roster[CONT[jr.filter-1]];}
 function go(st){state=st;dirty();}
@@ -859,14 +868,17 @@ function openJournal(){entry=null;jr.filter=CONT.indexOf(REG())+1;jr.cur=0;go('j
 function startEnc(i){snd('found');const sp=spots[i].sp||pickSpecies(REG());img(sp);enc={spot:i,sp,opts:choices(sp,REG()),cur:0,phase:0,ok:false,gone:[],hinted:false};go('enc');}
 function toRegion(){if(!save.introDone)startIntro('region');else go('region');}
 function titleOpts(){const o=[];if(nCollected()||save.region)o.push(['continue','pick up where you left off','title:continue']);o.push(o.length?['new game','start over with an empty MossDex','title:new']:['begin','Professor Chaga is waiting','title:begin']);
+  // the disc: a second game on the same MossDex, served only to a wallet that holds one of the collections
+  if(opts.disc&&(nCollected()||save.region))o.push([plugin?'moss quest VII · disc 1':'moss quest VII · disc 1 (holders)',plugin?(save.d1&&save.d1.ch?'continue the disc':'put the disc in'):'for a wallet holding Moss:Net, sancigawa or Mossawrettes','title:disc']);
   // Nothing on this handheld does not mean nothing anywhere: a MossDex backed up to a
   // wallet outlives the browser it was played in. Offer it rather than leaving the only
   // way forward a new game on top of a save that still exists.
   if(!nCollected()&&!save.region&&opts.cloud&&opts.cloud.restore)o.push(['restore','bring back a MossDex saved to your wallet or RemiliaNET','title:restore']);
   return o;}
 function titleAct(opt){if(!chimed){snd('chime');chimed=true;}
-  if(opt==='title:continue'){if(save.region&&save.introDone)enterRegion(save.region);else toRegion();}
+  if(opt==='title:continue'){if(save.region&&THEMES[save.region]&&save.introDone)enterRegion(save.region);else toRegion();}
   else if(opt==='title:begin')toRegion();
+  else if(opt==='title:disc')openDisc();
   else if(opt==='title:restore'){const c=opts.cloud;if(!c||!c.restore){snd('miss');return;}
     snd('ok');say('CHECK YOUR WALLET AND SIGN.',240);
     // the host merges whatever comes back through setSave, which redraws the title
@@ -888,10 +900,13 @@ function introAsk(){for(let i=intro.page+1;i<intro.pages.length;i++)if(intro.pag
 function introSkippable(){return introSeen()&&!intro.bail&&!intro.kb&&!(intro.opt&&(intro.pages[intro.page]||{}).ask);}
 function introSkip(){const i=introAsk();if(i<0){finishIntro();return;}
   intro.page=i;intro.ch=pageText().length;intro.opt=true;intro.kb=false;snd('ok');dirty();}
-function finishIntro(){if(intro.bail){snd('back');go('title');return;}save.introDone=true;persist();try{localStorage.setItem(INTRO_SEEN,'1');}catch(e){}snd('ok');if(intro.ret==='world'&&map)go('world');else go('region');}
+function finishIntro(){if(intro.bail){snd('back');go('title');return;}
+  if(typeof intro.ret==='function'){const f=intro.ret;intro.ret='world';f();return;}   // a scripted scene: the script decides what comes next
+  save.introDone=true;persist();try{localStorage.setItem(INTRO_SEEN,'1');}catch(e){}snd('ok');if(intro.ret==='world'&&map)go('world');else go('region');}
 
 // which buttons the game wants for itself right now; the host's focus cursor takes the rest
 function handles(b){
+  if(plugin&&state.startsWith('d1'))return plugin.handles?plugin.handles(b):b==='b';
   if(b==='b')return true;
   if(state==='world')return !menuOpen;
   if(state==='intro'){const pg=intro.pages[intro.page]||{};if(b==='a')return !(pg.ask&&intro.opt);if(b==='j')return introSkippable();return false;}
@@ -909,6 +924,7 @@ const pad=()=>state==='world'&&!menuOpen;
 // the game's own input, for the states it handles. Menus, lists and buttons are clicked by the host.
 function update(){frame++;if(tuneT>0){tuneT--;drawTune();}if(amb.on&&!muted&&state!=='title')ambient();if(confirmNew>0)confirmNew--;if(confirmRel>0)confirmRel--;
   if(toast&&--toast.n<=0){toast=null;dirty();}
+  if(plugin&&state.startsWith('d1')){plugin.update();click=null;return;}
   if(state==='intro'){const pg=intro.pages[intro.page],txt=pageText();if(intro.ch<txt.length){intro.ch+=2;if(frame%3===0)snd('talk',intro.ch);const d=ui&&ui.querySelector('#q-dialog');if(d)d.textContent=txt.slice(0,intro.ch);}
     if(intro.ch>=txt.length&&pg.ask&&!intro.opt){intro.opt=true;dirty();}
     if(hit('a')||(click&&click.top)){if(intro.ch<txt.length){intro.ch=txt.length;const d=ui&&ui.querySelector('#q-dialog');if(d)d.textContent=txt;if(pg.ask){intro.opt=true;dirty();}}else if(!pg.ask)introNext();}
@@ -916,18 +932,19 @@ function update(){frame++;if(tuneT>0){tuneT--;drawTune();}if(amb.on&&!muted&&sta
     if(hit('b')){if(intro.kb&&intro.buf){intro.buf=intro.buf.slice(0,-1);dirty();}else if(intro.kb){intro.kb=false;dirty();}else if(intro.page>0&&!intro.bail){intro.page--;intro.ch=pageText().length;intro.opt=!!intro.pages[intro.page].ask;snd('back');dirty();}else snd('miss');}}
   else if(state==='region'){if(hit('b')&&save.region&&map){snd('back');go('world');}}
   else if(state==='world'){stepBeetles();if(store)storeExit();
+    if(plugin&&plugin.world&&plugin.world()){click=null;return;}   // the disc's own people and triggers on this map
     if(menuOpen){if(hit('b')){menuOpen=false;snd('back');dirty();}}
     else{if(click&&click.top)tapWorld();
       if(!player.mx&&!player.my){
         if(hit('j'))openJournal();
-        else if(hit('b')){if(store)leaveStore();else{menuOpen=true;snd('move',0);dirty();}}
+        else if(hit('b')){if(store){if(store.leave)store.leave();else leaveStore();}else{menuOpen=true;snd('move',0);dirty();}}
         else{
           if(hit('a')){player.path=[];if(interactAhead()){click=null;return;}}
           if(keys.up||keys.down||keys.left||keys.right){player.path=[];player.goal=null;}
           let dx=0,dy=0;if(keys.up){dy=-1;player.dir='up';}else if(keys.down){dy=1;player.dir='down';}else if(keys.left){dx=-1;player.dir='left';}else if(keys.right){dx=1;player.dir='right';}
           if(!dx&&!dy&&!player.path.length&&player.goal){const g=player.goal;player.goal=null;if(Math.abs(g.x-player.x)+Math.abs(g.y-player.y)===1){faceTowards(g.x,g.y);if(interactAhead()){click=null;return;}}}
           if(!dx&&!dy&&player.path.length){const d=player.path.shift();player.dir=d;dx={left:-1,right:1}[d]||0;dy={up:-1,down:1}[d]||0;}
-          if(dx||dy){const nx=player.x+dx,ny=player.y+dy;if(nx>=0&&ny>=0&&nx<MW&&ny<MH&&WALK[map[ny][nx]]&&!spots.some(o=>o.x===nx&&o.y===ny)&&!beetles.some(o=>o.x===nx&&o.y===ny)){player.x=nx;player.y=ny;player.mx=-dx*T;player.my=-dy*T;save.steps++;snd('step',save.steps);}}}
+          if(dx||dy){const nx=player.x+dx,ny=player.y+dy;if(nx>=0&&ny>=0&&nx<MW&&ny<MH&&WALK[map[ny][nx]]&&!spots.some(o=>o.x===nx&&o.y===ny)&&!beetles.some(o=>o.x===nx&&o.y===ny)&&!(plugin&&plugin.blocked&&plugin.blocked(nx,ny))){player.x=nx;player.y=ny;player.mx=-dx*T;player.my=-dy*T;save.steps++;snd('step',save.steps);}}}
       }else if(player.mx||player.my){const v=2;if(player.mx)player.mx+=player.mx<0?v:-v;if(player.my)player.my+=player.my<0?v:-v;player.anim++;}
       player.px=player.x*T+player.mx;player.py=player.y*T+player.my;
       if(store){const rw=STORE[0].length*T,rh=STORE.length*T;   // indoors the room sits still and centred
@@ -957,9 +974,11 @@ function update(){frame++;if(tuneT>0){tuneT--;drawTune();}if(amb.on&&!muted&&sta
 
 // clicks on the game's own HTML: the host's A button clicks the focused item, a mouse or finger clicks it directly
 function act(name,arg){
+  if(plugin&&name.startsWith('d1:')){plugin.act(name,arg);return;}
   if(name.startsWith('title:'))titleAct(name);
   else if(name==='region:go')enterRegion(arg);
   else if(name==='intro:yes')introNext();
+  else if(name==='intro:pick'){const pg=intro.pages[intro.page]||{},o=(pg.opts||[])[Number(arg)];if(!o)return;snd('ok');if(o[2]&&o[2]()===false)return;introNext();}
   else if(name==='intro:no'){intro.pages=INTRO_NO;intro.page=0;intro.ch=0;intro.opt=false;intro.bail=true;snd('back');dirty();}
   else if(name==='intro:name'){let nm=String(arg||'').trim().slice(0,12);if(!nm)return;if(nm[0]!=='~')nm=nm.charAt(0).toUpperCase()+nm.slice(1).toLowerCase();save.name=nm;persist();snd('ok');introNext();}
   else if(name==='intro:namekb'){intro.kb=true;intro.buf='';dirty();}
@@ -1047,12 +1066,14 @@ function speciesCard(sp,k){const known_=k==null?known(sp):k;return `<div class="
   <dl>${row('no.',String(sp.id).padStart(4,'0'))}${row('family',known_?sp.family||'?':'?')}${row('order',known_?sp.order||'?':'?')}${row('found in',regionList(sp))}${row('records',sp.records.toLocaleString('en-US')+' on GBIF')}${known_&&sp.image?row('photo',sp.image.by+' · '+lic(sp.image.license)):''}${row('status',status(sp))}</dl></div>`;}
 
 function render(){if(!ui)return;let h='',focus=0,scene='none';const u=user||GUEST;
-  const pkey=state+'|'+(!!entry)+(!!bsel)+menuOpen+intro.kb+(!!naming)+(!!card);if(lastPage&&pkey!==lastPage)tune();lastPage=pkey;
-  if(state==='title'){scene='lab';h=`<h1 class="q-title">moss quest</h1><p class="lcd-note q-center">${esc(SP.length)} species · seven continents · one MossDex</p>
+  const pkey=state+'|'+(!!entry)+(!!bsel)+menuOpen+intro.kb+(!!naming)+(!!card)+(plugin&&plugin.pageKey?plugin.pageKey():'');if(lastPage&&pkey!==lastPage)tune();lastPage=pkey;
+  if(plugin&&state.startsWith('d1')){const r=plugin.render()||{};h=r.h||'';focus=r.focus||0;scene=r.scene||'none';}
+  else if(state==='title'){scene='lab';h=`<h1 class="q-title">moss quest</h1><p class="lcd-note q-center">${esc(SP.length)} species · seven continents · one MossDex</p>
     <div class="q-who">${u.pfpUrl?`<img class="rn-pfp q-pfp" src="${esc(u.pfpUrl)}" alt="">`:''}<div><b>${esc(playerName())}</b><span class="rn-handle">${u.guest?'guest · saved on this device':'@'+esc(u.handle)+' · RemiliaNET'+(heldCards?' · '+heldCards+' beetle card'+(heldCards===1?'':'s'):'')}${nCollected()?' · '+nCollected()+' / '+SP.length+' logged · '+save.cheese+' cheese':''}</span></div></div>
     ${msg(toast&&toast.t)}<ul class="menu">${titleOpts().map(o=>mi(o[0],o[2],null,o[1])).join('')}</ul>`;}
-  else if(state==='intro'){scene=intro.kb?'none':'lab';const pg=intro.pages[intro.page],txt=pageText();h=`<div class="lcd-header"><span class="lcd-header-title">PROF. CHAGA</span><span class="item-meta">page ${intro.page+1} / ${intro.pages.length}</span></div><p class="q-dialog" id="q-dialog">${esc(txt.slice(0,intro.ch))}</p>`;
-    if(intro.opt&&pg.ask==='quest')h+=`<ul class="menu">${mi('gladly','intro:yes',null,'the moss quest begins')}${mi('not today','intro:no',null,'the professor will wait')}</ul>`;
+  else if(state==='intro'){scene=intro.kb?'none':intro.draw?'lab':'lab';const pg=intro.pages[intro.page],txt=pageText();h=`<div class="lcd-header"><span class="lcd-header-title">${esc(introWho())}</span><span class="item-meta">page ${intro.page+1} / ${intro.pages.length}</span></div><p class="q-dialog" id="q-dialog">${esc(txt.slice(0,intro.ch))}</p>`;
+    if(intro.opt&&pg.ask==='pick')h+=`<ul class="menu">${(pg.opts||[]).map((o,i)=>mi(o[0],'intro:pick',i,o[1])).join('')}</ul>`;
+    else if(intro.opt&&pg.ask==='quest')h+=`<ul class="menu">${mi('gladly','intro:yes',null,'the moss quest begins')}${mi('not today','intro:no',null,'the professor will wait')}</ul>`;
     else if(intro.opt&&pg.ask==='name'){
       if(intro.kb){const keys='ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');const kb=(l,act,arg,note,cls)=>`<button type="button" class="menu-item focusable${cls?' '+cls:''}" data-act="${act}" data-arg="${esc(arg)}" data-note="${esc(note)}">${esc(l)}</button>`;
         h+=`<p class="q-name q-typed">${esc(intro.buf)||'&nbsp;'}<span class="q-caret">_</span></p><div class="grid q-keys">${keys.map(k=>kb(k,'intro:key',k,'A: type '+k)).join('')}${kb('⌫','intro:key','<','A: delete · B does too')}${kb('done','intro:name',intro.buf,intro.buf?'call me '+intro.buf:'type a name first','q-wide')}</div>`;}
@@ -1062,7 +1083,9 @@ function render(){if(!ui)return;let h='',focus=0,scene='none';const u=user||GUES
     CONT.map(c=>{const R=roster[c],g=nCollectedIn(c);return `<button type="button" class="menu-item focusable${c===save.region?' q-here':''}" data-act="region:go" data-arg="${c}" data-note="${esc(g+' / '+R.length+' here · '+low(THEMES[c].blurb))}">${esc(titleCase(CN[c]))}</button>`;}).join('')+'</div>';
     focus=Math.max(0,CONT.indexOf(save.region));}
   else if(state==='world'){scene='world';const c=REG(),R=roster[c],g=nCollectedIn(c);const last=SP.find(s=>s.key===save.last);
-    if(menuOpen){h=`<ul class="menu">${heading(titleCase(CN[c]))}${MENU.map(m=>mi(m[0],m[2],null,m[1])).join('')}</ul>`;}
+    const pm=plugin&&plugin.menu&&plugin.menu(),ph=!menuOpen&&plugin&&plugin.worldHtml&&plugin.worldHtml();
+    if(menuOpen){h=`<ul class="menu">${heading(titleCase(CN[c]))}${(pm||MENU).map(m=>mi(m[0],m[2],null,m[1])).join('')}</ul>`;}
+    else if(ph){h=ph;}
     else{h=`<div class="q-strip"><span class="q-strip-title">${esc(titleCase(CN[c]))}</span><span class="item-meta">${g} / ${R.length} here · ${nCollected()} / ${SP.length} · cheese ${save.cheese}</span></div>`+
       (last?`<p class="lcd-note">last found: <b>${esc(last.name)}</b>${last.common?', '+esc(low(last.common)):''} · ${save.collected[last.key]?'in the MossDex':'seen only'}</p>`:`<p class="lcd-note">walk up to a moss tuft, face it and press A. catch beetles for cheese.</p>`);}}
   else if(state==='enc'){const sp=enc.sp;
@@ -1136,7 +1159,7 @@ function render(){if(!ui)return;let h='',focus=0,scene='none';const u=user||GUES
   ui.innerHTML=h;const host=ui.closest('[data-scene]')||ui.parentElement;if(host)host.dataset.scene=scene;
   ui.querySelectorAll('canvas[data-char]').forEach(c=>{c.getContext('2d').drawImage(charPortrait(c.dataset.char),0,0);});
   // the same screen redrawn (a timer, a toast, a hint) keeps the cursor where the player left it: null asks the host to reuse its index
-  const sg=[state,menuOpen,saveMsg,pcPlugged,enc&&enc.phase,entry&&entry.key,shot,info,naming&&naming.key,jr.filter,shop&&shop.mode].join('|');const keep=sg===screenSig;screenSig=sg;
+  const sg=[state,menuOpen,saveMsg,pcPlugged,enc&&enc.phase,entry&&entry.key,shot,info,naming&&naming.key,jr.filter,shop&&shop.mode,plugin&&plugin.pageKey?plugin.pageKey():''].join('|');const keep=sg===screenSig;screenSig=sg;
   if(opts.onRender)opts.onRender(keep?null:focus);
   if(opts.onStatus)opts.onStatus(statusText());lastStatus=statusText();uiDirty=false;}
 function meter(label,v){const n=Math.round(Math.max(0,Math.min(1,v))*10);return row(label,'█'.repeat(n)+'░'.repeat(10-n));}
@@ -1148,6 +1171,7 @@ function drawWorld(){const ox=-cam.x|0,oy=-cam.y|0;const x0=Math.max(0,(cam.x/T)
   for(let y=y0;y<Math.min(MH,y0+VH+1);y++)for(let x=x0;x<Math.min(MW,x0+VW+1);x++)drawTileAt(map[y][x],x*T+ox,y*T+oy,x,y);
   const mf=((frame>>4)&3)===0?1:0;for(const s of spots){if(s.x>=x0-1&&s.x<x0+VW+1&&s.y>=y0-1&&s.y<y0+VH+1)ctx.drawImage(MOSS[mf],s.x*T+ox,s.y*T+oy);}
   for(const b of beetles){if(b.x>=x0-1&&b.x<x0+VW+1&&b.y>=y0-1&&b.y<y0+VH+1)ctx.drawImage(b.spr[(frame>>3)&1],b.x*T+ox,b.y*T+oy);}
+  if(plugin&&plugin.drawOver)plugin.drawOver(ox,oy);
   const moving=player.mx||player.my,step=(player.anim>>2)&3;const bob=moving&&(step&1)?-1:0;const spr=moving&&PLEGS&&(step&1)?PL[player.dir+'W'][step>>1]:PL[player.dir];
   ctx.drawImage(spr,(player.px+ox+((T-PLW)>>1))|0,(player.py+oy+bob+T-PLH)|0);
   const dx={left:-1,right:1}[player.dir]||0,dy={up:-1,down:1}[player.dir]||0;const tx=player.x+dx,ty=player.y+dy;
@@ -1158,7 +1182,7 @@ function drawWorld(){const ox=-cam.x|0,oy=-cam.y|0;const x0=Math.max(0,(cam.x/T)
   if(player.goal||player.path.length){const g=player.goal;if(g){rect(g.x*T+ox+7,g.y*T+oy-3+((frame>>3)&1),2,2,C.red);}}
   if(menuOpen){ctx.fillStyle='rgba(27,51,32,0.35)';ctx.fillRect(0,0,cv.width,cv.height);}}
 // on the map the canvas is as tall as the box it sits in, so no letterbox: 256 wide, 192..320 tall
-function fitWorld(){let ww=CW,hh=CH;if(state==='region')hh=MAPH;else if((state==='world'||state==='pet'||state==='petlapse'||state==='shop')&&cv.clientWidth>0&&cv.clientHeight>0){const a=cv.clientWidth/cv.clientHeight;if(a>CW/CH)ww=Math.min(400,Math.round(CH*a));else hh=Math.min(320,Math.round(CW/a));}
+function fitWorld(){let ww=CW,hh=CH;if(state==='region')hh=MAPH;else if((state==='world'||state==='pet'||state==='petlapse'||state==='shop'||(plugin&&plugin.tall&&plugin.tall()))&&cv.clientWidth>0&&cv.clientHeight>0){const a=cv.clientWidth/cv.clientHeight;if(a>CW/CH)ww=Math.min(400,Math.round(CH*a));else hh=Math.min(320,Math.round(CW/a));}
   if(cv.width!==ww||cv.height!==hh){cv.width=ww;cv.height=hh;ctx.imageSmoothingEnabled=false;}jarRect();}
 // shadows of clouds crossing the map: two fluffy ones and the face, each drifting at its own pace
 const SHADOWS=(()=>{const mk=(w,h,fn)=>{const c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d');g.fillStyle='#08183a';fn(g,w,h);return c;};
@@ -1191,7 +1215,9 @@ function drawScene(){fitWorld();rect(0,0,cv.width,cv.height,C.paper);
   if(state==='world')drawWorld();
   else if(state==='region')drawMap();
   else if(state==='shop')drawShop();
+  else if(state==='intro'&&intro.draw)intro.draw();
   else if(state==='title'||state==='intro')drawLab();
+  else if(plugin&&state.startsWith('d1')&&plugin.draw)plugin.draw();
   else if((state==='pet'||state==='petlapse')&&save.pet){const p=save.pet;const snap=state==='petlapse'?p.snaps[Math.min(lapse.i,p.snaps.length-1)]:null;drawJar(JAR.x,JAR.y,JAR.w,JAR.h,p,snap);}}
 
 /* ---------------- status + lifecycle ---------------- */
@@ -1205,7 +1231,8 @@ function drawTune(){if(!tuneEl)return;const g=tuneEl.getContext('2d'),w=tuneEl.w
   const sy=(frame*11)%h;g.fillStyle='rgba(228,235,196,0.55)';g.fillRect(0,sy,w,2);}
 function statusText(){const n=nCollected()+'/'+SP.length;
   if(state==='title')return 'A: ok · '+n+' logged';
-  if(state==='intro')return intro.kb?'spell your name · A: type · B: delete':intro.opt?((intro.pages[intro.page]||{}).ask==='char'?'pick a Traveler · A: choose':'Prof. Chaga · A: choose'):('Prof. Chaga · A: next · B: back'+(introSkippable()?' · X: skip':''));
+  if(state==='intro'){const who=titleCase(introWho()).replace(/^Prof\. /i,'Prof. ');return intro.kb?'spell your name · A: type · B: delete':intro.opt?((intro.pages[intro.page]||{}).ask==='char'?'pick a Traveler · A: choose':who+' · A: choose'):(who+' · A: next · B: back'+(introSkippable()?' · X: skip':''));}
+  if(plugin&&state.startsWith('d1'))return plugin.status?plugin.status():'A: ok · B: back';
   if(state==='region')return 'A: travel · B: back';
   if(state==='world')return menuOpen?'A: ok · B: close':titleCase(CN[REG()])+' · '+n+' · d-pad: walk · A: look · B: menu · X: MossDex';
   if(state==='enc')return enc.phase===0?'A: identify':enc.phase===1?'A: answer · X: ask a beetle, 1 cheese':'A: continue';
@@ -1235,6 +1262,26 @@ function start(canvas,o){opts=o||{};cv=canvas;ctx=cv.getContext('2d');cv.width=C
   if(opts.dev&&!window.MQ)window.MQ=DEBUG;
   return api;}
 function stop(){running=false;cancelAnimationFrame(raf);amb.on=false;if(AC&&AC.state==='running')AC.suspend();}
+/* ---------------- the disc ----------------
+   A second game on the same MossDex, served by the host only to a wallet that holds one of the collections
+   (opts.disc.open() -> {ok, disc: install(E)} or {ok:false, message}). The disc plugs into this engine through E:
+   it owns every state named d1*, and may step in on the map (world, interact, blocked, drawOver, menu, worldHtml). */
+function openDisc(){if(!opts.disc||!opts.disc.open)return;
+  if(plugin){snd('ok');plugin.start();return;}
+  if(discBusy)return;discBusy=true;snd('ok');say('CHECKING YOUR WALLET FOR THE COLLECTIONS...',900);
+  Promise.resolve(opts.disc.open()).then(r=>{discBusy=false;if(!r||!r.ok){snd('miss');say(String(r&&r.message||'THE DISC WOULD NOT LOAD'),400);return;}
+    const mod=r.disc;installDisc(typeof mod==='function'?mod:mod&&mod.default);if(!plugin){snd('miss');say('THE DISC IS BLANK',240);return;}
+    toast=null;snd('chime');plugin.start();}).catch(e=>{discBusy=false;snd('miss');say('THE DISC WOULD NOT LOAD: '+String(e&&e.message||e).toUpperCase(),400);});}
+function installDisc(install){if(typeof install!=='function')return;plugin=install(E)||null;}
+const E={T,MW,MH,CW,CH,G0,TREE,ROCK,WATER,PATH,WET,BLDG,ROAD,G2,MTN,ICE,TREE2,TREE3,IWALL,IFLOOR,SHELF,COUNTER,CLERK,TERMINAL,WALK,OVER,C,SPR,TIER,B,GREEN,SCARAB,F5,F7,CHARS,CHAR_IDS,THEMES,CN,CA,CONT,roster,PROPER,MENU,BEETLE_BOOK,MOSS,PROF,PROF2,SKY,STORE,STORE_T,
+  sprite,tile,flipX,rect,px,text,textC,textR,textS,textCS,tw,wrap,withFont,bevelOut,bevelIn,win,wbtn,bar,dots,titlebar,panelBox,roundRect,fillEllipse,drawSky,drawTileAt,drawWorld,drawCloudShadows,drawLab,mkSky,rng,noise,buildTiles,
+  snd,tone,bell,ambientFor,quiet(){amb.on=false;},img,photo,photoEl,speciesCard,dexInfo,lic,idstr,choices,pickSpecies,tierOf,prefs,
+  go,dirty,say,startIntro,introNext,enterRoom,leaveStore,genMap,placeDealer,enterRegion,startEnc,catchBeetle,mkBeetle,respawnSpot,gain,lose,persist,nCollected,nCollectedIn,known,playerName,pname,buildPlayer,charPortrait,charId,
+  esc,mi,heading,note,msg,row,low,titleCase,cap,sentence,regionList,status,beetleImg,openJournal,openPet,openShop,openStation,hit,tap,pathTo,faceTowards,fitWorld,
+  get SP(){return SP;},get state(){return state;},get save(){return save;},get map(){return map;},set map(m){map=m;},get spots(){return spots;},set spots(s){spots=s;},get beetles(){return beetles;},set beetles(b){beetles=b;},
+  get player(){return player;},get cam(){return cam;},get frame(){return frame;},get store(){return store;},set store(s){store=s;},get outside(){return outside;},set outside(o){outside=o;},get menuOpen(){return menuOpen;},set menuOpen(v){menuOpen=!!v;},
+  get toast(){return toast;},set toast(t){toast=t;},get click(){return click;},get keys(){return keys;},get ui(){return ui;},get cv(){return cv;},get ctx(){return ctx;},get opts(){return opts;},get user(){return user;},
+  get TL(){return TL;},get theme(){return theme;},set theme(t){theme=t;},get dealerAt(){return dealerAt;},set dealerAt(d){dealerAt=d;},get saveAt(){return saveAt;},set saveAt(s){saveAt=s;},get PL(){return PL;},get PLW(){return PLW;},get PLH(){return PLH;},get intro(){return intro;}};
 const api={start,stop,press:pressKey,hold:holdKey,handles,pad,setMuted:setMute,setUser,act,getSave,setSave,mergeSaves,get saveKey(){return saveKey();},get state(){return state;},get user(){return user;},get ready(){return ready;},get loaded(){return !!SP&&running;}};
 
 const DEBUG={get map(){return map;},get spots(){return spots;},get beetles(){return beetles;},get player(){return player;},get state(){return state;},get save(){return save;},get enc(){return enc;},get user(){return user;},

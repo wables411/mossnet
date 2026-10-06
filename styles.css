@@ -1157,6 +1157,9 @@ body {
 #quest-ui .item-links { margin-top: calc(var(--u) * 1.6); }
 #quest-ui .item-links .menu-item { padding-left: calc(var(--u) * 1.6); }
 #quest-ui .item-links .menu-item.focused::before { content: none; }
+/* disc 1: the belt bar in a battle */
+#quest-ui .d1-belt { height: calc(var(--u) * 1.4); background: var(--lcd-mid); margin: calc(var(--u) * 1) 0; }
+#quest-ui .d1-belt i { display: block; height: 100%; background: var(--lcd-dark); transition: width .3s linear; }
 .lcd-link { color: inherit; text-decoration: underline; text-underline-offset: 0.12em; }
 /* ---------- end Moss Quest ---------- */
 

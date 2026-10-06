@@ -641,7 +641,7 @@ function showView(name, { focus = 0, scroll = true } = {}) {
 // The game paints its pixel art (the map, the lab, the jar) on a canvas at the top of the LCD and renders the
 // rest of itself as the LCD's own HTML: menus, lists, tabs, photos. So the handheld's focus cursor, notes and
 // blips work on it like on every other screen. quest.js and its species data load the first time it is opened.
-const QUEST_SRC = 'quest.js?v=297e8625';
+const QUEST_SRC = 'quest.js?v=3df5c08f';
 const questCanvas = document.getElementById('quest-canvas');
 const questUi = document.getElementById('quest-ui');
 let questLoading = null;
@@ -691,6 +691,26 @@ async function questUser() {
   }
 }
 
+// The disc: Moss Quest VII, for a wallet that holds a Moss:Net, a sancigawa or a Mossawrette. The wallet door's
+// session token (the one /save minted when the player signed) is shown to /disc, which asks the chains what the
+// wallet holds and answers with a pass cookie; the disc itself then comes down as a module from /disc/1.js, which
+// is a Function, not a file, so nothing of it sits in the public bundle. The RemiliaNET door cannot open it:
+// RemiliaNET says who you are, not what you hold.
+async function questDisc() {
+  if (typeof cloudOpenDoors !== 'function') return { ok: false, message: 'the disc needs cloud saves, which are off here' };
+  const tokens = await cloudOpenDoors({ signIn: true });
+  const w = tokens.find(t => !t.address.startsWith('rn:'));
+  if (!w) return { ok: false, message: 'connect a wallet that holds a Moss:Net, a sancigawa or a Mossawrette, then try again' };
+  let r, data = {};
+  try { r = await fetch('/disc/session', { method: 'POST', headers: { authorization: `Bearer ${w.token}` } }); data = await r.json().catch(() => ({})); }
+  catch (error) { return { ok: false, message: `the gate did not answer (${error.message})` }; }
+  if (!r.ok) return { ok: false, message: data.error || `the gate answered ${r.status}`, holdings: data.holdings || null };
+  try {
+    const mod = await import('/disc/1.js');
+    return { ok: true, disc: mod.default, holdings: data.holdings, collections: data.collections };
+  } catch (error) { return { ok: false, message: `the disc would not load (${error.message})` }; }
+}
+
 async function startQuest() {
   setNote('loading the MossDex...');
   try {
@@ -716,6 +736,7 @@ async function startQuest() {
         // the title's "restore": load the connector, sign, pull the save down and merge it in
         restore: () => cloudSync({ signIn: true })
       },
+      disc: { open: questDisc },
       muted: !sound.enabled,
       dev: ['127.0.0.1', 'localhost'].includes(location.hostname),
       onStatus: (text) => { if (activeView === 'quest' && !focusedElement()?.dataset.note) setNote(text); },

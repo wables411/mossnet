@@ -106,7 +106,8 @@ export async function onRequest({ request, env, params }) {
       return json({ ok: true }, 200, { 'set-cookie': passCookie('', 0) });
     }
 
-    const pass = await readToken(env.SAVE_SECRET, cookie(request, COOKIE), 'disc1');
+    // DISC_OPEN=1 in a local .dev.vars lets the disc be played with no wallet at all (`npm run dev`). It is never set on Pages.
+    const pass = (await readToken(env.SAVE_SECRET, cookie(request, COOKIE), 'disc1')) || (env.DISC_OPEN === '1' ? 'open' : null);
 
     if (method === 'GET' && route === 'status') {
       if (!pass) return json({ error: 'no pass' }, 401);

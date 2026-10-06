@@ -700,15 +700,18 @@ async function questDisc() {
   if (typeof cloudOpenDoors !== 'function') return { ok: false, message: 'the disc needs cloud saves, which are off here' };
   const tokens = await cloudOpenDoors({ signIn: true });
   const w = tokens.find(t => !t.address.startsWith('rn:'));
-  if (!w) return { ok: false, message: 'connect a wallet that holds a Moss:Net, a sancigawa or a Mossawrette, then try again' };
-  let r, data = {};
-  try { r = await fetch('/disc/session', { method: 'POST', headers: { authorization: `Bearer ${w.token}` } }); data = await r.json().catch(() => ({})); }
-  catch (error) { return { ok: false, message: `the gate did not answer (${error.message})` }; }
-  if (!r.ok) return { ok: false, message: data.error || `the gate answered ${r.status}`, holdings: data.holdings || null };
+  let data = {};
+  if (w) {
+    let r;
+    try { r = await fetch('/disc/session', { method: 'POST', headers: { authorization: `Bearer ${w.token}` } }); data = await r.json().catch(() => ({})); }
+    catch (error) { return { ok: false, message: `the gate did not answer (${error.message})` }; }
+    if (!r.ok) return { ok: false, message: data.error || `the gate answered ${r.status}`, holdings: data.holdings || null };
+  }
+  // no wallet: the server still decides. On the site that is a refusal; a local build with DISC_OPEN serves it anyway.
   try {
     const mod = await import('/disc/1.js');
-    return { ok: true, disc: mod.default, holdings: data.holdings, collections: data.collections };
-  } catch (error) { return { ok: false, message: `the disc would not load (${error.message})` }; }
+    return { ok: true, disc: mod.default, holdings: data.holdings || null, collections: data.collections || [] };
+  } catch (error) { return { ok: false, message: w ? `the disc would not load (${error.message})` : 'connect a wallet that holds a Moss:Net, a sancigawa or a Mossawrette, then try again' }; }
 }
 
 async function startQuest() {

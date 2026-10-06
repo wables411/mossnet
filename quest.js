@@ -869,7 +869,7 @@ function startEnc(i){snd('found');const sp=spots[i].sp||pickSpecies(REG());img(s
 function toRegion(){if(!save.introDone)startIntro('region');else go('region');}
 function titleOpts(){const o=[];if(nCollected()||save.region)o.push(['continue','pick up where you left off','title:continue']);o.push(o.length?['new game','start over with an empty MossDex','title:new']:['begin','Professor Chaga is waiting','title:begin']);
   // the disc: a second game on the same MossDex, served only to a wallet that holds one of the collections
-  if(opts.disc&&(nCollected()||save.region)){const d=save.d1||{};o.push([plugin?'moss quest VII · disc 1'+(d.ch>=6?' · finished':''):'moss quest VII · disc 1 (holders)',plugin?(d.ch>=6?'the city stays open':d.ch?'continue the disc · chapter '+d.ch:'put the disc in'):'for a wallet holding Moss:Net, sancigawa or Mossawrettes','title:disc']);}
+  if(opts.disc){const d=save.d1||{};o.push([plugin?'moss quest VII · disc 1'+(d.ch>=6?' · finished':''):'moss quest VII · disc 1 (holders)',plugin?(d.ch>=6?'the city stays open':d.ch?'continue the disc · chapter '+d.ch:'put the disc in'):'for a wallet holding Moss:Net, sancigawa or Mossawrettes','title:disc']);}
   // Nothing on this handheld does not mean nothing anywhere: a MossDex backed up to a
   // wallet outlives the browser it was played in. Offer it rather than leaving the only
   // way forward a new game on top of a save that still exists.

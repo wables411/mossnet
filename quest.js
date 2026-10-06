@@ -869,7 +869,7 @@ function startEnc(i){snd('found');const sp=spots[i].sp||pickSpecies(REG());img(s
 function toRegion(){if(!save.introDone)startIntro('region');else go('region');}
 function titleOpts(){const o=[];if(nCollected()||save.region)o.push(['continue','pick up where you left off','title:continue']);o.push(o.length?['new game','start over with an empty MossDex','title:new']:['begin','Professor Chaga is waiting','title:begin']);
   // the disc: a second game on the same MossDex, served only to a wallet that holds one of the collections
-  if(opts.disc&&(nCollected()||save.region))o.push([plugin?'moss quest VII · disc 1':'moss quest VII · disc 1 (holders)',plugin?(save.d1&&save.d1.ch?'continue the disc':'put the disc in'):'for a wallet holding Moss:Net, sancigawa or Mossawrettes','title:disc']);
+  if(opts.disc&&(nCollected()||save.region)){const d=save.d1||{};o.push([plugin?'moss quest VII · disc 1'+(d.ch>=6?' · finished':''):'moss quest VII · disc 1 (holders)',plugin?(d.ch>=6?'the city stays open':d.ch?'continue the disc · chapter '+d.ch:'put the disc in'):'for a wallet holding Moss:Net, sancigawa or Mossawrettes','title:disc']);}
   // Nothing on this handheld does not mean nothing anywhere: a MossDex backed up to a
   // wallet outlives the browser it was played in. Offer it rather than leaving the only
   // way forward a new game on top of a save that still exists.
@@ -1044,7 +1044,7 @@ const msg=t=>t?`<p class="lcd-msg">${esc(sentence(t))}</p>`:'';
 const row=(k,v)=>`<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`;
 const photoEl=(sp,hidden)=>sp&&sp.image&&!hidden?`<img class="q-photo" src="${esc((opts.imgBase||'')+sp.image.file)}" alt="${esc(sp.name)}">`:`<div class="q-photo q-nophoto">${hidden?'???':'no photo'}</div>`;
 const low=t=>String(t||'').toLowerCase();
-const PROPER={traveler:'Traveler',mossdex:'MossDex',goodmoss:'GoodMoss',chaga:'Chaga',gbif:'GBIF',inaturalist:'iNaturalist',antarctic:'Antarctic',antarctica:'Antarctica',sphagnum:'Sphagnum',remilianet:'RemiliaNET'};
+const PROPER={traveler:'Traveler',mossdex:'MossDex',goodmoss:'GoodMoss',chaga:'Chaga',gbif:'GBIF',inaturalist:'iNaturalist',antarctic:'Antarctic',antarctica:'Antarctica',sphagnum:'Sphagnum',remilianet:'RemiliaNET',mossawrette:'Mossawrette',mossawrettes:'Mossawrettes'};
 function sentence(t){const name=playerName();t=String(t||'').toLowerCase();
   t=t.replace(/(^|[.!?]\s+)([a-z])/g,(m,a,b)=>a+b.toUpperCase()).replace(/\bi\b/g,'I').replace(/[a-z]+/gi,w=>PROPER[w.toLowerCase()]||w).replace(/\b(press(?: the)? )([abxy])\b/gi,(m,a,b)=>a+b.toUpperCase());
   return t.replace(/\{name\}/g,name);}

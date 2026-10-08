@@ -4,4 +4,3 @@ assets/nft-metadata/
 .DS_Store
 node_modules/
 .wrangler/
-.dev.vars

@@ -6,8 +6,7 @@
   "type": "module",
   "scripts": {
     "build:wallet": "esbuild src/wallet.js --bundle --format=esm --minify --target=es2020 --outfile=assets/appkit.bundle.js --legal-comments=none",
-    "build:verify": "esbuild src/ethverify.js --bundle --format=esm --target=es2022 --outfile=functions/_lib/ethverify.js --legal-comments=none",
-    "dev": "npx -y wrangler pages dev . --port 8788 --ip 127.0.0.1 --kv SAVES --compatibility-date 2025-09-01"
+    "build:verify": "esbuild src/ethverify.js --bundle --format=esm --target=es2022 --outfile=functions/_lib/ethverify.js --legal-comments=none"
   },
   "devDependencies": {
     "esbuild": "^0.24.2",

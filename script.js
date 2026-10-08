@@ -641,7 +641,7 @@ function showView(name, { focus = 0, scroll = true } = {}) {
 // The game paints its pixel art (the map, the lab, the jar) on a canvas at the top of the LCD and renders the
 // rest of itself as the LCD's own HTML: menus, lists, tabs, photos. So the handheld's focus cursor, notes and
 // blips work on it like on every other screen. quest.js and its species data load the first time it is opened.
-const QUEST_SRC = 'quest.js?v=e721561a';
+const QUEST_SRC = 'quest.js?v=297e8625';
 const questCanvas = document.getElementById('quest-canvas');
 const questUi = document.getElementById('quest-ui');
 let questLoading = null;
@@ -691,32 +691,6 @@ async function questUser() {
   }
 }
 
-// The disc: Moss Quest VII, for a wallet that holds a Moss:Net, a sancigawa or a Mossawrette. The wallet door's
-// session token (the one /save minted when the player signed) is shown to /disc, which asks the chains what the
-// wallet holds and answers with a pass cookie; the disc itself then comes down as a module from /disc/1.js, which
-// is a Function, not a file, so nothing of it sits in the public bundle. The RemiliaNET door cannot open it:
-// RemiliaNET says who you are, not what you hold.
-async function questDisc() {
-  if (typeof cloudOpenDoors !== 'function') return { ok: false, message: 'the disc needs cloud saves, which are off here' };
-  // first with whatever this browser already holds (a live session, or a local build with DISC_OPEN): no prompt
-  const quiet = await import('/disc/1.js').catch(() => null);
-  if (quiet && quiet.default) return { ok: true, disc: quiet.default, holdings: null, collections: [] };
-  const tokens = await cloudOpenDoors({ signIn: true });
-  const w = tokens.find(t => !t.address.startsWith('rn:'));
-  let data = {};
-  if (w) {
-    let r;
-    try { r = await fetch('/disc/session', { method: 'POST', headers: { authorization: `Bearer ${w.token}` } }); data = await r.json().catch(() => ({})); }
-    catch (error) { return { ok: false, message: `the gate did not answer (${error.message})` }; }
-    if (!r.ok) return { ok: false, message: data.error || `the gate answered ${r.status}`, holdings: data.holdings || null };
-  }
-  // no wallet: the server still decides. On the site that is a refusal; a local build with DISC_OPEN serves it anyway.
-  try {
-    const mod = await import('/disc/1.js');
-    return { ok: true, disc: mod.default, holdings: data.holdings || null, collections: data.collections || [] };
-  } catch (error) { return { ok: false, message: w ? `the disc would not load (${error.message})` : 'connect a wallet that holds a Moss:Net, a sancigawa or a Mossawrette, then try again' }; }
-}
-
 async function startQuest() {
   setNote('loading the MossDex...');
   try {
@@ -742,7 +716,6 @@ async function startQuest() {
         // the title's "restore": load the connector, sign, pull the save down and merge it in
         restore: () => cloudSync({ signIn: true })
       },
-      disc: { open: questDisc },
       muted: !sound.enabled,
       dev: ['127.0.0.1', 'localhost'].includes(location.hostname),
       onStatus: (text) => { if (activeView === 'quest' && !focusedElement()?.dataset.note) setNote(text); },
@@ -1842,9 +1815,8 @@ lcd.addEventListener('click', (e) => {
 
 const KEYS = {
   ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
-  w: 'up', W: 'up', a: 'left', A: 'left', s: 'down', S: 'down', d: 'right', D: 'right',
   Enter: 'a', ' ': 'a', z: 'a', Z: 'a', Escape: 'b', Backspace: 'b',
-  x: 'x', X: 'x', y: 'y', Y: 'y', q: 'l', Q: 'l', e: 'r', E: 'r', p: 'start', P: 'start', Tab: 'start', c: 'select', C: 'select'
+  x: 'x', X: 'x', y: 'y', Y: 'y', q: 'l', Q: 'l', e: 'r', E: 'r', s: 'start', S: 'start', c: 'select', C: 'select'
 };
 const HELD_DIRS = new Set(['up', 'down', 'left', 'right']);
 document.addEventListener('keydown', (e) => {

@@ -16,13 +16,9 @@ body[data-mode="settings"] #settings { display: flex; }
 /* the dev notes: a page to read, from the start screen or the pause screen; the text scrolls inside the card */
 body.notes #notes { display: flex; }
 body.notes #landing, body.notes #paused { display: none !important; }
-.card.notes { display: flex; flex-direction: column; max-height: 100%; padding-bottom: 24px; background: rgba(8, 12, 8, 0.72); }
+.card.notes { display: flex; flex-direction: column; width: 100%; max-width: 600px; max-height: 100%; padding-bottom: 24px; background: rgba(8, 12, 8, 0.82); }
 .card.notes h2 { margin-bottom: 0; }
 .notes-body { flex: 1; min-height: 0; overflow-y: auto; margin: 16px 0 18px; padding-right: 6px; text-align: left; font-size: 16px; line-height: 1.55; color: #d7dfd0; border-top: 1px solid rgba(255,255,255,0.1); }
-.notes-body h3 { margin: 16px 0 4px; font-weight: 400; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #8f9a8a; }
-.notes-body p { margin: 0; }
-.notes-body ul { margin: 0; padding-left: 18px; }
-.notes-body li { margin: 2px 0; }
 .card.notes a { color: #d7dfd0; text-underline-offset: 3px; }
 .card.notes a:hover { color: #fff; }
 #notes-done { align-self: center; }

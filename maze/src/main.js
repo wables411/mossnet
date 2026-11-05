@@ -20,6 +20,7 @@ import { Book, drawBookIcon } from './book.js?v=710aeb13';
 import { Finds } from './finds.js?v=dce826cd';
 import { Satchel } from './satchel.js?v=1f7ba5bb';
 import { Flashlight, TORCH_ANGLE } from './torch.js?v=e09dfa0f';
+import { mountNotes } from '../notes.js?v=c0f44ce5';
 
 const $ = s => document.querySelector(s);
 const params = new URLSearchParams(location.search);
@@ -115,20 +116,19 @@ $('#set-bob').addEventListener('input', e => { settings.bob = +e.target.value; a
 $('#set-controls').addEventListener('change', e => { settings.controls = e.target.checked; applySettings(); });
 $('#settings-open').addEventListener('click', () => setMode('settings'));
 $('#settings-done').addEventListener('click', () => setMode('paused'));
-// the dev notes: a page laid over the start screen or the pause screen, which is still there underneath when it closes.
-// The list itself is notes.html, a page anyone can read without the word; it is read in the first time it is asked for
-let notesRead = false;
+// the dev notes: the board of comments, suggestions, requests and ideas (notes.js, the same board as on its own page),
+// laid over the start screen or the pause screen, which is still there underneath when it closes.
+// From here a note can carry what the camera sees: the frame is drawn again and read off the canvas in the same breath
+let board = null;
+function cameraShot() {
+  post.render(scene, camera, performance.now() / 1000);
+  return new Promise(done => canvas.toBlob(done, 'image/jpeg', 0.85));
+}
 function showNotes(on) {
   document.body.classList.toggle('notes', on);
   if (!on) return;
-  const body = $('.notes-body'); body.scrollTop = 0;
-  if (notesRead) return;
-  notesRead = true;
-  fetch('notes.html').then(r => r.ok ? r.text() : Promise.reject(r.status)).then(html => {
-    const list = new DOMParser().parseFromString(html, 'text/html').querySelector('.notes-body');
-    if (!list) throw new Error('no list');
-    body.innerHTML = list.innerHTML;
-  }).catch(() => { notesRead = false; body.innerHTML = '<p>the notes did not open. They are on <a href="notes.html" target="_blank" rel="noopener">their own page</a> too.</p>'; });
+  $('.notes-body').scrollTop = 0;
+  if (board) board.refresh(); else board = mountNotes($('.notes-body'), { capture: cameraShot });
 }
 $('#notes-open').addEventListener('click', () => showNotes(true));
 $('#notes-open-paused').addEventListener('click', () => showNotes(true));

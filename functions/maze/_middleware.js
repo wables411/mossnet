@@ -5,9 +5,10 @@
 // game's own files get a plain 401, so nothing of the maze loads until the
 // word has been given. The right word sets a cookie for thirty days.
 //
-// Two things are open to anyone: the dev notes (/maze/notes), the working
-// list of what is being improved and what has been suggested, and the fonts
-// folder, which the notes and the door are set in.
+// The dev notes are open to anyone: the page (/maze/notes), its script, and
+// the fonts folder the notes and the door are set in. The board behind the
+// page (notes-api/) is passed straight on with data.tester saying whether
+// the cookie was held: anyone may read it, only a tester may add to it.
 //
 // This repo is public, so neither the word nor the cookie's value is in it:
 // the cookie holds a key derived from the word, and LOCK is the hash of that
@@ -40,13 +41,17 @@ async function sha256(text) {
 }
 const keyOf = word => sha256('moss-maze-beta:' + word.trim().toLowerCase());
 
-const OPEN = /^\/maze\/(?:notes(?:\.html|\/)?|fonts\/[A-Za-z0-9._-]+)$/;
+const OPEN = /^\/maze\/(?:notes(?:\.html|\.js|-page\.js|\/)?|fonts\/[A-Za-z0-9._-]+)$/;
+const BOARD = /^\/maze\/notes-api\//;
 
-export async function onRequest({ request, next }) {
-  if ((request.method === 'GET' || request.method === 'HEAD') && OPEN.test(new URL(request.url).pathname)) return served(next);
-
+export async function onRequest({ request, next, data }) {
+  const path = new URL(request.url).pathname;
   const held = (request.headers.get('cookie') || '').match(/(?:^|;\s*)maze_beta=([0-9a-f]{64})(?:;|$)/);
-  if (held && await sha256(held[1]) === LOCK) return served(next);
+  const tester = !!held && await sha256(held[1]) === LOCK;
+
+  if (BOARD.test(path)) { data.tester = tester; return next(); }
+  if (tester) return served(next);
+  if ((request.method === 'GET' || request.method === 'HEAD') && OPEN.test(path)) return served(next);
 
   if (request.method === 'POST') {
     const form = await request.formData().catch(() => null);
@@ -106,7 +111,7 @@ function door(wrong) {
   <input type="password" name="word" aria-label="password" placeholder="password" autofocus required>
   <button type="submit">open</button>
   ${wrong ? '<p class="wrong">that is not the word</p>' : ''}
-  <p class="notes">the <a href="/maze/notes">dev notes</a> are open to anyone</p>
+  <p class="notes">the <a href="/maze/notes">dev notes</a> are open for anyone to read</p>
 </form>
 </body>
 </html>`, { status: wrong ? 403 : 401, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } });

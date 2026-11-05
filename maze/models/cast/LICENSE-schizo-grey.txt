@@ -1,0 +1,17 @@
+Radbro Community Asset Permission
+
+You may use and modify these model and sprite files in personal and commercial
+games, videos, and streams. You may include the files in those projects.
+Credit Radbro and Schizoposters. Link to https://radbro.gg/assets where credits
+are shown. Keep this notice when you share the files.
+Do not claim that you made the original character or that its creators endorse
+your work. The original art and character identity keep their respective
+ownership. This permission does not transfer that ownership.
+
+Source identity: SchizoPoster #3950, THE GREYS. Supporting references: #127
+and #1878. Collection: https://schizoposters.xyz
+The full body and hidden surfaces are interpretations of portrait references.
+The game adaptation uses AI-generated geometry and textures. Its four motion
+clips are original procedural animation. No third-party motion clips were used.
+
+The files are provided as-is, without warranty.

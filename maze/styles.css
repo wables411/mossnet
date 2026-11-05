@@ -1,0 +1,177 @@
+:root { color-scheme: dark; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: #10140f; overflow: hidden; font-family: "IM Fell English", Georgia, "Times New Roman", serif; font-size: 17px; color: #e9eee4; }
+#view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+
+.overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; padding: 16px; text-align: center; }
+body[data-mode="loading"] #landing, body[data-mode="landing"] #landing { display: flex; }
+body[data-mode="paused"] #paused { display: flex; }
+body[data-mode="settings"] #settings { display: flex; }
+.row { display: flex; align-items: center; gap: 12px; margin: 12px 0; font-size: 15px; color: #d7dfd0; text-align: left; }
+.row span { flex: 1; }
+.row input[type=range] { width: 150px; accent-color: #c9d6b8; }
+.row output { width: 34px; text-align: right; font-variant-numeric: tabular-nums; color: #aab3a4; }
+.row input[type=checkbox] { width: 18px; height: 18px; accent-color: #c9d6b8; }
+#settings-done { margin-top: 10px; }
+/* the dev notes: a page to read, from the start screen or the pause screen; the text scrolls inside the card */
+body.notes #notes { display: flex; }
+body.notes #landing, body.notes #paused { display: none !important; }
+.card.notes { display: flex; flex-direction: column; max-height: 100%; padding-bottom: 24px; background: rgba(8, 12, 8, 0.72); }
+.card.notes h2 { margin-bottom: 0; }
+.notes-body { flex: 1; min-height: 0; overflow-y: auto; margin: 16px 0 18px; padding-right: 6px; text-align: left; font-size: 16px; line-height: 1.55; color: #d7dfd0; border-top: 1px solid rgba(255,255,255,0.1); }
+.notes-body h3 { margin: 16px 0 4px; font-weight: 400; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: #8f9a8a; }
+.notes-body p { margin: 0; }
+.notes-body ul { margin: 0; padding-left: 18px; }
+.notes-body li { margin: 2px 0; }
+.card.notes a { color: #d7dfd0; text-underline-offset: 3px; }
+.card.notes a:hover { color: #fff; }
+#notes-done { align-self: center; }
+#landing .ghost { margin: 10px 0 0 10px; }
+
+#touchui { position: fixed; inset: 0; pointer-events: none; display: none; }
+body.controls[data-mode="playing"] #touchui { display: block; }
+#stick { position: absolute; left: 70px; bottom: 90px; width: 120px; height: 120px; border-radius: 50%; border: 1.5px solid rgba(255,255,255,0.28); background: rgba(255,255,255,0.05); }
+#stick-knob { position: absolute; left: 36px; top: 36px; width: 48px; height: 48px; border-radius: 50%; background: rgba(255,255,255,0.35); border: 1px solid rgba(255,255,255,0.5); transition: transform 0.05s; }
+#look-hint { position: absolute; right: 24px; bottom: 120px; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(255,255,255,0.45); }
+@media (pointer: fine) { #touchui { display: none !important; } }
+.controls-list { margin: 14px 0 6px; font-size: 14px; color: #c9d2c2; text-align: left; line-height: 1.9; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 10px; }
+.controls-list span { display: inline-block; width: 70px; color: #8f9a8a; letter-spacing: 0.12em; text-transform: uppercase; font-size: 11px; }
+
+#reticle { position: fixed; width: 54px; height: 54px; margin: -27px 0 0 -27px; border: 1.5px solid rgba(255, 236, 170, 0.85); border-radius: 3px; pointer-events: none; opacity: 0; transform: scale(1.4); }
+#reticle.show { animation: reticle 1.1s ease-out forwards; }
+@keyframes reticle { 0% { opacity: 1; transform: scale(1.4); } 25% { transform: scale(1); } 80% { opacity: 1; } 100% { opacity: 0; } }
+body[data-mode="found"] #found { display: flex; }
+
+.card { max-width: 520px; padding: 36px 32px; background: rgba(8, 12, 8, 0.42); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); border: 1px solid rgba(255,255,255,0.08); border-radius: 4px; }
+.card.plain { background: transparent; border: 0; backdrop-filter: none; -webkit-backdrop-filter: none; color: #3b4634; text-shadow: none; }
+.card.plain .small { color: #5a6652; }
+/* titles and buttons are Freckle Face, everything read is IM Fell English; the journal and the satchel keep their pixel font */
+h1, h2, button { font-family: "Freckle Face", "IM Fell English", Georgia, serif; }
+h1 { font-weight: 400; letter-spacing: 0.03em; font-size: clamp(34px, 7vw, 52px); line-height: 1.1; margin: 0 0 10px; }
+h2 { font-weight: 400; letter-spacing: 0.04em; font-size: 30px; line-height: 1.1; margin: 0 0 18px; }
+.sub { margin: 0 0 26px; color: #c9d2c2; font-size: 18px; }
+.small { font-size: 14px; color: #aab3a4; margin: 10px 0 0; line-height: 1.6; }
+.keys span { padding: 1px 5px; border: 1px solid rgba(255,255,255,0.18); border-radius: 3px; font-size: 12px; letter-spacing: 0.05em; }
+
+button { font-size: inherit; cursor: pointer; border: 1px solid rgba(255,255,255,0.35); background: rgba(236, 244, 226, 0.92); color: #15200f; padding: 13px 26px; font-size: 18px; letter-spacing: 0.08em; text-transform: uppercase; border-radius: 3px; transition: background 0.2s, transform 0.2s; }
+button:hover:not(:disabled) { background: #fff; transform: translateY(-1px); }
+button:disabled { opacity: 0.4; cursor: default; }
+button.ghost { background: transparent; color: #d7dfd0; margin-left: 10px; }
+
+#hud { position: fixed; inset: 0; pointer-events: none; display: none; font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px rgba(0,0,0,0.6); }
+body[data-mode="playing"] #hud, body[data-mode="found"] #hud { display: block; }
+body.nohud #hud > * { display: none !important; }
+.rec { position: absolute; top: max(18px, env(safe-area-inset-top)); left: max(22px, env(safe-area-inset-left)); font-size: 16px; letter-spacing: 0.1em; color: rgba(255,255,255,0.78); }
+.rec .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #e23b2e; margin-right: 8px; animation: blink 1.6s steps(1) infinite; vertical-align: 0; }
+@keyframes blink { 50% { opacity: 0.15; } }
+#hud-level { position: absolute; top: max(18px, env(safe-area-inset-top)); right: max(22px, env(safe-area-inset-right)); font-size: 16px; letter-spacing: 0.12em; color: rgba(255,255,255,0.7); }
+#hud-weather { position: absolute; top: calc(max(18px, env(safe-area-inset-top)) + 44px); right: max(22px, env(safe-area-inset-right)); font-size: 13px; letter-spacing: 0.16em; color: rgba(255,255,255,0.4); }
+#hud-moss { position: absolute; bottom: max(22px, env(safe-area-inset-bottom)); left: max(22px, env(safe-area-inset-left)); font-size: 15px; letter-spacing: 0.04em; color: rgba(255,255,255,0.6); font-style: italic; }
+#hud-place { position: absolute; top: calc(max(18px, env(safe-area-inset-top)) + 24px); right: max(22px, env(safe-area-inset-right)); font-size: 13px; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(255,255,255,0.45); }
+.hint { position: absolute; bottom: max(22px, env(safe-area-inset-bottom)); left: 0; right: 0; text-align: center; font-size: 14px; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(255,255,255,0.5); animation: fade 7s forwards; }
+@keyframes fade { 0%, 70% { opacity: 1; } 100% { opacity: 0; } }
+#hud .tiny { position: absolute; bottom: max(18px, env(safe-area-inset-bottom)); right: max(22px, env(safe-area-inset-right)); pointer-events: auto; background: transparent; color: rgba(255,255,255,0.5); border: 0; padding: 6px; font-family: inherit; font-size: 13px; letter-spacing: 0.1em; }
+.touch-only { display: none; position: absolute; top: max(14px, env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); pointer-events: auto; background: rgba(0,0,0,0.25); color: #fff; border-color: rgba(255,255,255,0.25); padding: 8px 16px; font-size: 14px; }
+@media (pointer: coarse) { .touch-only { display: block; } .keys { display: none; } }
+
+/* the find: a pencil drawing held up for a moment */
+#find { position: fixed; right: max(22px, env(safe-area-inset-right)); bottom: max(60px, env(safe-area-inset-bottom)); width: 236px; padding: 8px 8px 10px; background: #ece7d8; color: #2b2b30; border-radius: 2px; box-shadow: 0 10px 30px rgba(0,0,0,0.45); text-align: left; opacity: 0; transform: translateY(16px) rotate(1.5deg); pointer-events: none; }
+#find canvas { display: block; width: 220px; height: 160px; }
+#find .find-title { font-style: italic; font-size: 16px; margin: 6px 0 2px; }
+#find .find-sub { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: #7a766c; }
+#find.show { animation: findpage 6s ease-out forwards; }
+@keyframes findpage { 0% { opacity: 0; transform: translateY(16px) rotate(1.5deg); } 8% { opacity: 1; transform: translateY(0) rotate(-0.5deg); } 85% { opacity: 1; } 100% { opacity: 0; } }
+body[data-mode="leaving"] #hud { display: none; }
+
+/* the journal: a Book and Quill. 1 book pixel = var(--s) css pixels; the book is 146 x 180 */
+@font-face { font-family: "Monocraft"; src: url("fonts/Monocraft.ttf") format("truetype"); font-display: block; }
+@font-face { font-family: "Freckle Face"; src: url("fonts/FreckleFace-Regular.woff2") format("woff2"); font-display: swap; }
+@font-face { font-family: "IM Fell English"; src: url("fonts/IMFellEnglish-Regular.woff2") format("woff2"); font-display: swap; }
+@font-face { font-family: "IM Fell English"; font-style: italic; src: url("fonts/IMFellEnglish-Italic.woff2") format("woff2"); font-display: swap; }
+#book { position: fixed; left: 0; top: 0; width: 100%; height: 100%; display: none; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.5); --s: 2; z-index: 5; }
+body.book #book { display: flex; }
+body.book #paused, body.book #landing, body.book #hud, body.book #touchui { display: none !important; }
+body:not(.hasbook) .hasbook-only { display: none !important; }
+#bq { position: relative; margin: auto; width: calc(200px * var(--s)); display: flex; flex-direction: column; align-items: center; font-family: "Monocraft", monospace; font-size: calc(9px * var(--s)); line-height: calc(9px * var(--s)); font-feature-settings: "liga" 0, "calt" 0; font-kerning: none; font-variant-ligatures: none; letter-spacing: 0; -webkit-font-smoothing: none; text-rendering: optimizeSpeed; color: #000; text-align: left; user-select: none; -webkit-user-select: none; }
+.bq-book { position: relative; width: calc(146px * var(--s)); height: calc(180px * var(--s)); }
+.bq-book > canvas.art { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; }
+#bq-pageno { position: absolute; right: calc(21px * var(--s)); top: calc(16px * var(--s)); white-space: pre; }
+#bq-text { position: absolute; left: calc(20px * var(--s)); top: calc(30px * var(--s)); width: calc(114px * var(--s)); height: calc(126px * var(--s)); white-space: pre; overflow: hidden; pointer-events: none; }
+#bq-cursor { position: absolute; display: none; left: calc((20px + 6px * var(--col, 0)) * var(--s)); top: calc((30px + 9px * var(--line, 0)) * var(--s)); width: calc(1px * var(--s)); height: calc(9px * var(--s)); background: #000; animation: bq-blink 1s steps(2, start) infinite; pointer-events: none; }
+#bq-cursor.end { width: calc(6px * var(--s)); height: calc(1px * var(--s)); top: calc((30px + 9px * var(--line, 0) + 8px) * var(--s)); }
+@keyframes bq-blink { to { visibility: hidden; } }
+#bq-input { position: absolute; left: calc(20px * var(--s)); top: calc(30px * var(--s)); width: calc(114px * var(--s)); height: calc(126px * var(--s)); margin: 0; padding: 0; border: 0; outline: 0; border-radius: 0; background: transparent; color: transparent; -webkit-text-fill-color: transparent; caret-color: transparent; resize: none; overflow: hidden; font: inherit; line-height: inherit; letter-spacing: 0; white-space: pre-wrap; overflow-wrap: anywhere; word-break: normal; cursor: text; }
+#bq-input::selection { background: rgba(60, 80, 160, 0.3); }
+/* the inputs can be written in even though the book around them cannot be selected; on phones their own text is at least
+   16 px so iOS does not zoom the page when the keyboard comes up (what is shown is the rendered copy, not this text) */
+#bq-input, #bq-title { user-select: text; -webkit-user-select: text; -webkit-tap-highlight-color: transparent; }
+@media (pointer: coarse) { #bq-input, #bq-title { font-size: max(16px, 9px * var(--s)); } }
+/* on phones, until the page is tapped: where to tap to write */
+#bq-hint { display: none; position: absolute; left: calc(20px * var(--s)); top: calc(78px * var(--s)); width: calc(114px * var(--s)); text-align: center; color: #7a6f5a; pointer-events: none; white-space: pre-wrap; }
+#bq.hint #bq-hint { display: block; }
+#bq-cover { display: none; position: absolute; left: calc(20px * var(--s)); top: calc(56px * var(--s)); width: calc(114px * var(--s)); text-align: center; }
+#bq.cover #bq-cover { display: block; }
+#bq-cover-title { text-shadow: calc(1px * var(--s)) 0 0 #000; white-space: pre-wrap; overflow-wrap: anywhere; }
+#bq-cover-by { margin-top: calc(12px * var(--s)); color: #5a5a5a; }
+#bq-signpanel { display: none; position: absolute; left: calc(20px * var(--s)); top: calc(32px * var(--s)); width: calc(114px * var(--s)); text-align: center; }
+#bq[data-kind="sign"] #bq-signpanel { display: block; }
+.bq-sign-head { text-shadow: calc(1px * var(--s)) 0 0 #000; }
+#bq-sign-title { position: relative; margin-top: calc(14px * var(--s)); height: calc(9px * var(--s)); white-space: pre; }
+#bq-sign-title::after { content: "_"; animation: bq-blink 1s steps(2, start) infinite; }
+#bq-title { position: absolute; left: 0; top: calc(20px * var(--s)); width: 100%; height: calc(12px * var(--s)); margin: 0; padding: 0; border: 0; outline: 0; background: transparent; color: transparent; -webkit-text-fill-color: transparent; caret-color: transparent; font: inherit; text-align: center; }
+#bq-sign-by { margin-top: calc(1px * var(--s)); color: #5a5a5a; }
+.bq-sign-note { margin-top: calc(22px * var(--s)); white-space: pre-wrap; color: #000; }
+.bq-arrow { position: absolute; top: calc(157px * var(--s)); width: calc(23px * var(--s)); height: calc(13px * var(--s)); padding: 0; border: 0; border-radius: 0; background: transparent; cursor: pointer; transition: none; }
+.bq-arrow:hover:not(:disabled) { background: transparent; transform: none; }
+.bq-arrow canvas { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; }
+.bq-arrow canvas.lit { display: none; }
+.bq-arrow:hover canvas.lit { display: block; }
+.bq-arrow:hover canvas.dim { display: none; }
+#bq-prev { left: calc(20px * var(--s)); }
+#bq-prev canvas { transform: scaleX(-1); }
+#bq-next { left: calc(93px * var(--s)); }
+#bq[data-kind="sign"] .bq-arrow, #bq[data-kind="sign"] #bq-text, #bq[data-kind="sign"] #bq-pageno, #bq[data-kind="sign"] #bq-input, #bq[data-kind="sign"] #bq-cursor { display: none !important; }
+#bq[data-kind="read"] #bq-input { display: none; }
+/* the game's grey bevelled buttons */
+button.mc { font: inherit; line-height: calc(9px * var(--s)); height: calc(20px * var(--s)); width: calc(98px * var(--s)); padding: 0; border: calc(1px * var(--s)) solid #000; border-radius: 0; background: #6f6f6f; color: #fff; text-shadow: calc(1px * var(--s)) calc(1px * var(--s)) 0 #3f3f3f; letter-spacing: 0; text-transform: none; transition: none; box-shadow: inset calc(1px * var(--s)) calc(1px * var(--s)) 0 #a9a9a9, inset calc(-1px * var(--s)) calc(-1px * var(--s)) 0 #4a4a4a; }
+button.mc:hover:not(:disabled) { background: #7d8bc7; color: #ffffa0; transform: none; box-shadow: inset calc(1px * var(--s)) calc(1px * var(--s)) 0 #b4bfef, inset calc(-1px * var(--s)) calc(-1px * var(--s)) 0 #4f5a85; }
+button.mc:disabled { background: #4b4b4b; color: #a0a0a0; opacity: 1; cursor: default; box-shadow: inset calc(1px * var(--s)) calc(1px * var(--s)) 0 #5e5e5e, inset calc(-1px * var(--s)) calc(-1px * var(--s)) 0 #353535; }
+button.mc.wide { width: calc(200px * var(--s)); }
+button.mc.small { width: auto; padding: 0 calc(4px * var(--s)); }
+button.mc.active { background: #8a8a8a; color: #ffffa0; }
+.bq-buttons { display: flex; gap: calc(4px * var(--s)); justify-content: center; width: calc(200px * var(--s)); margin-top: calc(16px * var(--s)); }
+#bq[data-kind="quill"] #bq-signclose, #bq[data-kind="quill"] #bq-cancel, #bq[data-kind="quill"] #bq-close { display: none; }
+#bq[data-kind="sign"] #bq-signbtn, #bq[data-kind="sign"] #bq-done, #bq[data-kind="sign"] #bq-close { display: none; }
+#bq[data-kind="read"] #bq-signbtn, #bq[data-kind="read"] #bq-done, #bq[data-kind="read"] #bq-signclose, #bq[data-kind="read"] #bq-cancel { display: none; }
+#bq-shelf { display: none; flex-wrap: wrap; gap: calc(4px * var(--s)); justify-content: center; width: calc(200px * var(--s)); margin-top: calc(4px * var(--s)); max-height: calc(48px * var(--s)); overflow-y: auto; scrollbar-width: none; }
+#bq-shelf::-webkit-scrollbar { display: none; }
+/* the book in the hand: a tap button on phones once it has been found, and the pickup's toast */
+#book-btn { left: calc(50% + 34px); transform: none; width: 44px; height: 38px; padding: 4px 0 0; line-height: 0; }
+#book-btn canvas { width: 28px; height: 28px; image-rendering: pixelated; image-rendering: crisp-edges; }
+#bag-btn { left: calc(50% + 82px); transform: none; width: 44px; height: 38px; padding: 4px 0 0; line-height: 0; }
+#bag-btn canvas { width: 28px; height: 28px; image-rendering: pixelated; image-rendering: crisp-edges; }
+
+/* the satchel: the old inventory panel. 1 panel pixel = var(--k) css pixels; the panel is 184 x 360 */
+#satchel { position: fixed; left: 0; top: 0; width: 100%; height: 100%; display: none; align-items: center; justify-content: center; background: rgba(0, 0, 0, 0.45); --k: 1.5; z-index: 5; }
+body.satchel #satchel { display: flex; }
+body.satchel #paused, body.satchel #landing, body.satchel #hud, body.satchel #touchui { display: none !important; }
+#sat { position: relative; width: calc(184px * var(--k)); height: calc(360px * var(--k)); font-family: "Monocraft", monospace; font-size: calc(8px * var(--k)); line-height: calc(8px * var(--k)); -webkit-font-smoothing: none; text-rendering: optimizeSpeed; font-kerning: none; user-select: none; -webkit-user-select: none; }
+#sat > canvas.art { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; }
+#sat-title { position: absolute; left: calc(9px * var(--k)); top: calc(39px * var(--k)); color: #ff981f; text-shadow: calc(1px * var(--k)) calc(1px * var(--k)) 0 #000; }
+#sat-count { color: #c9bd9f; margin-left: calc(4px * var(--k)); }
+#sat-close { position: absolute; right: calc(7px * var(--k)); top: calc(37px * var(--k)); width: calc(12px * var(--k)); height: calc(12px * var(--k)); padding: 0; border: calc(1px * var(--k)) solid #15110d; border-radius: 0; background: #5a4c3d; color: #e8dcc0; font: inherit; line-height: calc(10px * var(--k)); letter-spacing: 0; text-transform: none; transition: none; box-shadow: inset calc(1px * var(--k)) calc(1px * var(--k)) 0 #7d6c58, inset calc(-1px * var(--k)) calc(-1px * var(--k)) 0 #2a221b; }
+#sat-close:hover:not(:disabled) { background: #6e5c48; transform: none; }
+#sat-slots { position: absolute; inset: 0; transform: scale(var(--k)); transform-origin: 0 0; width: 184px; height: 360px; }
+#sat .slot { position: absolute; width: 40px; height: 40px; padding: 0; margin: 0; border: 0; border-radius: 0; background: transparent; cursor: default; transition: none; }
+#sat .slot.held { cursor: pointer; }
+#sat .slot.held:hover { background: rgba(255, 220, 150, 0.08); transform: none; }
+#sat .slot.selected { background: rgba(255, 220, 150, 0.16); outline: 1px solid rgba(255, 200, 100, 0.6); outline-offset: -1px; }
+#sat .slot .icon { position: absolute; left: 4px; top: 4px; width: 32px; height: 32px; image-rendering: pixelated; image-rendering: crisp-edges; pointer-events: none; }
+/* the menu text: the action and the item's name take the title's place while a slot is named */
+#sat-name { position: absolute; left: calc(9px * var(--k)); top: calc(39px * var(--k)); right: calc(22px * var(--k)); color: #ff981f; text-shadow: calc(1px * var(--k)) calc(1px * var(--k)) 0 #000; white-space: nowrap; overflow: hidden; display: none; }
+#sat-name.show { display: block; }
+#sat:has(#sat-name.show) #sat-title { visibility: hidden; }
+#sat-name .verb { color: #fff; }
+#toast { position: fixed; left: 50%; bottom: max(64px, env(safe-area-inset-bottom)); transform: translateX(-50%); font-family: "Monocraft", monospace; font-size: 18px; line-height: 18px; color: #fff; text-shadow: 2px 2px 0 #3f3f3f; background: rgba(16, 0, 16, 0.85); border: 2px solid rgba(96, 32, 255, 0.55); padding: 8px 12px; white-space: nowrap; pointer-events: none; opacity: 0; z-index: 4; -webkit-font-smoothing: none; }
+#toast.show { animation: toast 2.8s ease-out forwards; }
+@keyframes toast { 0% { opacity: 0; transform: translate(-50%, 8px); } 10% { opacity: 1; transform: translate(-50%, 0); } 80% { opacity: 1; } 100% { opacity: 0; } }

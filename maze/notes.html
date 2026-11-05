@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Lost in the Moss · dev notes</title>
+<meta name="description" content="The working list for the Lost in the Moss beta: what is being improved, what has been suggested, and ideas not yet decided.">
+<link rel="icon" href="data:,">
+<!--
+  The dev notes. Anyone can read this page; only the game itself needs the word.
+  The game shows the same notes on its start and pause screens: it reads
+  everything inside <div class="notes-body"> below, so edit the list here and
+  both change. Keep to h3, p, ul and li in there.
+-->
+<style>
+  @font-face { font-family: "Freckle Face"; src: url("fonts/FreckleFace-Regular.woff2") format("woff2"); font-display: swap; }
+  @font-face { font-family: "IM Fell English"; src: url("fonts/IMFellEnglish-Regular.woff2") format("woff2"); font-display: swap; }
+  @font-face { font-family: "IM Fell English"; font-style: italic; src: url("fonts/IMFellEnglish-Italic.woff2") format("woff2"); font-display: swap; }
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html { background: #10140f; }
+  body { margin: 0; min-height: 100vh; padding: 40px max(16px, env(safe-area-inset-right, 0px)) 56px max(16px, env(safe-area-inset-left, 0px)); color: #e9eee4; font-family: "IM Fell English", Georgia, "Times New Roman", serif; font-size: 18px; line-height: 1.6;
+    background: radial-gradient(120% 60% at 30% 0%, #26341c 0%, transparent 60%), radial-gradient(90% 50% at 85% 100%, #1c2a17 0%, transparent 65%), #10140f; }
+  main { max-width: 620px; margin: 0 auto; }
+  h1 { font-family: "Freckle Face", "IM Fell English", Georgia, serif; font-weight: 400; letter-spacing: 0.03em; font-size: clamp(34px, 8vw, 50px); line-height: 1.1; margin: 0 0 6px; }
+  .small { margin: 0; font-size: 15px; color: #aab3a4; }
+  .notes-body { margin: 22px 0 30px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1); color: #d7dfd0; }
+  .notes-body h3 { margin: 24px 0 6px; font-weight: 400; font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: #8f9a8a; }
+  .notes-body p { margin: 0; }
+  .notes-body ul { margin: 0; padding-left: 20px; }
+  .notes-body li { margin: 3px 0; }
+  a.door { display: inline-block; font-family: "Freckle Face", "IM Fell English", Georgia, serif; font-size: 18px; letter-spacing: 0.08em; text-transform: uppercase; text-decoration: none; color: #15200f; background: rgba(236, 244, 226, 0.92); border: 1px solid rgba(255,255,255,0.35); border-radius: 3px; padding: 13px 26px; }
+  a.door:hover { background: #fff; }
+  a.door:focus-visible { outline: 2px solid #c9d6b8; outline-offset: 2px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>dev notes</h1>
+  <p class="small">Lost in the Moss · beta demo · last changed 4 november 2026</p>
+  <div class="notes-body">
+    <h3>what this page is</h3>
+    <p>The working list for the maze: what is being improved, what has been suggested, and ideas that are not decided. It changes as the game does. Anyone can read it; only the game itself needs the word.</p>
+    <h3>what the game is</h3>
+    <p>A walk through moss. Eight real places, each one built as a maze, each with the mosses that really grow there. Find the opening in the outer wall and the next place begins, bigger than the last. It is a beta: unfinished, still changing, and things will look wrong, run slow or break.</p>
+    <h3>improvements under way</h3>
+    <ul>
+      <li>speed: the walls and the moss now draw fewer layers so the walk runs smoother; the scanned rocks and the floor are next</li>
+      <li>phones: not yet measured on real devices, so expect it to run warm or slow on some</li>
+      <li>moss up close: it still reads as a photograph laid over a shape, and wants real depth</li>
+      <li>hanging moss: seen from the side the strips are thin and can look like sticks</li>
+      <li>the canopy overhead is painted blotches, not yet trees</li>
+    </ul>
+    <h3>suggestions, not yet done</h3>
+    <ul>
+      <li>an opening film before the start screen</li>
+      <li>a gamepad, and tilt-to-look on phones</li>
+      <li>recorded night calls and footsteps in place of the synthesised ones</li>
+      <li>records, journal and satchel that follow you from one browser to another</li>
+      <li>a smaller download before the first place opens</li>
+      <li>trees, logs and stones made for the game, in place of the public scans</li>
+    </ul>
+    <h3>ideas, not decided</h3>
+    <ul>
+      <li>more places</li>
+      <li>the same place in another season</li>
+      <li>a Radbro or a Radcat to follow through a maze</li>
+      <li>a page left in the journal for the next walker to find</li>
+    </ul>
+    <h3>what is in now</h3>
+    <ul>
+      <li>eight places: Yakushima, Aokigahara, the Hoh Rainforest, the Williamson Tunnels, Wistman's Wood, Fanal Forest, Puzzlewood, Congaree</li>
+      <li>weather and the hour, rolled again on every visit</li>
+      <li>six native mosses in each place, named at the bottom of the frame; tap a cushion for its spores and its name</li>
+      <li>one small hidden find in each place</li>
+      <li>a book and quill to write in, a satchel, and a torch for after dark</li>
+      <li>each place's animal, which will not let you get close</li>
+    </ul>
+    <h3>good to know</h3>
+    <ul>
+      <li>your records, journal and satchel are kept in this browser only, and may be reset between versions</li>
+      <li>the first place takes a while to load</li>
+    </ul>
+    <h3>credits</h3>
+    <p>Textures from ambientCG and models from Poly Haven, both CC0. Recordings from Wikimedia Commons, CC0 and public domain. Animals made with Meshy. Radbro, Schizo Grey and Radcat from radbro.gg, used with each pack's permission. Three.js, MIT. Freckle Face, IM Fell English and Monocraft, SIL Open Font License.</p>
+  </div>
+  <a class="door" href="./">to the maze</a>
+</main>
+</body>
+</html>

@@ -7,7 +7,6 @@
 //   capture, if given, returns a picture of what the camera sees (the game passes it; the page has no camera)
 
 const API = new URL('notes-api/', import.meta.url);
-const DOOR = new URL('./', import.meta.url);
 const KINDS = ['comment', 'suggestion', 'request', 'idea'];
 const MAX_SHOTS = 3;
 const NAME_KEY = 'moss-maze-notes-name';
@@ -125,9 +124,18 @@ export function mountNotes(root, opts = {}) {
   }
   function drawForm() {
     if (!state.loaded) { formBox.replaceChildren(); form = null; return; }
+    if (state.down) { form = null; formBox.replaceChildren(); return; }   // nothing to post to: the list says why
     if (!state.tester) {
+      // the word is asked for here, where the note is to be left
       form = null;
-      formBox.replaceChildren(el('p', { class: 'nb-quiet' }, 'Anyone can read these. To leave a note of your own, ', el('a', { href: DOOR.href }, 'open the maze'), ' with the word first.'));
+      const word = el('input', { type: 'password', 'aria-label': 'the password', placeholder: 'the password', autocomplete: 'off', required: true });
+      const msg = el('span', { class: 'nb-status nb-bad', role: 'status' });
+      formBox.replaceChildren(el('form', { class: 'nb-form', onsubmit: async e => {
+        e.preventDefault();
+        try { await send('word', { word: word.value }); refresh(); } catch (err) { msg.textContent = err.message; word.select(); }
+      } },
+        el('p', { class: 'nb-quiet', style: 'margin:0' }, 'Anyone can read these. To leave a note of your own, give the password the maze opens with.'),
+        el('div', { class: 'nb-row' }, el('div', { style: 'flex:1;min-width:170px' }, word), el('button', { type: 'submit', class: 'nb-main' }, 'add a note'), msg)));
       return;
     }
     if (form) return;   // already there: keep whatever is half written
@@ -210,7 +218,7 @@ export function mountNotes(root, opts = {}) {
 
   // --- the owner's key
   function drawFoot() {
-    if (!state.loaded) { footBox.replaceChildren(); return; }
+    if (!state.loaded || state.down) { footBox.replaceChildren(); return; }
     if (state.owner) {
       footBox.replaceChildren('you are here as the owner: you can edit and delete.', el('button', { type: 'button', class: 'nb-link', onclick: async () => { try { await send('leave'); } catch { /* still signed out below */ } state.editing = state.asking = null; refresh(); } }, 'put the key down'));
       return;
@@ -227,8 +235,8 @@ export function mountNotes(root, opts = {}) {
   async function refresh() {
     try {
       const got = await call('list');
-      state.notes = got.notes || []; state.tester = !!got.tester; state.owner = !!got.owner; state.error = '';
-    } catch (err) { state.error = err.message; }
+      state.notes = got.notes || []; state.tester = !!got.tester; state.owner = !!got.owner; state.error = ''; state.down = false;
+    } catch (err) { state.down = true; state.error = 'The notes board could not be reached from here, so notes can be neither read nor left right now. Try again in a moment.'; }
     state.loaded = true;
     drawForm(); drawList(); drawFoot();
   }

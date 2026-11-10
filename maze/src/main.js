@@ -20,7 +20,7 @@ import { Book, drawBookIcon } from './book.js?v=710aeb13';
 import { Finds } from './finds.js?v=dce826cd';
 import { Satchel } from './satchel.js?v=1f7ba5bb';
 import { Flashlight, TORCH_ANGLE } from './torch.js?v=e09dfa0f';
-import { mountNotes } from '../notes.js?v=c0f44ce5';
+import { mountNotes } from '../notes.js?v=dc9658f1';
 
 const $ = s => document.querySelector(s);
 const params = new URLSearchParams(location.search);

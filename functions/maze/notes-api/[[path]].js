@@ -131,7 +131,7 @@ export async function onRequest({ request, env, params, data }) {
     if (origin && origin !== new URL(request.url).origin) return json({ error: 'not from here' }, 403);
 
     if (route === 'post') {
-      if (!tester) return json({ error: 'open the maze with the word first, then leave your note' }, 401);
+      if (!tester) return json({ error: 'give the password first, then leave your note' }, 401);
       if (Number(request.headers.get('content-length') || 0) > MAX_SHOTS * MAX_SHOT_BYTES + 64 * 1024) return json({ error: 'that is too much to send at once' }, 413);
 
       const who = P + 'r:' + (await sha256('who:' + (request.headers.get('cf-connecting-ip') || 'local'))).slice(0, 24);

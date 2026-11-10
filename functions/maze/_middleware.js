@@ -22,7 +22,7 @@
 //
 // Cloudflare Pages Function: middleware for /maze/*
 
-const LOCK = 'ad5ff21ea92f7fb7acbb11e9880df8db67f96a480f52549a3e274f602833e773';
+const SITE_LOCK = 'ad5ff21ea92f7fb7acbb11e9880df8db67f96a480f52549a3e274f602833e773';
 const COOKIE = 'maze_beta';
 const MAX_AGE = 60 * 60 * 24 * 30;
 const POLICY = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self' blob: data:; img-src 'self' data: blob:; media-src 'self' blob: data:; style-src 'self' 'unsafe-inline'; font-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'";
@@ -44,11 +44,24 @@ const keyOf = word => sha256('moss-maze-beta:' + word.trim().toLowerCase());
 const OPEN = /^\/maze\/(?:notes(?:\.html|\.js|-page\.js|\/)?|fonts\/[A-Za-z0-9._-]+)$/;
 const BOARD = /^\/maze\/notes-api\//;
 
-export async function onRequest({ request, next, data }) {
+const cookieFor = key => `${COOKIE}=${key}; Path=/maze; Max-Age=${MAX_AGE}; HttpOnly; Secure; SameSite=Lax`;
+
+export async function onRequest({ request, next, data, env }) {
+  const LOCK = (env && env.MAZE_LOCK) || SITE_LOCK;   // MAZE_LOCK: a word of its own for local testing
   const path = new URL(request.url).pathname;
   const held = (request.headers.get('cookie') || '').match(/(?:^|;\s*)maze_beta=([0-9a-f]{64})(?:;|$)/);
   const tester = !!held && await sha256(held[1]) === LOCK;
 
+  // the word can be given on the board itself, so that leaving a note never means going to find the door
+  if (path === '/maze/notes-api/word' && request.method === 'POST') {
+    const say = (body, status, headers = {}) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', 'cache-control': 'no-store', ...headers } });
+    const origin = request.headers.get('origin');
+    if (origin && origin !== new URL(request.url).origin) return say({ error: 'not from here' }, 403);
+    const body = await request.json().catch(() => ({}));
+    const key = await keyOf(String(body.word || '').slice(0, 200));
+    if (await sha256(key) !== LOCK) return say({ error: 'that is not the word' }, 403);
+    return say({ ok: true }, 200, { 'set-cookie': cookieFor(key) });
+  }
   if (BOARD.test(path)) { data.tester = tester; return next(); }
   if (tester) return served(next);
   if ((request.method === 'GET' || request.method === 'HEAD') && OPEN.test(path)) return served(next);
@@ -61,7 +74,7 @@ export async function onRequest({ request, next, data }) {
       status: 303,
       headers: {
         location: '/maze/',
-        'set-cookie': `${COOKIE}=${key}; Path=/maze; Max-Age=${MAX_AGE}; HttpOnly; Secure; SameSite=Lax`,
+        'set-cookie': cookieFor(key),
         'cache-control': 'no-store'
       }
     });

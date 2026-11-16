@@ -221,7 +221,10 @@ export function makeMossMaterial(o) {
         vShell = 0.0;
         #ifdef USE_INSTANCING
           vec3 wp0 = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;
-          vec3 wn0 = normalize(mat3(modelMatrix) * mat3(instanceMatrix) * objectNormal);
+          // a normal is not scaled the way a point is: on a thing stretched one way (a trunk eleven metres tall and half
+          // a metre through) it has to be divided by the stretch, or the trunk's side is taken to face the sky
+          mat3 inm = mat3(instanceMatrix);
+          vec3 wn0 = normalize(mat3(modelMatrix) * (inm * (objectNormal / vec3(dot(inm[0], inm[0]), dot(inm[1], inm[1]), dot(inm[2], inm[2])))));
         #else
           vec3 wp0 = (modelMatrix * vec4(transformed, 1.0)).xyz;
           vec3 wn0 = normalize(mat3(modelMatrix) * objectNormal);

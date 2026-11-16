@@ -4,6 +4,9 @@
 // simply decides to go) and bolts along the corridors away from you, galloping or trotting, until it is out of
 // sight, with the sound of its going. One animal a level, two sightings at most.
 //
+// The animal knows the way out. It only ever stands on a shortest way from where you are to the exit, and when it
+// goes it runs on along that way. Where you saw it, and where it went, is the right way.
+//
 // The run clip is in place: its playback rate is set from the ground covered, one loop per stride, so the
 // hooves keep pace with the floor. Standing, it idles side-on to you (a profile is how an animal is seen
 // first), then turns as it goes.
@@ -27,7 +30,7 @@ export const ANIMALS = {
 
 const NEAR = 8;          // never shown nearer than this (metres)
 const NOTICE = 10.5;     // it bolts when you come this close
-const SPAWN = [12.5, 18];  // where it appears, from you
+const SPAWN = [11.5, 20];  // where it appears, from you
 const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
 
 export function buildAnimal(ctx) {
@@ -41,7 +44,23 @@ export function buildAnimal(ctx) {
     for (let i = 1; i < n; i++) { const t = i / n, x = ax + (bx - ax) * t, z = az + (bz - az) * t; if (!isOpen(Math.floor(x / c), Math.floor(z / c))) return false; }
     return true;
   };
+  // steps over open tiles from one tile to every tile it can reach
+  const flood = (sx, sz) => {
+    const d = new Int32Array(maze.W * maze.H).fill(-1);
+    if (!isOpen(sx, sz)) return d;
+    const q = [sx, sz]; d[sz * maze.W + sx] = 0;
+    for (let i = 0; i < q.length; i += 2) {
+      const x = q[i], z = q[i + 1], v = d[z * maze.W + x];
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx, nz = z + dz;
+        if (!isOpen(nx, nz) || d[nz * maze.W + nx] >= 0) continue;
+        d[nz * maze.W + nx] = v + 1; q.push(nx, nz);
+      }
+    }
+    return d;
+  };
   const a = {
+    flood, toExit: flood(maze.exit.x, maze.exit.y), W: maze.W,
     spec, los, isOpen, c, floorY, openCells, maze, ready: false,
     phase: 'hidden', t: 0, shown: 0, next: 10 + Math.random() * 8, hold: 0, look: 0,
     pos: new THREE.Vector3(), path: [], step: 0, dir: new THREE.Vector3(), yaw: 0,
@@ -86,12 +105,19 @@ export function updateAnimal(a, dt, player, now, hooks) {
   if (a.phase === 'hidden') {
     if (a.shown >= 2 || hooks.mazeTime < a.next) return;
     a.next = hooks.mazeTime + 2;   // try again in a couple of seconds if nothing fits
-    // a spot far off along your line of sight, in open ground, with a clear line to you
+    // a spot far off along your line of sight, in open ground, with a clear line to you, and on a shortest way from
+    // you to the exit: as far from you as it is nearer the way out, step for step
     const fx = -Math.sin(player.yaw), fz = -Math.cos(player.yaw);
     const cands = [];
+    const px = Math.floor(pp.x / c), pz = Math.floor(pp.z / c);
+    if (!a.isOpen(px, pz)) return;
+    const mine = a.toExit[pz * a.W + px]; if (mine < 0) return;
+    const fromMe = a.flood(px, pz);
     for (const [gx, gz] of a.openCells) {
       const x = (gx + 0.5) * c, z = (gz + 0.5) * c, dx = x - pp.x, dz = z - pp.z, d = Math.hypot(dx, dz);
       if (d < SPAWN[0] || d > SPAWN[1]) continue;
+      const i = gz * a.W + gx;
+      if (a.toExit[i] < 0 || fromMe[i] < 0 || fromMe[i] + a.toExit[i] !== mine) continue;
       if ((dx * fx + dz * fz) / d < 0.75) continue;
       if (Math.abs(gx - a.maze.exit.x) + Math.abs(gz - a.maze.exit.y) < 3) continue;
       cands.push([gx, gz, x, z, d]);
@@ -135,33 +161,20 @@ export function updateAnimal(a, dt, player, now, hooks) {
   if (a.root.visible) { a.root.position.copy(a.pos); a.root.rotation.y = a.yaw; a.mixer.update(dt); }
 }
 
-// a way out: along the open tiles, each step further from you than the last where it can, until it is round a corner
+// it goes the way out: from where it stands, each step one nearer the exit, on until it is round a corner and gone
 function bolt(a, pp, hooks) {
   const { c } = a;
-  const dist = (gx, gz) => Math.hypot((gx + 0.5) * c - pp.x, (gz + 0.5) * c - pp.z);
-  const key = (gx, gz) => gx + ',' + gz;
-  const start = a.cell, from = new Map([[key(...start), { prev: null, depth: 0 }]]), queue = [start];
-  let best = null, bestScore = -1;
-  while (queue.length) {
-    const cur = queue.shift();
-    const depth = from.get(key(...cur)).depth;
-    const d = dist(cur[0], cur[1]);
-    if (depth >= 2) {
-      const hidden = !a.los(pp.x, pp.z, (cur[0] + 0.5) * c, (cur[1] + 0.5) * c);
-      const score = d + (hidden ? 6 : 0) - depth * 0.3;
-      if (score > bestScore) { best = cur; bestScore = score; }
-    }
-    if (depth >= 9) continue;
-    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      const nx = cur[0] + dx, nz = cur[1] + dz, k = key(nx, nz);
-      if (from.has(k) || !a.isOpen(nx, nz)) continue;
-      if (dist(nx, nz) < d - 0.2 && dist(nx, nz) < NEAR) continue;   // never toward you into arm's reach
-      from.set(k, { prev: cur, depth: depth + 1 }); queue.push([nx, nz]);
-    }
-  }
   const cells = [];
-  for (let cur = best; cur && from.get(key(...cur)).prev; cur = from.get(key(...cur)).prev) cells.push(cur);
-  cells.reverse();
+  let cur = a.cell, v = a.toExit[cur[1] * a.W + cur[0]];
+  while (v > 0 && cells.length < 60) {
+    let next = null;
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = cur[0] + dx, nz = cur[1] + dz;
+      if (a.isOpen(nx, nz) && a.toExit[nz * a.W + nx] === v - 1) { next = [nx, nz]; break; }
+    }
+    if (!next) break;
+    cells.push(next); cur = next; v--;
+  }
   a.path = cells.map(([gx, gz]) => [(gx + 0.5) * c + (Math.random() - 0.5) * c * 0.3, (gz + 0.5) * c + (Math.random() - 0.5) * c * 0.3]);
   a.step = 0; a.t = 0;
   if (!a.path.length) { a.root.visible = false; a.phase = 'hidden'; a.next = hooks.mazeTime + 30; return; }

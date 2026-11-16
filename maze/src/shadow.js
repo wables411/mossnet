@@ -36,7 +36,7 @@ function rand(seed) { let s = seed >>> 0; return () => { s = (s + 0x6D2B79F5) >>
 
 // a tileable leaf mask: opaque leaves in clusters along twigs, clear gaps between, until `cover` of it is leaf
 // big: understory leaves (alder, salmonberry, vine maple) rather than the fine high crowns
-function leafMask(cover, big, seed) {
+export function leafMask(cover, big, seed) {
   const c = document.createElement('canvas'); c.width = c.height = PX;
   const ctx = c.getContext('2d', { willReadFrequently: true });   // read back to measure the cover as it grows
   const r = rand(seed);

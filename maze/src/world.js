@@ -7,9 +7,9 @@
 import * as THREE from '../lib/three.module.js?v=88cddb5c';
 import { WALL } from './maze.js?v=28138280';
 import { noise3, fbm3 } from './noise.js?v=a407dfed';
-import { makeMossMaterial } from './materials.js?v=af31d97a';
-import { hangClumpGeometry, MeshBuilder, disp, setCarve, makeLowField, curtainTexture, beardTexture, drapeTexture, vineTexture, tuftAtlas, TUFT_VARIANTS, shaftTexture, glowTexture } from './geometry.js?v=d4fe5800';
-import { buildCanopy, buildTrees, buildCaveCeiling, buildVaults, buildLogs, buildBoulders, buildMushrooms, buildPlants, buildStream, buildCushions, buildBoughMoss, buildScans, buildLogWalls, buildTrunkWalls, buildWater, wallSpots } from './props.js?v=a5e3aefe';
+import { makeMossMaterial } from './materials.js?v=2eb1c930';
+import { hangClumpGeometry, MeshBuilder, disp, setCarve, makeLowField, curtainTexture, beardTexture, drapeTexture, vineTexture, grassClumpGeometry, bladeTexture, TUFT_VARIANTS, shaftTexture, glowTexture } from './geometry.js?v=0f72c86e';
+import { buildCanopy, buildTrees, buildCaveCeiling, buildVaults, buildLogs, buildBoulders, buildMushrooms, buildPlants, buildStream, buildCushions, buildBoughMoss, buildScans, buildLogWalls, buildTrunkWalls, buildWater, wallSpots } from './props.js?v=e96f1827';
 import { buildWhimsy } from './whimsy.js?v=279db07e';
 import { mossTypes } from './locations.js?v=f0992831';
 import { makeCardMaterial, cardDepthMaterial, wind } from './wind.js?v=25d38805';
@@ -43,7 +43,7 @@ export class World {
     this.scene = scene; this.tex = textures; this.strand = strand; this.q = quality;
     this.fogColor = fogColor; this.sunDir = sunDir;
     this.group = null; this.materials = []; this.texCache = {}; this.geoCache = {};
-    this.curtainTex = curtainTexture(); this.hangTex = [drapeTexture(), beardTexture(), vineTexture()]; this.tuftTex = tuftAtlas(); this.shaftTex = shaftTexture(); this.glowTex = glowTexture();
+    this.curtainTex = curtainTexture(); this.hangTex = [drapeTexture(), beardTexture(), vineTexture()]; this.tuftTex = bladeTexture(true); this.shaftTex = shaftTexture(); this.glowTex = glowTexture();
     this.obstacles = []; this.stream = null; this.waters = []; this.waterLevel = null; this.types = null; this.weather = { rain: 0, snow: 0, fog: 0, wind: 0.2 };
     this.low = makeLowField();
     this.shootSources = []; this.shootFaces = []; this.fuzzMeshes = [];
@@ -397,8 +397,8 @@ export class World {
     this.logTops = ctx.logTops; this.surfaces = ctx.surfaces || []; this.trunkPatches = ctx.trunkPatches || [];
 
     // --- crest tufts: clumps of grass and haircap along the tops of carved walls where there is sky above.
-    // Each is a pair of crossed cards of a drawn tuft (four drawings, mirrored at random, each its own width and
-    // height) rooted a few centimetres INSIDE the crest: on the quarter-round it leans out with the surface, behind
+    // Each is a clump of separate blades (four clumps, each instance its own width and height: never crossed cards,
+    // which show as an X from above) rooted a few centimetres INSIDE the crest: on the quarter-round it leans out with the surface, behind
     // it it stands on the cap, and never on the rounded-away end of a wall. Its colour is the wall's own moss.
     if (kind === 'carved' && loc.ceiling !== 'tunnel') {
       const R = this.round, dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
@@ -442,20 +442,14 @@ export class World {
         const m = new THREE.Matrix4(), q = new THREE.Quaternion(), q2 = new THREE.Quaternion(), sc = new THREE.Vector3(), pos = new THREE.Vector3(), nrm = new THREE.Vector3(), upv = new THREE.Vector3(0, 1, 0), col = new THREE.Color();
         lists.forEach((list, v) => {
           if (!list.length) return;
-          // two crossed cards, this variant's column of the atlas
-          const geo = new THREE.BufferGeometry();
-          const u0 = v / TUFT_VARIANTS, u1 = (v + 1) / TUFT_VARIANTS;
-          geo.setAttribute('position', new THREE.Float32BufferAttribute([-0.5, 0, 0, 0.5, 0, 0, -0.5, 1, 0, 0.5, 1, 0, 0, 0, -0.5, 0, 0, 0.5, 0, 1, -0.5, 0, 1, 0.5], 3));
-          geo.setAttribute('normal', new THREE.Float32BufferAttribute([0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0], 3));
-          geo.setAttribute('uv', new THREE.Float32BufferAttribute([u0, 0, u1, 0, u0, 1, u1, 1, u0, 0, u1, 0, u0, 1, u1, 1], 2));
-          geo.setIndex([0, 1, 2, 1, 3, 2, 4, 5, 6, 5, 7, 6]);
+          const geo = grassClumpGeometry(26, 3, 11 + v * 7, 0.42, 2.4);
           const mesh = new THREE.InstancedMesh(geo, mat, list.length);
           list.forEach(([x, y, z, nx, ny, nz, yaw, lean, w, th, r, g, b], i) => {
             nrm.set(nx, ny, nz).normalize();
             q.setFromUnitVectors(upv, nrm);
             q2.setFromAxisAngle(nrm, yaw); q.premultiply(q2);
             q2.setFromAxisAngle(new THREE.Vector3(1, 0, 0), lean); q.multiply(q2);
-            pos.set(x, y, z); sc.set(w, th, Math.abs(w));
+            pos.set(x, y, z); sc.set(Math.abs(w), th, Math.abs(w));
             mesh.setMatrixAt(i, m.compose(pos, q, sc));
             mesh.setColorAt(i, col.setRGB(r, g, b));
           });
@@ -496,16 +490,23 @@ export class World {
           if (kind === 'logs') {
             // a log stack ends where its top log ends, often well under the wall's height: hang from the upper front of
             // that log (none there, no strip)
+            // Only a log lying ALONG this face, and only within its own length: a log seen end-on, or a spot past a log's
+            // end, put the strip out in the corridor with nothing above it.
             let best = null;
             for (const L of ctx.logTops) {
-              if (!L.top) continue;
+              if (!L.top || Math.abs(L.dirx * dx + L.dirz * dy) > 0.5) continue;
               const t = (px - L.x) * L.dirx + (pz - L.z) * L.dirz, lat = Math.abs((px - L.x) * L.dirz - (pz - L.z) * L.dirx);
-              if (Math.abs(t) > L.half + L.r || lat > L.r + 0.4) continue;
+              if (Math.abs(t) > L.half - w * 0.4 || lat > L.r + 0.4) continue;
               if (!best || L.y > best.L.y) best = { L, t };
             }
             if (!best) continue;
             const { L, t } = best, cx0 = L.x + L.dirx * t, cz0 = L.z + L.dirz * t;
-            lists[pickKind()].push([cx0 + dx * L.r * 0.8, L.y - L.r * 0.45, cz0 + dy * L.r * 0.8, (dx ? Math.PI / 2 : 0) + (rng() - 0.5) * 0.3, w, Math.min(hgt, L.y - floorY(px, pz) - 0.1)]);
+            // out from the log's axis square to it, on the side this face looks out from; the top tucked into the bark
+            let ox = L.dirz, oz = -L.dirx; if (ox * dx + oz * dy < 0) { ox = -ox; oz = -oz; }
+            // (at the log's widest, a little above its middle: from there it falls free down the outside. Higher up and further in,
+            // where it used to start, the whole strip hung inside the wood and was never seen.)
+            const hy = L.y - L.r * 0.75;
+            lists[pickKind()].push([cx0 + ox * L.r * 0.98, hy, cz0 + oz * L.r * 0.98, (dx ? Math.PI / 2 : 0) + (rng() - 0.5) * 0.3, w, Math.max(0.3, Math.min(hgt, hy - floorY(px, pz) - 0.1))]);
             continue;
           }
           const dd = disp(px, h, pz, h); px += dd[0]; pz += dd[2];

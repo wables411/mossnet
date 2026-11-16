@@ -4,7 +4,7 @@
 import * as THREE from '../lib/three.module.js?v=88cddb5c';
 import { WALL } from './maze.js?v=28138280';
 import { noise3 } from './noise.js?v=a407dfed';
-import { disp } from './geometry.js?v=d4fe5800';
+import { disp } from './geometry.js?v=0f72c86e';
 
 export const EYE = 1.62;
 

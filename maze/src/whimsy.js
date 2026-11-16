@@ -7,14 +7,14 @@
 // here is a single instanced mesh or two, placed through the walkability guard,
 // standing on world.floorY, and animated for a few instances a frame at most.
 import * as THREE from '../lib/three.module.js?v=88cddb5c';
-import { canvasTexture, lumpGeometry, withAO, disp } from './geometry.js?v=d4fe5800';
+import { canvasTexture, lumpGeometry, withAO, disp } from './geometry.js?v=0f72c86e';
 import { WALL } from './maze.js?v=28138280';
 import { noise3 } from './noise.js?v=a407dfed';
 import { makeCardMaterial } from './wind.js?v=25d38805';
-import { surfaceAt } from './props.js?v=a5e3aefe';
+import { surfaceAt } from './props.js?v=e96f1827';
 import { FINDS } from './finds.js?v=dce826cd';
-import { buildAnimal, updateAnimal } from './animals.js?v=dd7eb467';
-import { buildCast, updateCast } from './cast.js?v=0e9c169b';
+import { buildAnimal, updateAnimal } from './animals.js?v=4517b0af';
+import { buildCast, updateCast } from './cast.js?v=f18a2634';
 
 const M4 = new THREE.Matrix4(), Q = new THREE.Quaternion(), S = new THREE.Vector3(), P = new THREE.Vector3(), E = new THREE.Euler();
 const rnd = (a, b) => a + Math.random() * (b - a);

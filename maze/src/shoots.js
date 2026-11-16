@@ -14,7 +14,7 @@
 // where they are shrunk to nothing. The rebuild runs a few milliseconds per
 // frame into a second buffer and is swapped in when complete.
 import * as THREE from '../lib/three.module.js?v=88cddb5c';
-import { canvasTexture, dispFast } from './geometry.js?v=d4fe5800';
+import { canvasTexture, dispFast } from './geometry.js?v=0f72c86e';
 import { mulberry32 } from './maze.js?v=28138280';
 import { GLSL_SWAY, wind } from './wind.js?v=25d38805';
 

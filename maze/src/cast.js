@@ -1,7 +1,7 @@
 // The cast: characters from radbro.gg (credits in README), one to a place, met in the maze. A rigged,
 // lit, shadow-casting model with its own clips (cut down for the maze by build/maze_cast.mjs). It stands
 // about in the open, idling; come within ten metres or so where it can see you and it greets you once
-// (the Grey waves, Radcat hops), then walks off along the corridors, jogging if you are close, until it is
+// (the Grey waves, Radcat hops), then walks off toward the way out, jogging if you are close, until it is
 // round a corner and gone; a while later it is somewhere else ahead of you. Clips are in place, so the
 // walk's playback rate is set from the ground covered, and the feet do not slide.
 import * as THREE from '../lib/three.module.js?v=88cddb5c';
@@ -28,7 +28,24 @@ export function buildCast(ctx) {
     for (let i = 1; i < n; i++) { const t = i / n; if (!isOpen(Math.floor((ax + (bx - ax) * t) / c), Math.floor((az + (bz - az) * t) / c))) return false; }
     return true;
   };
-  const a = { spec, c, floorY, openCells, isOpen, los, maze, ready: false, phase: 'hidden', next: 0, pos: new THREE.Vector3(), yaw: 0, path: [], step: 0, cell: null };
+  // steps over open tiles from one tile to every tile it can reach
+  const flood = (sx, sz) => {
+    const d = new Int32Array(maze.W * maze.H).fill(-1);
+    if (!isOpen(sx, sz)) return d;
+    const q = [sx, sz]; d[sz * maze.W + sx] = 0;
+    for (let i = 0; i < q.length; i += 2) {
+      const x = q[i], z = q[i + 1], v = d[z * maze.W + x];
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const nx = x + dx, nz = z + dz;
+        if (!isOpen(nx, nz) || d[nz * maze.W + nx] >= 0) continue;
+        d[nz * maze.W + nx] = v + 1; q.push(nx, nz);
+      }
+    }
+    return d;
+  };
+  // like the animal of the place, it knows the way out: it waits on a shortest way from you to the exit, and when it
+  // goes it walks on along that way
+  const a = { flood, toExit: flood(maze.exit.x, maze.exit.y), W: maze.W, spec, c, floorY, openCells, isOpen, los, maze, ready: false, phase: 'hidden', next: 0, pos: new THREE.Vector3(), yaw: 0, path: [], step: 0, cell: null };
   a.root = new THREE.Group(); a.root.visible = false; group.add(a.root);
   // fetched per build (the browser keeps the file): the maze disposes a place's geometry when it leaves
   loader.load('models/cast/' + spec.file, g => {
@@ -62,9 +79,15 @@ function play(a, action, rate = 1) {
 // a place to stand: open, 12-24 m from you, not where you can already see it (it is found, not spawned in view)
 function place(a, pp, first) {
   const { c } = a, cands = [];
+  const px = Math.floor(pp.x / c), pz = Math.floor(pp.z / c);
+  if (!a.isOpen(px, pz)) return false;
+  const mine = a.toExit[pz * a.W + px]; if (mine < 0) return false;
+  const fromMe = a.flood(px, pz);
   for (const [gx, gz] of a.openCells) {
     const x = (gx + 0.5) * c, z = (gz + 0.5) * c, d = Math.hypot(x - pp.x, z - pp.z);
     if (d < (first ? 10 : 12) || d > 24) continue;
+    const i = gz * a.W + gx;
+    if (a.toExit[i] < 0 || fromMe[i] < 0 || fromMe[i] + a.toExit[i] !== mine) continue;   // on a shortest way from you to the exit
     if (Math.abs(gx - a.maze.exit.x) + Math.abs(gz - a.maze.exit.y) < 3) continue;
     if (!first && a.los(pp.x, pp.z, x, z)) continue;
     if ([[1, 0], [-1, 0], [0, 1], [0, -1]].filter(([dx, dz]) => a.isOpen(gx + dx, gz + dz)).length < 2) continue;   // never a dead end: it must have a way on
@@ -73,40 +96,38 @@ function place(a, pp, first) {
   if (!cands.length) return false;
   const [gx, gz, x, z] = cands[Math.floor(Math.random() * cands.length)];
   a.cell = [gx, gz]; a.pos.set(x, a.floorY(x, z), z);
-  // facing down its longest open line, as if on its way somewhere
-  let best = 0, bestLen = -1;
-  [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dx, dz], i) => { let n = 0; while (n < 6 && a.isOpen(gx + dx * (n + 1), gz + dz * (n + 1))) n++; if (n > bestLen) { bestLen = n; best = i; } });
+  // facing the way out, as if on its way there
+  let best = 0;
+  [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dx, dz], i) => { if (a.isOpen(gx + dx, gz + dz) && a.toExit[(gz + dz) * a.W + gx + dx] === a.toExit[gz * a.W + gx] - 1) best = i; });
   a.yaw = [Math.PI / 2, -Math.PI / 2, 0, Math.PI][best];
   a.phase = 'idling'; a.greeted = false; a.root.visible = true; play(a, a.idle);
   return true;
 }
 
-// away along the open tiles, each step further from you where it can, until it is round a corner
+// on toward the way out: each step one tile nearer the exit, a dozen tiles at a time. At the exit itself it has
+// nowhere left to lead you and is gone.
 function leave(a, pp) {
-  const { c } = a, key = (x, z) => x + ',' + z;
-  const cell = [Math.floor(a.pos.x / c), Math.floor(a.pos.z / c)];
-  const dist = (gx, gz) => Math.hypot((gx + 0.5) * c - pp.x, (gz + 0.5) * c - pp.z);
-  const from = new Map([[key(...cell), { prev: null, depth: 0 }]]), queue = [cell];
-  let best = null, bestScore = -Infinity;
-  while (queue.length) {
-    const cur = queue.shift(), depth = from.get(key(...cur)).depth, d = dist(...cur);
-    if (depth >= 3) { const score = d + (a.los(pp.x, pp.z, (cur[0] + 0.5) * c, (cur[1] + 0.5) * c) ? 0 : 8) - depth * 0.25; if (score > bestScore) { bestScore = score; best = cur; } }
-    if (depth >= 12) continue;
-    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      const nx = cur[0] + dx, nz = cur[1] + dz, k = key(nx, nz);
-      if (from.has(k) || !a.isOpen(nx, nz) || (dist(nx, nz) < d - 0.2 && dist(nx, nz) < 3)) continue;
-      from.set(k, { prev: cur, depth: depth + 1 }); queue.push([nx, nz]);
-    }
-  }
+  const { c } = a;
+  let cur = [Math.floor(a.pos.x / c), Math.floor(a.pos.z / c)], v = a.isOpen(cur[0], cur[1]) ? a.toExit[cur[1] * a.W + cur[0]] : -1;
   const cells = [];
-  for (let cur = best; cur && from.get(key(...cur)).prev; cur = from.get(key(...cur)).prev) cells.push(cur);
-  a.path = cells.reverse().map(([gx, gz]) => [(gx + 0.5) * c, (gz + 0.5) * c]); a.step = 0;
-  a.phase = a.path.length ? 'leaving' : 'idling';
+  while (v > 0 && cells.length < 12) {
+    let next = null;
+    for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = cur[0] + dx, nz = cur[1] + dz;
+      if (a.isOpen(nx, nz) && a.toExit[nz * a.W + nx] === v - 1) { next = [nx, nz]; break; }
+    }
+    if (!next) break;
+    cells.push(next); cur = next; v--;
+  }
+  a.path = cells.map(([gx, gz]) => [(gx + 0.5) * c, (gz + 0.5) * c]); a.step = 0;
+  if (a.path.length) { a.phase = 'leaving'; return; }
+  a.phase = 'hidden'; a.root.visible = false; a.next = (a.mazeTime || 0) + 35 + Math.random() * 30; a.current = null; a.mixer.stopAllAction();
 }
 
 export function updateCast(a, dt, player, hooks) {
   if (!a || !a.ready) return;
   const pp = player.pos;
+  a.mazeTime = hooks.mazeTime;
   if (a.phase === 'hidden') {
     if (hooks.mazeTime >= a.next && !place(a, pp, a.next === 0)) a.next = hooks.mazeTime + 3;
   } else {
@@ -119,13 +140,13 @@ export function updateCast(a, dt, player, hooks) {
     // greeted already and no way past you yet: it waits, watching you, and tries again
     if (a.phase === 'idling' && a.greeted) { a.yaw = turn(a.yaw, Math.atan2(dx, dz), dt * 3); a.retry = (a.retry || 0) + dt; if (a.retry > 1.5) { a.retry = 0; a.phase = 'leaving-start'; } }
     if (a.phase === 'greeting' && a.face !== undefined) a.yaw = turn(a.yaw, a.face, dt * 4);
-    if (a.phase === 'leaving-start') { leave(a, pp); if (a.phase === 'idling') play(a, a.idle); }
+    if (a.phase === 'leaving-start') { leave(a, pp); if (a.phase === 'hidden') return; }
     if (a.phase === 'leaving') {
       const target = a.path[a.step];
       if (!target) {
         // round the corner and out of sight: gone, and somewhere else later; still in view: on again
         if (!a.los(pp.x, pp.z, a.pos.x, a.pos.z) && d > 6) { a.phase = 'hidden'; a.root.visible = false; a.next = hooks.mazeTime + 35 + Math.random() * 30; a.current = null; a.mixer.stopAllAction(); return; }
-        leave(a, pp); if (a.phase !== 'leaving') { play(a, a.idle); }
+        leave(a, pp); if (a.phase === 'hidden') return;
       } else {
         const [speed, loop] = d < CLOSE ? a.spec.jog : a.spec.walk;
         const tx = target[0] - a.pos.x, tz = target[1] - a.pos.z, td = Math.hypot(tx, tz), adv = speed * dt;

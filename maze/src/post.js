@@ -20,9 +20,12 @@ export class Post {
         tDiffuse: { value: this.rt.texture },
         tDepth: { value: this.rt.depthTexture },
         uNear: { value: 0.05 }, uFar: { value: 200 },
-        uFocus: { value: 2.5 }, uAperture: { value: 0.0045 }, uMaxBlur: { value: quality.high ? 0.009 : 0.005 },
+        uFocus: { value: 2.5 }, uAperture: { value: 0.0022 }, uMaxBlur: { value: quality.high ? 0.009 : 0.005 },
         uRes: { value: new THREE.Vector2(size.x * pr, size.y * pr) },
         uTime: { value: 0 }, uFlash: { value: 0 }, uBlur: { value: 0 },
+        // tilt-shift: the lens's plane of focus is tipped, so a band across the middle of the frame is sharp and the
+        // picture goes soft toward its top and bottom edges, whatever is there
+        uTilt: { value: quality.high ? 0.0085 : 0.005 },
         uGrain: { value: 0.028 }, uVignette: { value: 0.32 },
         uExposure: { value: 1.45 }, uNight: { value: 0 },
         // the hand torch's beam through the fog: strength, its direction in view space, the cone's cosine, the view's tangents, the fog
@@ -32,7 +35,7 @@ export class Post {
       fragmentShader: /* glsl */`
         varying vec2 vUv;
         uniform sampler2D tDiffuse, tDepth;
-        uniform float uNear, uFar, uFocus, uAperture, uMaxBlur, uTime, uFlash, uBlur, uGrain, uVignette, uExposure, uNight;
+        uniform float uNear, uFar, uFocus, uAperture, uMaxBlur, uTime, uFlash, uBlur, uGrain, uVignette, uExposure, uNight, uTilt;
         uniform vec2 uRes;
         uniform float uTorch, uTorchCos, uFogDensity; uniform vec3 uTorchDir; uniform vec2 uTan;
         #define TAPS ${quality.high ? 16 : 8}
@@ -41,12 +44,21 @@ export class Post {
           float ndc = z * 2.0 - 1.0;
           return (2.0 * uNear * uFar) / (uFar + uNear - ndc * (uFar - uNear));
         }
-        float coc(float d) { return clamp(abs(1.0 / max(d, 0.05) - 1.0 / uFocus) * uAperture * uFocus, 0.0, uMaxBlur); }
+        // a small-sensor camera (a phone, an action cam): the blur on the sensor goes with the difference of the inverse
+        // distances and nothing else, so focused down a corridor the wall at arm's length stays sharp, and only a thing
+        // held right up to the lens, or the far ground behind a close-up, goes soft
+        float coc(float d) { return clamp(abs(1.0 / max(d, 0.05) - 1.0 / uFocus) * uAperture, 0.0, uMaxBlur); }
+        // the tilt-shift band: sharp across the middle (a little below centre, where the path is), soft above and below
+        float tilt(vec2 uv) { float y = abs(uv.y - 0.47); return uTilt * smoothstep(0.13, 0.5, y); }
         float hash(vec2 p) { vec3 p3 = fract(vec3(p.xyx) * 0.1031); p3 += dot(p3, p3.yzx + 33.33); return fract((p3.x + p3.y) * p3.z); }
         vec3 fetch(vec2 uv) { return texture2D(tDiffuse, uv).rgb; }
         vec3 dof(vec2 uv, float ca) {
           float d = linDepth(uv);
-          float c = coc(d) + uBlur;
+          float c = coc(d) + uBlur + tilt(uv);
+          // where the picture is in focus (most of it) there is nothing to gather: one sample, with the lens's
+          // colour fringing, and done. The blur's many samples are only paid for where there is blur.
+          vec3 sharp = vec3(fetch(uv + vec2(ca, 0.0)).r, fetch(uv).g, fetch(uv - vec2(ca, 0.0)).b);
+          if (c < 0.0006) return sharp;
           vec2 asp = vec2(uRes.y / uRes.x, 1.0);
           vec3 sum = vec3(0.0); float wsum = 0.0;
           float rot = hash(uv * uRes) * 6.2831;
@@ -57,12 +69,12 @@ export class Post {
             vec2 o = vec2(cos(a), sin(a)) * r * c * asp;
             vec2 suv = uv + o;
             // a sharp foreground tap should not bleed into a blurred background and vice versa
-            float cs = coc(linDepth(suv)) + uBlur;
+            float cs = coc(linDepth(suv)) + uBlur + tilt(suv);
             float w = clamp(cs / max(c, 1e-5), 0.0, 1.0) * 0.8 + 0.2;
-            vec3 s = vec3(fetch(suv + o * ca * 0.0 + vec2(ca, 0.0)).r, fetch(suv).g, fetch(suv - vec2(ca, 0.0)).b);
+            vec3 s = fetch(suv);
             sum += s * w; wsum += w;
           }
-          return sum / max(wsum, 1e-4);
+          return mix(sharp, sum / max(wsum, 1e-4), smoothstep(0.0006, 0.0018, c));
         }
         vec3 aces(vec3 x) { return clamp((x * (2.51 * x + 0.03)) / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0); }
         void main() {
@@ -72,7 +84,7 @@ export class Post {
           float ca = r2 * 0.002;
           vec3 col = dof(uv, ca);
           // camera sharpening (unsharp mask), only where in focus
-          float d = linDepth(uv); float c = coc(d);
+          float d = linDepth(uv); float c = coc(d) + tilt(uv);
           vec2 px = 1.0 / uRes;
           vec3 blur = (fetch(uv + vec2(px.x, 0.0)) + fetch(uv - vec2(px.x, 0.0)) + fetch(uv + vec2(0.0, px.y)) + fetch(uv - vec2(0.0, px.y))) * 0.25;
           col += (col - blur) * 0.5 * (1.0 - smoothstep(0.0, 0.004, c));
@@ -118,7 +130,7 @@ export class Post {
     u.uNight.value = night;
     u.uExposure.value = 1.45 + 0.75 * night;
     u.uGrain.value = 0.028 + 0.034 * night;
-    u.uAperture.value = 0.0045 + 0.0022 * night;
+    u.uAperture.value = 0.0022 + 0.001 * night;
     u.uVignette.value = 0.32 + 0.1 * night + 0.03 * dusk;
   }
 

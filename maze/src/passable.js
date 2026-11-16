@@ -9,7 +9,7 @@
 // connectivity, the exit stays reachable by construction; `check()` walks the
 // whole maze the same way as a final proof.
 import { WALL } from './maze.js?v=28138280';
-import { disp } from './geometry.js?v=d4fe5800';
+import { disp } from './geometry.js?v=0f72c86e';
 
 const STEP = 0.1;
 // placement is tested with the player grown by this much, so every channel it accepts is at least twice

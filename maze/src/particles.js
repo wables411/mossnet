@@ -2,7 +2,7 @@
 // and snow where the weather has them, and after dark the fireflies of the
 // places that have them, blinking over the water on their own clocks.
 import * as THREE from '../lib/three.module.js?v=88cddb5c';
-import { streakTexture } from './geometry.js?v=d4fe5800';
+import { streakTexture } from './geometry.js?v=0f72c86e';
 import { wind } from './wind.js?v=25d38805';
 import { torchPoints } from './torch.js?v=e09dfa0f';
 

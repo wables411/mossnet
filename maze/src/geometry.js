@@ -393,60 +393,6 @@ export function tuftAtlas() {
   }, true, true);
 }
 
-// a fern: three to five fronds fanning up from the base, leaflets either side
-export function fernTexture() {
-  return canvasTexture(256, 256, (ctx, w, h) => {
-    const fronds = 4 + Math.floor(Math.random() * 2);
-    for (let f = 0; f < fronds; f++) {
-      const ang = -Math.PI / 2 + (f / (fronds - 1) - 0.5) * 1.5 + rnd(-0.1, 0.1);
-      const len = h * rnd(0.6, 0.95);
-      const bx = w / 2 + rnd(-6, 6), by = h - 2;
-      const steps = 26;
-      const col = `rgb(${Math.round(rnd(40, 70))},${Math.round(rnd(95, 135))},${Math.round(rnd(30, 55))})`;
-      ctx.strokeStyle = col; ctx.fillStyle = col;
-      // stem: a gentle arc
-      let px = bx, py = by, pa = ang;
-      for (let s = 0; s < steps; s++) {
-        const t = s / steps;
-        pa += 0.012 * (f - (fronds - 1) / 2) * -1; // outer fronds droop outward
-        const nx = px + Math.cos(pa) * (len / steps), ny = py + Math.sin(pa) * (len / steps);
-        ctx.lineWidth = 2.2 * (1 - t) + 0.4; ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(nx, ny); ctx.stroke();
-        // leaflets
-        if (t > 0.12) {
-          const ll = (1 - Math.abs(t - 0.5) * 1.4) * 22 + 3;
-          for (const side of [-1, 1]) {
-            const la = pa + side * 1.15;
-            ctx.lineWidth = 2.4 * (1 - t) + 0.8;
-            ctx.beginPath(); ctx.moveTo(nx, ny); ctx.lineTo(nx + Math.cos(la) * ll, ny + Math.sin(la) * ll); ctx.stroke();
-          }
-        }
-        px = nx; py = ny;
-      }
-    }
-  }, true, true);
-}
-
-// broad-leaved undergrowth: a few big rounded leaves on stems
-export function plantTexture() {
-  return canvasTexture(256, 256, (ctx, w, h) => {
-    const n = 5 + Math.floor(Math.random() * 4);
-    for (let i = 0; i < n; i++) {
-      const ang = -Math.PI / 2 + rnd(-1.1, 1.1), len = h * rnd(0.3, 0.7);
-      const bx = w / 2 + rnd(-10, 10), by = h - 2;
-      const tx = bx + Math.cos(ang) * len, ty = by + Math.sin(ang) * len;
-      const g = Math.round(rnd(80, 130)), r = Math.round(g * rnd(0.35, 0.6)), b = Math.round(g * rnd(0.25, 0.45));
-      ctx.strokeStyle = `rgb(${r * 0.8},${g * 0.8},${b * 0.8})`; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.moveTo(bx, by); ctx.quadraticCurveTo((bx + tx) / 2 + rnd(-10, 10), (by + ty) / 2, tx, ty); ctx.stroke();
-      ctx.fillStyle = `rgb(${r},${g},${b})`;
-      ctx.save(); ctx.translate(tx, ty); ctx.rotate(ang + Math.PI / 2);
-      const lw = rnd(18, 34), lh = rnd(30, 60);
-      ctx.beginPath(); ctx.moveTo(0, 0); ctx.bezierCurveTo(lw, -lh * 0.3, lw * 0.8, -lh, 0, -lh); ctx.bezierCurveTo(-lw * 0.8, -lh, -lw, -lh * 0.3, 0, 0); ctx.fill();
-      ctx.strokeStyle = `rgba(0,0,0,0.25)`; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, -lh * 0.9); ctx.stroke();
-      ctx.restore();
-    }
-  }, true, true);
-}
-
 // a cluster of canopy leaves seen from below: dark blobs with holes
 export function leafTexture() {
   return canvasTexture(512, 512, (ctx, w, h) => {
@@ -514,4 +460,184 @@ export function glowTexture() {
     g.addColorStop(0, 'rgba(255,248,225,1)'); g.addColorStop(0.35, 'rgba(255,244,210,0.55)'); g.addColorStop(1, 'rgba(255,240,200,0)');
     ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
   });
+}
+
+// A clump of grass as grass is: separate blades, each a narrow strip tapering to a point, rooted in a small patch
+// and arching outward, the outer ones lower and leaning further. No cards, so there is no X to see from above and
+// no straight foot along the ground. Stands on the origin, about 1 tall and `radius` across before scaling; uv.y
+// runs root to tip (the wind bends it by that), uv.x picks one of the texture's shades for the whole blade.
+export function grassClumpGeometry(blades = 34, segs = 3, seed = 1, radius = 0.28, width = 1) {
+  let st = seed * 2654435761 >>> 0;
+  const r = () => { st = (st * 1664525 + 1013904223) >>> 0; return st / 4294967296; };
+  const pos = [], uv = [], nor = [], idx = [];
+  for (let b = 0; b < blades; b++) {
+    const a = r() * Math.PI * 2, rr = Math.sqrt(r()) * radius, edge = rr / radius;
+    const rx = Math.cos(a) * rr, rz = Math.sin(a) * rr;
+    const la = a + (r() - 0.5) * 1.4, lx = Math.cos(la), lz = Math.sin(la);   // which way it leans: outward, loosely
+    const hgt = (0.4 + 0.6 * r()) * (1 - 0.4 * edge), lean = (0.05 + 0.3 * edge + 0.22 * r()) * hgt;
+    const w0 = (0.008 + 0.009 * r()) * width, u = (Math.floor(r() * 8) + 0.5) / 8;
+    const sx = -lz, sz = lx;                                                   // across the blade
+    const base = pos.length / 3;
+    for (let j = 0; j <= segs; j++) {
+      const t = j / segs, out = lean * Math.pow(t, 1.7), y = -0.04 + hgt * (t - 0.22 * t * t) * 1.04;
+      const cx = rx + lx * out, cz = rz + lz * out;
+      const hw = j === segs ? 0 : w0 * (1 - 0.55 * t);
+      const n = [lx * 0.45, 1, lz * 0.45], nl = Math.hypot(n[0], n[1], n[2]);
+      if (j === segs) { pos.push(cx, y, cz); uv.push(u, 1); nor.push(n[0] / nl, n[1] / nl, n[2] / nl); }
+      else for (const sd of [-1, 1]) { pos.push(cx + sx * hw * sd, y, cz + sz * hw * sd); uv.push(u, t); nor.push(n[0] / nl, n[1] / nl, n[2] / nl); }
+    }
+    for (let j = 0; j < segs - 1; j++) { const q = base + j * 2; idx.push(q, q + 1, q + 2, q + 1, q + 3, q + 2); }
+    const q = base + (segs - 1) * 2; idx.push(q, q + 1, q + 2);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  g.setIndex(idx);
+  return g;
+}
+// what a blade is painted with: eight shades side by side, each dark at the root and paler toward the tip.
+// `neutral` leaves it nearly grey-green so the moss tint of the wall it grows on colours it.
+export function bladeTexture(neutral = false) {
+  return canvasTexture(64, 64, (ctx, w, h) => {
+    for (let k = 0; k < 8; k++) {
+      const g = ctx.createLinearGradient(0, h, 0, 0);
+      if (neutral) { const L = rnd(130, 196); g.addColorStop(0, `rgb(${L * 0.45},${L * 0.52},${L * 0.3})`); g.addColorStop(0.4, `rgb(${L * 0.86},${L},${L * 0.6})`); g.addColorStop(1, `rgb(${L * 0.95},${L * 1.08},${L * 0.62})`); }
+      else { const c = rnd(70, 130), c2 = rnd(95, 165); g.addColorStop(0, `rgb(${c * 0.55},${c2 * 0.62},${c * 0.32})`); g.addColorStop(0.6, `rgb(${c},${c2},${c * 0.5})`); g.addColorStop(1, `rgb(${c * 1.12},${c2 * 1.06},${c * 0.52})`); }
+      ctx.fillStyle = g; ctx.fillRect(k * w / 8, 0, w / 8, h);
+    }
+  }, true, false);
+}
+
+// A fern as a fern is: a rosette of fronds rising from one crown, each a ribbon that climbs, arches over and droops
+// at the tip, shallowly folded along its midrib. The leaflets are the texture's (frondTexture); the shape in space
+// is real, so from above it is a star of fronds and not two flat pictures crossed. About 1 tall before scaling.
+// uv.y runs crown to tip (the wind bends it by that), uv.x crosses the frond inside one of the texture's two halves.
+export function fernGeometry(seed = 1, fronds = 10, segs = 6) {
+  let st = seed * 2654435761 >>> 0;
+  const r = () => { st = (st * 1664525 + 1013904223) >>> 0; return st / 4294967296; };
+  const pos = [], uv = [], nor = [], idx = [];
+  for (let f = 0; f < fronds; f++) {
+    const a = (f + r() * 0.7) / fronds * Math.PI * 2, dx = Math.cos(a), dz = Math.sin(a);
+    const inner = f % 3 === 0;                                   // every third frond is a young upright one
+    const L = (inner ? 0.75 : 1.0) * (0.95 + 0.45 * r());
+    const th0 = inner ? 0.12 + 0.2 * r() : 0.35 + 0.35 * r(), th1 = th0 + (inner ? 0.7 : 1.0) + 0.6 * r();
+    const hw = L * (0.1 + 0.03 * r()), twist = (r() - 0.5) * 0.5, half = r() < 0.5 ? 0 : 0.5;
+    const sx = -dz, sz = dx;
+    let h = 0.02, y = -0.03;
+    const base = pos.length / 3;
+    for (let j = 0; j <= segs; j++) {
+      const t = j / segs, th = th0 + (th1 - th0) * Math.pow(t, 1.3);
+      if (j) { h += Math.sin(th) * L / segs; y += Math.cos(th) * L / segs; }
+      // the frond's own up: square to its run, in the plane it arches in
+      let nx = -Math.cos(th) * dx, ny = Math.sin(th), nz = -Math.cos(th) * dz;
+      const cx = dx * h, cz = dz * h, tw = twist * t;
+      for (let k = 0; k < 3; k++) {
+        const e = k - 1, drop = e ? 0.22 * hw : 0;
+        pos.push(cx + sx * hw * e - nx * drop + nx * tw * hw * e, y - ny * drop + ny * tw * hw * e, cz + sz * hw * e - nz * drop + nz * tw * hw * e);
+        uv.push(half + 0.5 * (0.02 + 0.96 * k / 2), t);
+        const ux = nx * 0.6 + sx * e * 0.25, uy = ny * 0.6 + 0.7, uz = nz * 0.6 + sz * e * 0.25, ul = Math.hypot(ux, uy, uz);
+        nor.push(ux / ul, uy / ul, uz / ul);
+      }
+    }
+    for (let j = 0; j < segs; j++) for (let k = 0; k < 2; k++) { const q = base + j * 3 + k; idx.push(q, q + 1, q + 3, q + 1, q + 4, q + 3); }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  g.setIndex(idx);
+  return g;
+}
+// one frond laid flat, twice over (two halves, two fronds): a bare stalk, then leaflets either side of the midrib,
+// longest a third of the way up and shortening to the tip. Foot of the frond at the bottom of the picture.
+export function frondTexture() {
+  return canvasTexture(256, 512, (ctx, w, h) => {
+    for (let v = 0; v < 2; v++) {
+      const cx = w * (0.25 + 0.5 * v), reach = w * 0.235, pairs = 30 + Math.floor(Math.random() * 8);
+      const G = rnd(100, 135), R = G * rnd(0.4, 0.55), B = G * rnd(0.28, 0.4);
+      const bend = rnd(-0.02, 0.02);
+      const mid = t => cx + Math.sin(t * 2.4) * w * bend;
+      ctx.strokeStyle = `rgb(${R * 0.75},${G * 0.7},${B * 0.7})`; ctx.lineCap = 'round';
+      for (let i = 0; i < 40; i++) { const t0 = i / 40, t1 = (i + 1) / 40; ctx.lineWidth = 4.5 * (1 - t0) + 1.2; ctx.beginPath(); ctx.moveTo(mid(t0), h * (1 - t0)); ctx.lineTo(mid(t1), h * (1 - t1)); ctx.stroke(); }
+      for (let i = 0; i < pairs; i++) {
+        const t = 0.1 + 0.9 * (i + 0.5) / pairs;
+        const shape = Math.min(1, (t - 0.06) / 0.2) * Math.pow(Math.max(0, 1 - (t - 0.26) / 0.76), 0.75);
+        const len = reach * Math.max(0.06, shape) * rnd(0.88, 1.05), wid = h * 0.9 / pairs * rnd(0.72, 0.95);
+        for (const side of [-1, 1]) {
+          const k = rnd(0.82, 1.12);
+          ctx.fillStyle = `rgb(${R * k},${G * k},${B * k})`;
+          ctx.save(); ctx.translate(mid(t), h * (1 - t)); ctx.rotate(side * (0.22 + 0.25 * t) * -1 + rnd(-0.05, 0.05)); ctx.scale(side, 1);
+          // a leaflet: broad at the midrib, drawn out to a point, its upper edge a little fuller
+          ctx.beginPath(); ctx.moveTo(0, wid * 0.5); ctx.quadraticCurveTo(len * 0.55, wid * 0.55, len, 0); ctx.quadraticCurveTo(len * 0.5, -wid * 0.75, 0, -wid * 0.5); ctx.closePath(); ctx.fill();
+          ctx.strokeStyle = `rgba(20,35,12,0.35)`; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(len * 0.85, 0); ctx.stroke();
+          ctx.restore();
+        }
+      }
+    }
+  }, true, true);
+}
+
+// Broad-leaved undergrowth: a handful of stalks out of one root, each carrying a single leaf that is a real blade,
+// pointed at both ends, folded a little along its midrib and tipped over toward the light. No pictures of leaves on
+// a flat board. About 1 tall before scaling. uv.y is how free the point is to move in the wind (stalks low, leaves
+// high); the picture's right-hand strip paints stalks, the rest paints leaf.
+export function leafPlantGeometry(seed = 1, leaves = 8) {
+  let st = seed * 2654435761 >>> 0;
+  const r = () => { st = (st * 1664525 + 1013904223) >>> 0; return st / 4294967296; };
+  const pos = [], uv = [], nor = [], idx = [];
+  const put = (x, y, z, u, v, nx, ny, nz) => { const l = Math.hypot(nx, ny, nz) || 1; pos.push(x, y, z); uv.push(u, v); nor.push(nx / l, ny / l, nz / l); return pos.length / 3 - 1; };
+  for (let f = 0; f < leaves; f++) {
+    const a = (f + r() * 0.8) / leaves * Math.PI * 2, dx = Math.cos(a), dz = Math.sin(a), sx = -dz, sz = dx;
+    const sl = 0.25 + 0.6 * r(), th0 = 0.1 + 0.5 * r(), th1 = th0 + 0.3 + 0.4 * r();
+    // the stalk: a thin strip, three points up
+    let h = 0.01, y = -0.03, th = th0; const SS = 3, sw = 0.007 + 0.004 * r();
+    let prev = null;
+    for (let j = 0; j <= SS; j++) {
+      const t = j / SS; th = th0 + (th1 - th0) * t;
+      if (j) { h += Math.sin(th) * sl / SS; y += Math.cos(th) * sl / SS; }
+      const p0 = put(dx * h + sx * sw, y, dz * h + sz * sw, 0.9, 0.5 * t, -dx, 0.6, -dz), p1 = put(dx * h - sx * sw, y, dz * h - sz * sw, 0.9, 0.5 * t, -dx, 0.6, -dz);
+      if (prev !== null) idx.push(prev, prev + 1, p0, prev + 1, p1, p0);
+      prev = p0;
+    }
+    // the leaf: carries on from the stalk's end, tipping over toward flat and a little past
+    const ll = 0.24 + 0.24 * r(), lw = ll * (0.28 + 0.14 * r()), LS = 5, lt0 = Math.min(1.5, th + 0.5 + 0.4 * r()), lt1 = lt0 + 0.3 + 0.5 * r(), roll = (r() - 0.5) * 0.7, shade = Math.floor(r() * 3);
+    let base = null;
+    for (let j = 0; j <= LS; j++) {
+      const t = j / LS, lt = lt0 + (lt1 - lt0) * t;
+      if (j) { h += Math.sin(lt) * ll / LS; y += Math.cos(lt) * ll / LS; }
+      const wdt = lw * Math.pow(Math.sin(Math.PI * Math.pow(t, 0.8)), 0.7) * (j === 0 || j === LS ? 0 : 1);
+      const nx = -Math.cos(lt) * dx, ny = Math.sin(lt), nz = -Math.cos(lt) * dz;
+      const row = pos.length / 3;
+      for (let k = 0; k < 3; k++) {
+        const e = k - 1, lift = e ? 0.3 * wdt : 0, tip = roll * wdt * e;
+        put(dx * h + sx * wdt * e + nx * (lift + tip), y + ny * (lift + tip), dz * h + sz * wdt * e + nz * (lift + tip), (shade + 0.08 + 0.84 * k / 2) * 0.25, 0.55 + 0.45 * t, nx - sx * e * 0.35, ny + 0.5, nz - sz * e * 0.35);
+      }
+      if (base !== null) for (let k = 0; k < 2; k++) { const q = base + k; idx.push(q, q + 1, q + 3, q + 1, q + 4, q + 3); }
+      base = row;
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  g.setIndex(idx);
+  return g;
+}
+// what those leaves are painted with: three shades of leaf side by side, each with a midrib and side veins, and a
+// strip of stalk colour down the right
+export function leafBladeTexture() {
+  return canvasTexture(256, 256, (ctx, w, h) => {
+    for (let k = 0; k < 3; k++) {
+      const x0 = k * w / 4, cw = w / 4, G = rnd(95, 135), R = G * rnd(0.4, 0.58), B = G * rnd(0.26, 0.42);
+      const g = ctx.createLinearGradient(x0, 0, x0 + cw, 0);
+      g.addColorStop(0, `rgb(${R * 0.9},${G * 0.9},${B * 0.9})`); g.addColorStop(0.5, `rgb(${R * 1.08},${G * 1.08},${B})`); g.addColorStop(1, `rgb(${R * 0.9},${G * 0.9},${B * 0.9})`);
+      ctx.fillStyle = g; ctx.fillRect(x0, 0, cw, h);
+      ctx.strokeStyle = `rgba(${R * 1.5},${G * 1.35},${B * 1.3},0.55)`; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(x0 + cw / 2, 0); ctx.lineTo(x0 + cw / 2, h); ctx.stroke();
+      ctx.strokeStyle = `rgba(25,40,15,0.3)`; ctx.lineWidth = 1;
+      for (let y = 4; y < h; y += 9) for (const sd of [-1, 1]) { ctx.beginPath(); ctx.moveTo(x0 + cw / 2, y + 8); ctx.quadraticCurveTo(x0 + cw / 2 + sd * cw * 0.25, y + 3, x0 + cw / 2 + sd * cw * 0.48, y); ctx.stroke(); }
+    }
+    ctx.fillStyle = 'rgb(70,84,44)'; ctx.fillRect(w * 0.75, 0, w * 0.25, h);
+  }, true, false);
 }

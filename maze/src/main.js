@@ -2,18 +2,18 @@
 import * as THREE from '../lib/three.module.js?v=88cddb5c';
 import { generateMaze, mulberry32, difficulty } from './maze.js?v=28138280';
 import { Player, EYE } from './player.js?v=fbe5280f';
-import { Canopy, Body } from './shadow.js?v=f9951dc9';
-import { World } from './world.js?v=f2a7f2b3';
-import { makeSky } from './sky.js?v=c9a13e42';
-import { Post } from './post.js?v=284b9647';
+import { Canopy, Body } from './shadow.js?v=6024515f';
+import { World } from './world.js?v=23ce974c';
+import { makeSky } from './sky.js?v=c0b77cdb';
+import { Post } from './post.js?v=4fae5f62';
 import { Particles } from './particles.js?v=033d1e45';
 import { Ambience } from './audio.js?v=012655e1';
 import { records, fmtTime } from './score.js?v=9714f03d';
-import { Textures, makeStrandTexture } from './materials.js?v=af31d97a';
+import { Textures, makeStrandTexture } from './materials.js?v=2eb1c930';
 import { locationFor, rollWeather, neededTextures } from './locations.js?v=f0992831';
 import { wind } from './wind.js?v=25d38805';
 import { Shoots } from './shoots.js?v=9482407b';
-import { Governor } from './governor.js?v=a0d23a30';
+import { Governor } from './governor.js?v=c22ba7d8';
 import { Models } from './models.js?v=44ef9e0f';
 import { updateWhimsy } from './whimsy.js?v=279db07e';
 import { Book, drawBookIcon } from './book.js?v=710aeb13';
@@ -37,6 +37,8 @@ const forcedSun = params.get('sun');  // ?sun=0..1: overcast to full sun, for lo
 // ?gen=1: the places that have an original set (grown in build/gen_*, no scans) use it instead of the Poly Haven scans
 const original = params.get('gen') === '1';
 const forcedSeed = params.get('seed');   // ?seed=N: the same maze and weather every load, for comparing a change
+const wakes = params.get('wake') !== '0';   // ?wake=0: straight into the maze, without the waking-up
+const tiltShift = params.get('tilt') !== '0';   // ?tilt=0: the camera without its tilt-shift, to compare
 const modelsFor = l => (original && l.genModels) || l.models || [];
 
 const canvas = $('#view');
@@ -70,6 +72,7 @@ const body = new Body(scene, EYE);
 
 const sky = makeSky(scene, renderer, FOG, SUN);
 const post = new Post(renderer, quality);
+if (!tiltShift) post.mat.uniforms.uTilt.value = 0;
 const player = new Player(camera, canvas);
 const particles = new Particles(scene, quality);
 // the hand torch: a camera-held spotlight after dark, once it has been found; it lights the rain and spores too
@@ -87,6 +90,7 @@ const strand = makeStrandTexture();
 const world = new World(scene, textures, strand, quality, FOG, SUN);
 // the governor: measured frame time decides how much detail this device gets
 let shadowEvery = 1, shadowFrame = 0;
+const probePixel = new Uint8Array(4);
 const governor = new Governor(q => {
   const pr = basePixelRatio * (0.55 + 0.45 * q);
   if (Math.abs(renderer.getPixelRatio() - pr) > 0.01) { renderer.setPixelRatio(pr); renderer.setSize(innerWidth, innerHeight); post.setSize(innerWidth, innerHeight); }
@@ -327,7 +331,7 @@ async function newLevel(level) {
   particles.setRain(weather.rain * (0.4 + 0.6 * (state.qualityLevel ?? 1)));
   particles.setSnow(weather.snow);
   // light and air of the place
-  scene.fog.color.copy(FOG); sky.setPalette(FOG, loc.sky ? loc.sky.zenith : 0x2a352a, loc.sky ? loc.sky.canopy : 1, weather.night, weather.dusk); sky.setFogAmount(Math.min(0.9, weather.fog * 0.8 + weather.rain * 0.25 + weather.snow * 0.5));
+  scene.fog.color.copy(FOG); sky.setPalette(FOG, loc.sky ? loc.sky.zenith : 0x2a352a, loc.sky ? loc.sky.canopy : 1, weather.night, weather.dusk, weather.sun); sky.setFogAmount(Math.min(0.9, weather.fog * 0.8 + weather.rain * 0.25 + weather.snow * 0.5));
   // the moon is the sun, reused: cold and dim, with a dim blue hemisphere under it; dusk is the sun gone orange and low
   sun.color.setHex(loc.light.sun);
   if (weather.time === 'night') sun.color.lerp(new THREE.Color(0xaabdf0), 0.9);
@@ -375,7 +379,8 @@ $('#enter').addEventListener('click', () => {
   ambience.start(); ambience.resume();
   records.runStarted();
   state.runTime = 0;
-  if (state.mode !== 'landing') newLevel(1).then(begin); else begin();
+  const go = wakes ? wakeUp : begin;
+  if (state.mode !== 'landing') newLevel(1).then(go); else go();
 });
 $('#resume').addEventListener('click', begin);
 $('#quit').addEventListener('click', async () => {
@@ -389,6 +394,44 @@ $('#quit').addEventListener('click', async () => {
 function begin() {
   setMode('playing');
   if (!coarse) player.requestLock();
+}
+// How a run starts: you come round lying in the moss, on your back, the canopy swimming overhead. A few slow blinks,
+// the picture clears, you get up, look about you, and only then are your legs your own. While that happens the
+// game finds the level of detail this machine can hold (see Governor.calibrate), so the walk itself starts smooth.
+const WAKE = 7.5;   // seconds
+const lids = document.createElement('div');
+lids.style.cssText = 'position:fixed;inset:0;background:#000;pointer-events:none;opacity:0;display:none;z-index:3';
+document.body.appendChild(lids);
+const ease = x => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
+// the eyelids: shut, a crack, shut, half, a blink, open (time in seconds, how dark)
+const LIDS = [[0, 1], [0.6, 1], [1.3, 0.4], [1.6, 1], [1.9, 1], [2.7, 0.15], [2.95, 0.85], [3.2, 0.1], [4.0, 0]];
+function lidsAt(t) {
+  for (let i = 1; i < LIDS.length; i++) if (t < LIDS[i][0]) { const [t0, a] = LIDS[i - 1], [t1, b] = LIDS[i]; return a + (b - a) * ease((t - t0) / (t1 - t0)); }
+  return 0;
+}
+function wakeUp() {
+  state.wakeT = 0; state.wakeYaw = player.yaw; player.pitch = 0; player.lie = 1;
+  lids.style.display = 'block'; lids.style.opacity = 1;
+  governor.beginCalibrate();
+  setMode('waking');
+  if (!coarse) player.requestLock();
+}
+function waking(dt) {
+  const T = (state.wakeT += dt);
+  const rise = ease((T - 2.9) / 2.7);               // getting up
+  const daze = 1 - ease((T - 5.2) / (WAKE - 5.2));  // the head's wandering, gone by the end
+  player.lie = 1 - rise;
+  player.yaw = state.wakeYaw + (Math.sin(T * 0.95) * 0.5 + Math.sin(T * 2.3) * 0.1) * daze * ease(T / 2);
+  player.pitch = (Math.sin(T * 1.3 + 1) * 0.1 - 0.12 * rise) * daze;
+  lids.style.opacity = lidsAt(T);
+  state.wakeBlur = 0.011 * (1 - ease((T - 1.5) / 3.5));
+  if (T >= WAKE) {
+    player.lie = 0; player.yaw = state.wakeYaw; player.pitch = 0; state.wakeBlur = 0;
+    lids.style.display = 'none';
+    governor.endCalibrate();
+    setMode('playing');
+    if (!coarse && !player.locked) player.requestLock();
+  }
 }
 player.onLockChange = locked => { if (!locked && state.mode === 'playing' && !coarse) setMode('paused'); };
 $('#pause').addEventListener('click', () => { if (state.mode === 'playing') setMode('paused'); });
@@ -471,6 +514,7 @@ function frame() {
     sun.intensity = L.sunI * (1 - 0.3 * stay) * (1 - 0.78 * n) * (0.55 + 1.6 * sk);
   }
 
+  if (state.mode === 'waking') waking(dt);
   if (state.mode === 'landing') {
     // the camera idles at the start, slowly looking around
     landingYaw += dt * 0.06;
@@ -515,7 +559,7 @@ function frame() {
 
   // autofocus on what is ahead; on the landing page keep it close and dreamy
   post.autofocus(state.mode === 'landing' ? 1.4 : state.mode === 'leaving' ? 0.6 + 6 * (state.lieT || 0) : focusTarget(now), dt || 0.016);
-  post.mat.uniforms.uBlur.value = state.mode === 'landing' ? 0.004 : state.mode === 'paused' || state.mode === 'book' || state.mode === 'satchel' ? 0.006 : 0;
+  post.mat.uniforms.uBlur.value = state.mode === 'waking' ? (state.wakeBlur || 0) : state.mode === 'landing' ? 0.004 : state.mode === 'paused' || state.mode === 'book' || state.mode === 'satchel' ? 0.006 : 0;
   state.flash += ((state.flashTarget || 0) - state.flash) * (1 - Math.exp(-dt * 3));
   post.mat.uniforms.uFlash.value = state.flash;
 
@@ -534,6 +578,10 @@ function frame() {
   // the shadow map refreshes less often when the budget is tight; the sun barely moves between frames
   if (++shadowFrame % shadowEvery === 0) renderer.shadowMap.needsUpdate = true;
   post.render(scene, camera, now);
+  // now and then the governor asks what a frame really costs: reading one pixel back waits for the GPU to finish
+  // while waking, every frame is timed, once the blur has cleared enough for the cost to be the true one
+  if (state.mode === 'waking' && state.wakeT > 4.6) { renderer.getContext().readPixels(0, 0, 1, 1, 6408, 5121, probePixel); governor.calibrate(performance.now() - now * 1000); }
+  if (governor.probe) { governor.probe = false; renderer.getContext().readPixels(0, 0, 1, 1, 6408, 5121, probePixel); governor.work = performance.now() - now * 1000; }
 }
 frame();
 

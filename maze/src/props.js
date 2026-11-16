@@ -5,11 +5,11 @@
 // stream cut into the floor, a still water level.
 // Each builder takes the build context from World and adds to ctx.group.
 import * as THREE from '../lib/three.module.js?v=88cddb5c';
-import { MeshBuilder, disp, withAO, hangClumpGeometry, lumpGeometry, fernTexture, plantTexture, tuftTexture, leafTexture, mushroomTexture, spanishMossTexture } from './geometry.js?v=d4fe5800';
+import { MeshBuilder, disp, withAO, hangClumpGeometry, grassClumpGeometry, bladeTexture, lumpGeometry, fernGeometry, frondTexture, leafPlantGeometry, leafBladeTexture, leafTexture, mushroomTexture, spanishMossTexture } from './geometry.js?v=0f72c86e';
 import { fbm3, noise3 } from './noise.js?v=a407dfed';
-import { GLSL_COMMON, makeMossMaterial } from './materials.js?v=af31d97a';
+import { GLSL_COMMON, makeMossMaterial } from './materials.js?v=2eb1c930';
 import { makeCardMaterial } from './wind.js?v=25d38805';
-import { MATERIAL_SPECS } from './world.js?v=f2a7f2b3';
+import { MATERIAL_SPECS } from './world.js?v=23ce974c';
 
 // the material a prop borrows from its place's kit
 const kitSpec = (loc, key, fallback) => MATERIAL_SPECS[(loc.kit && loc.kit[key]) || fallback] || MATERIAL_SPECS[fallback];
@@ -20,22 +20,6 @@ function instanced(geo, mat, n) {
   const m = new THREE.InstancedMesh(geo, mat, Math.max(1, n));
   m.count = n; m.castShadow = true; m.receiveShadow = true;
   return m;
-}
-
-// two quads at right angles, standing on the origin, 1 x 1
-export function crossCardGeometry() {
-  const pos = [], uv = [], nor = [];
-  const quad = (ax, az) => {
-    const pts = [[-0.5, 0], [0.5, 0], [0.5, 1], [-0.5, 1]];
-    const tri = [0, 1, 2, 0, 2, 3];
-    for (const i of tri) { const [s, y] = pts[i]; pos.push(s * ax, y, s * az); uv.push(s + 0.5, y); nor.push(-az, 0, ax); }
-  };
-  quad(1, 0); quad(0, 1);
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
-  g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
-  return g;
 }
 
 // ---------------------------------------------------------------- overhead
@@ -162,6 +146,7 @@ export function buildTrees(ctx) {
       }
     }
   }
+  ctx.boughs = branches;
   if (branches.length) {
     const bm = instanced(bGeo, mats.solid, branches.length);
     const up = new THREE.Vector3(0, 1, 0), dir = new THREE.Vector3();
@@ -175,20 +160,26 @@ export function buildTrees(ctx) {
   }
 }
 
-// moss hanging from the boughs: the location's pendant species, swaying
+// moss hanging from the boughs: the location's pendant species, swaying. Each hangs from a point ON a bough, its top
+// tucked into the underside of the wood (it used to be scattered up to 75 cm to the side of a branch tip, in the air).
 export function buildBoughMoss(ctx) {
   const { loc, rng, group, world } = ctx;
   const pend = loc.mosses.filter(m => m.form === 'hanging');
-  if (!pend.length || !ctx.branchTips.length || !loc.hanging) return;
+  const boughs = ctx.boughs || [];
+  if (!pend.length || !boughs.length || !loc.hanging) return;
   const tex = world.curtainTex;
   const tint = new THREE.Color(pend[Math.floor(rng() * pend.length)].color).multiplyScalar(0.85);
   const mat = makeCardMaterial({ map: tex, color: tint.getHex(), mode: 'hang', stiffness: 0.5, alphaTest: 0.35, emissive: 0x1c2614, emissiveIntensity: 0.7 });
   world.materials.push(mat);
   const geo = hangClumpGeometry();
   const items = [];
-  for (const [tx, ty, tz, yaw] of ctx.branchTips) {
+  for (const [bx, by, bz, yaw, pitch, len, s] of boughs) {
     const n = rng() < loc.hanging ? 1 + Math.floor(rng() * 3) : 0;
-    for (let k = 0; k < n; k++) items.push([tx + (rng() - 0.5) * 1.5, ty - 0.1 - rng() * 0.3, tz + (rng() - 0.5) * 1.5, yaw + rng() * Math.PI, 0.5 + rng() * 0.9, 0.6 + rng() * 1.6]);
+    for (let k = 0; k < n; k++) {
+      const f = 0.3 + rng() * 0.62, rad = (0.16 - 0.125 * f) * s;   // the bough's thickness there
+      const x = bx + Math.cos(yaw) * Math.cos(pitch) * len * f, y = by + Math.sin(pitch) * len * f, z = bz + Math.sin(yaw) * Math.cos(pitch) * len * f;
+      items.push([x, y - rad * 0.4, z, -yaw + (rng() - 0.5) * 0.5, 0.22 + rng() * 0.4, 0.5 + rng() * 1.4]);
+    }
   }
   if (!items.length) return;
   const mesh = instanced(geo, mat, items.length);
@@ -437,20 +428,22 @@ export function buildMushrooms(ctx) {
 export function buildPlants(ctx) {
   const { loc, rng, c, group, world, openCells, maze } = ctx;
   const spots = wallSpots(ctx);
-  const geo = crossCardGeometry();
   const kinds = [
-    { key: 'ferns', tex: () => fernTexture(), size: [0.45, 1.1], color: 0xaab89a, lift: 0, off: [0.2, 0.55] },
-    { key: 'plants', tex: () => plantTexture(), size: [0.35, 0.8], color: 0xb4bea4, lift: 0, off: [0.15, 0.5] },
-    { key: 'grass', tex: () => tuftTexture(), size: [0.25, 0.6], color: 0x8f9c6e, lift: 0, off: [0.1, 0.9], anywhere: true },
+    { key: 'ferns', tex: () => frondTexture(), geos: [0, 1, 2].map(v => () => fernGeometry(3 + v * 5, 9 + v)), size: [0.45, 1.1], color: 0xaab89a, lift: 0, off: [0.2, 0.55] },
+    { key: 'plants', tex: () => leafBladeTexture(), geos: [0, 1, 2].map(v => () => leafPlantGeometry(2 + v * 7, 7 + v)), size: [0.35, 0.8], color: 0xb4bea4, lift: 0, off: [0.15, 0.5] },
+    { key: 'grass', tex: () => bladeTexture(), geos: [() => grassClumpGeometry(96, 3, 5, 0.2)], size: [0.25, 0.6], color: 0x8f9c6e, lift: 0, off: [0.1, 0.9], anywhere: true },
   ];
   for (const kind of kinds) {
     const dens = loc.props[kind.key]; if (!dens) continue;
-    const n = Math.min(500, Math.round(spots.length * 0.22 * dens));
-    if (!n) continue;
+    const all = Math.min(500, Math.round(spots.length * 0.22 * dens));
+    if (!all) continue;
     const tex = world.texCache[kind.key] || (world.texCache[kind.key] = kind.tex());
     const mat = makeCardMaterial({ map: tex, color: kind.color, mode: 'up', stiffness: kind.key === 'grass' ? 0.4 : 0.25 });
     world.materials.push(mat);
-    const mesh = instanced(geo, mat, n);
+    // a few different plants of each kind, so no two neighbours are the same one turned round
+    for (const make of kind.geos) {
+    const n = Math.ceil(all / kind.geos.length);
+    const mesh = instanced(make(), mat, n);
     for (let i = 0; i < n; i++) {
       let px, pz;
       if (kind.anywhere && rng() < 0.5) {
@@ -467,6 +460,7 @@ export function buildPlants(ctx) {
       mesh.setMatrixAt(i, M4.compose(P, Q, S));
     }
     group.add(mesh);
+    }
   }
 }
 
@@ -749,36 +743,52 @@ function logGeometry() {
 // along it, lumps where branches were, a slump that leaves it wider than tall (local -z is
 // up once it is laid down), both ends broken ragged, and a few branch stubs off the upper half
 function nurseLogGeometry() {
-  const geo = new THREE.CylinderGeometry(1, 1, 1, 20, 10, false);
+  // the trunk without its flat end discs: the ends are built below, as a break with depth
+  const geo = new THREE.CylinderGeometry(1, 1, 1, 28, 10, true);
   const p = geo.attributes.position;
-  for (let i = 0; i < p.count; i++) {
-    const x = p.getX(i), y = p.getY(i), z = p.getZ(i), t = y + 0.5, ang = Math.atan2(z, x), r0 = Math.hypot(x, z);
-    const cap = Math.abs(Math.abs(y) - 0.5) < 1e-5;
-    if (r0 < 1e-5) { p.setXYZ(i, x, y + (y > 0 ? -0.05 : 0.05), z); continue; }         // the core has rotted back
+  const sx = 1.06, sz = 0.92;                                                             // the slump
+  // where a point of an end sits along the axis: the rim leans in and out a little round the trunk (a break is never
+  // square), and inside the rim the wood has rotted back into a shallow bowl, rough at the heart. rr is 1 at the rim.
+  // (along the axis the instance stretches by the log's length, so these stay small)
+  const endY = (ang, y, rr) => y + Math.sign(y) * ((noise3(Math.cos(ang) * 1.5 + 5 * y, Math.sin(ang) * 1.5, 1) - 0.5) * 0.03 * rr
+    - (1 - rr * rr) * (0.03 + 0.016 * (noise3(Math.cos(ang) * 5 * rr + 2, Math.sin(ang) * 5 * rr, 7 + y) - 0.5)));
+  const radial = (ang, t) => {
     let r = 1 + 0.14 * (fbm3(t * 3.2 + 2, ang * 0.5, 0, 2) - 0.5);                       // girth along the length
     r += 0.05 * (noise3(ang * 2.4 + 4, t * 7, 0.5) - 0.5) + 0.028 * Math.sin(ang * 11 + 2 * Math.sin(t * 6));   // plates and furrows
     r += 0.5 * Math.max(0, fbm3(ang * 1.1 + t * 4, t * 2.6 + 1, 3, 2) - 0.6);             // a lump where a branch was, a burl
     r -= 0.25 * Math.max(0, fbm3(ang * 0.9 + 7, t * 3.1 + 5, 6, 2) - 0.66);               // a rotten hollow
-    const sx = 1.06, sz = 0.92;                                                             // the slump
-    // the ends break ragged: the whole end ring (torso and cap alike) moves along the axis by the angle, so they stay joined
-    // (the offset is along the axis, which the instance stretches by the length, so it stays small: splinters, not steps)
-    const yy = cap ? y + Math.sign(y) * ((noise3(Math.cos(ang) * 4 + 5 * y, Math.sin(ang) * 4, 1) - 0.5) * 0.05 + (noise3(Math.cos(ang) * 9, Math.sin(ang) * 9 + 3 * y, 2) - 0.5) * 0.03 - 0.02 * r0) : y;
-    p.setXYZ(i, Math.cos(ang) * r0 * r * sx + Math.sin(t * Math.PI) * 0.04, yy, Math.sin(ang) * r0 * r * sz);
+    return r;
+  };
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i), y = p.getY(i), z = p.getZ(i), t = y + 0.5, ang = Math.atan2(z, x), r0 = Math.hypot(x, z);
+    const cap = Math.abs(Math.abs(y) - 0.5) < 1e-5;
+    const r = radial(ang, t);
+    p.setXYZ(i, Math.cos(ang) * r0 * r * sx + Math.sin(t * Math.PI) * 0.04, cap ? endY(ang, y, 1) : y, Math.sin(ang) * r0 * r * sz);
   }
   geo.computeVertexNormals();
   withAO(geo, (x, y, z) => 0.6 + 0.4 * Math.min(1, Math.max(0, (1 - z) / 2)));
-  const stubs = [];
-  for (let k = 0; k < 3; k++) {
-    const t = 0.2 + k * 0.3 + (k === 1 ? 0.04 : 0), ang = Math.PI + 0.95 + k * 0.63;      // the upper half, since -z is up; none reaches far into the corridor
-    const c = new THREE.CylinderGeometry(0.11, 0.26, 0.55 + k * 0.1, 8, 1);
-    c.translate(0, 0.3, 0);
-    const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(Math.cos(ang), 0.12 * (k - 1), Math.sin(ang)).normalize());
-    c.applyQuaternion(q);
-    c.translate(0, t - 0.5, 0);
-    withAO(c, () => 0.85);
-    stubs.push(c);
+  // the two broken ends: rings stepping in from the rim to the heart, following the trunk's own outline
+  const ends = [];
+  for (const y of [-0.5, 0.5]) {
+    const N = 28, rings = [1, 0.84, 0.62, 0.38, 0.16], pos = [], uv = [], idx = [];
+    for (const rr of rings) for (let k = 0; k < N; k++) {
+      let ang = k / N * Math.PI * 2; if (ang > Math.PI) ang -= Math.PI * 2;   // the same turn the trunk's own ring is measured in
+      const r = radial(ang, y + 0.5);
+      pos.push(Math.cos(ang) * rr * r * sx, endY(ang, y, rr), Math.sin(ang) * rr * r * sz); uv.push(k / N, y + 0.5);
+    }
+    pos.push(0, endY(0, y, 0), 0); uv.push(0, y + 0.5);
+    const at = (j, k) => j * N + (k % N), heart = rings.length * N;
+    for (let j = 0; j < rings.length; j++) for (let k = 0; k < N; k++) {
+      const a = at(j, k), b = at(j, k + 1), c = j + 1 < rings.length ? at(j + 1, k) : heart, d = j + 1 < rings.length ? at(j + 1, k + 1) : heart;
+      if (y > 0) { idx.push(a, c, b); if (c !== d) idx.push(b, c, d); } else { idx.push(a, b, c); if (c !== d) idx.push(b, d, c); }
+    }
+    const e = new THREE.BufferGeometry();
+    e.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); e.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    e.setIndex(idx); e.computeVertexNormals();
+    withAO(e, (x, yy, z) => 0.28 + 0.5 * Math.min(1, Math.hypot(x, z)));   // dark at the rotted heart
+    ends.push(e);
   }
-  return mergeGeometries([geo, ...stubs]);
+  return mergeGeometries([geo, ...ends]);
 }
 
 function mergeGeometries(list) {
@@ -1079,6 +1089,9 @@ function trunkGeometry(flare, height = 12, rs = 10, hs = 10) {
     const bump = 1 + 0.06 * (noise3(Math.cos(ang) * 3 + 7, t * 40, Math.sin(ang) * 3) - 0.5);
     p.setXYZ(i, Math.cos(ang) * r0 * foot * taper * bump + Math.sin(t * 2.2) * 0.04, y, Math.sin(ang) * r0 * foot * taper * bump);
   }
+  // the bark is laid in metres: v is the real height up the trunk (the rings are packed toward the foot, so the
+  // cylinder's own v is not), and u goes once round a trunk half a unit in radius (the shader lays 2 pi per unit)
+  { const uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * 0.5, p.getY(i)); }
   geo.computeVertexNormals();
   withAO(geo, (x, y) => Math.min(1, 0.45 + y * 4));
   return geo;
@@ -1227,14 +1240,39 @@ export function buildTrunkWalls(ctx) {
     const tex = world.texCache.spanish || (world.texCache.spanish = spanishMossTexture());
     const mat = makeCardMaterial({ map: tex, color: 0xc4ccbc, mode: 'hang', stiffness: 0.7, alphaTest: 0.4, emissive: 0x1a1e1a, emissiveIntensity: 0.35 });
     world.materials.push(mat);
-    const list = [];
-    for (const [px, py, pz, , d, h] of items) {
+    // Every festoon hangs from a limb: a bare bough leaving the trunk, and the moss strung along its underside.
+    // (They used to be placed up to a metre out from a branchless trunk, hanging from nothing.)
+    const list = [], limbs = [];
+    const lq = new THREE.Quaternion(), lv = new THREE.Vector3();
+    for (const [px, py, pz, tyaw, d, h, tx, tz] of items) {
       if (list.length > 2800) break;
       const n = Math.round(T.spanish * (0.6 + rng() * 1.8));
-      for (let k = 0; k < n; k++) {
-        const a = rng() * Math.PI * 2, out = d * 0.5 + 0.2 + rng() * 0.9, top = py + 2.6 + rng() * Math.min(h - 3, 6);
-        list.push([px + Math.cos(a) * out, top, pz + Math.sin(a) * out, rng() * Math.PI, 0.18 + rng() * 0.35, 1.0 + rng() * 2.6]);
+      if (!n) continue;
+      const nl = n > 3 ? 2 : 1;
+      E.set(tx, tyaw, tz, 'YXZ'); lq.setFromEuler(E); E.set(0, 0, 0, 'XYZ');
+      for (let l = 0; l < nl; l++) {
+        const a = rng() * Math.PI * 2, up = 2.8 + rng() * Math.max(0.5, Math.min(h - 3.6, 6)), pitch = 0.08 + rng() * 0.35;
+        const len = d * 0.4 + 1.0 + rng() * 1.3, lr = Math.min(0.13, d * 0.2);
+        lv.set(0, up, 0).applyQuaternion(lq);                       // the trunk's own axis at that height (it leans)
+        const bx = px + lv.x, by = py + lv.y, bz = pz + lv.z;
+        limbs.push([bx, by, bz, a, pitch, len, lr]);
+        for (let k = 0; k < Math.ceil(n / nl); k++) {
+          const f = 0.4 + rng() * 0.58, rad = lr * (1 - 0.7 * f);
+          list.push([bx + Math.cos(a) * Math.cos(pitch) * len * f, by + Math.sin(pitch) * len * f - rad * 0.4, bz + Math.sin(a) * Math.cos(pitch) * len * f, -a + (rng() - 0.5) * 0.5, 0.18 + rng() * 0.35, 1.0 + rng() * 2.6]);
+        }
       }
+    }
+    if (limbs.length) {
+      const lg = new THREE.CylinderGeometry(0.3, 1, 1, 6, 1, true); lg.translate(0, 0.5, 0);
+      withAO(lg, () => 0.85);
+      const lm = instanced(lg, mats.solid, limbs.length);
+      const upv = new THREE.Vector3(0, 1, 0);
+      limbs.forEach(([bx, by, bz, a, pitch, len, lr], i) => {
+        lv.set(Math.cos(a) * Math.cos(pitch), Math.sin(pitch), Math.sin(a) * Math.cos(pitch));
+        Q.setFromUnitVectors(upv, lv); P.set(bx, by, bz); S.set(lr, len, lr);
+        lm.setMatrixAt(i, M4.compose(P, Q, S));
+      });
+      group.add(lm);
     }
     const geo2 = hangClumpGeometry(8);
     const sm = new THREE.InstancedMesh(geo2, mat, list.length);
@@ -1250,7 +1288,7 @@ export function buildTrunkWalls(ctx) {
     const list = [];
     for (const [px, py, pz, , d] of items) {
       if (rng() > loc.hanging * 0.5) continue;
-      const a = rng() * Math.PI * 2, out = d * 0.5 + 0.05;
+      const a = rng() * Math.PI * 2, out = d * 0.5 * 0.8;   // its top just inside the bark, not standing off it
       list.push([px + Math.cos(a) * out, py + 1.4 + rng() * 1.6, pz + Math.sin(a) * out, a + Math.PI / 2, 0.25 + rng() * 0.4, 0.4 + rng() * 1.0]);
     }
     if (list.length) {

@@ -57,9 +57,39 @@ async function rpc(chain, body) {
   throw new Error(last);
 }
 const call = (to, data, id = 0) => ({ jsonrpc: '2.0', id, method: 'eth_call', params: [{ to, data: '0x' + data }, 'latest'] });
-// many calls in one request; answers back in the order asked, null where one failed
+// Many reads in one request; answers back in the order asked, null where one failed.
+// On Ethereum they go as ONE eth_call to Multicall3 (aggregate3), not as a JSON-RPC batch: the free RPCs refuse
+// batches from a server's address (they answered this site's Functions with nothing, though they answer a desk).
+// Robinhood Chain keeps the plain batch its own RPC takes.
+function aggCall(calls) {
+  let head = '', tail = '', off = calls.length * 32;
+  for (const c of calls) {
+    head += pad(off.toString(16));
+    const el = pad(c.to) + pad('1') + pad('60') + pad((c.data.length / 2).toString(16)) + c.data.padEnd(Math.ceil(c.data.length / 64) * 64, '0');
+    tail += el; off += el.length / 2;
+  }
+  return SEL.aggregate3 + pad('20') + pad(calls.length.toString(16)) + head + tail;
+}
+function aggRead(hex, n) {
+  const b = hex.slice(2), out = [], start = 128;
+  for (let i = 0; i < n; i++) {
+    const off = parseInt(b.slice(128 + i * 64, 192 + i * 64), 16) * 2 + start;
+    const ok = parseInt(b.slice(off, off + 64), 16) === 1, d = parseInt(b.slice(off + 64, off + 128), 16) * 2 + off, len = parseInt(b.slice(d, d + 64), 16);
+    out.push(ok && len > 0 ? '0x' + b.slice(d + 64, d + 64 + len * 2) : null);
+  }
+  return out;
+}
 async function batch(chain, calls) {
   if (!calls.length) return [];
+  if (chain === 'eth') {
+    const out = [];
+    for (let i = 0; i < calls.length; i += 300) {
+      const part = calls.slice(i, i + 300);
+      const r = await rpc('eth', call(MULTICALL, aggCall(part.map(c => ({ to: c.params[0].to, data: c.params[0].data.slice(2) })))));
+      out.push(...aggRead(r.result, part.length));
+    }
+    return out;
+  }
   const out = await rpc(chain, calls.map((c, i) => ({ ...c, id: i })));
   const res = new Array(calls.length).fill(null);
   for (const x of out) if (x && !x.error && typeof x.result === 'string' && x.result.length > 2) res[x.id] = x.result;
@@ -73,26 +103,6 @@ function asString(hex) {
     for (let i = 0; i < len; i++) bytes[i] = parseInt(b.slice(128 + i * 2, 130 + i * 2), 16);
     return new TextDecoder().decode(bytes);
   } catch { return ''; }
-}
-
-// Multicall3.aggregate3 of ownerOf(id) for a run of ids: one eth_call, an owner (or null) per id
-function ownersCall(target, ids) {
-  let head = '', tail = '', off = ids.length * 32;
-  for (const id of ids) {
-    head += pad(off.toString(16));
-    const el = pad(target) + pad('1') + pad('60') + pad('24') + (SEL.ownerOf + pad(id.toString(16))).padEnd(128, '0');
-    tail += el; off += el.length / 2;
-  }
-  return SEL.aggregate3 + pad('20') + pad(ids.length.toString(16)) + head + tail;
-}
-function ownersRead(hex, n) {
-  const b = hex.slice(2), out = [], start = 128;
-  for (let i = 0; i < n; i++) {
-    const off = parseInt(b.slice(128 + i * 64, 192 + i * 64), 16) * 2 + start;
-    const ok = parseInt(b.slice(off, off + 64), 16) === 1, d = parseInt(b.slice(off + 64, off + 128), 16) * 2 + off, len = parseInt(b.slice(d, d + 64), 16);
-    out.push(ok && len >= 32 ? '0x' + b.slice(d + 64 + 24, d + 128).toLowerCase() : null);
-  }
-  return out;
 }
 
 // every owner of a set that cannot list a wallet's tokens itself: { owner: [ids] }, kept an hour
@@ -112,7 +122,7 @@ async function ownersOf(env, key, allowBuild) {
     for (let s = lo; s <= hi; s += CH) { const ids = []; for (let id = s; id <= Math.min(hi, s + CH - 1); id++) ids.push(id); jobs.push(ids); }
     // six at a time: quick, and gentle on a free RPC
     for (let i = 0; i < jobs.length; i += 6) {
-      const part = await Promise.all(jobs.slice(i, i + 6).map(async ids => { const r = await rpc('eth', call(MULTICALL, ownersCall(S.addr, ids))); return ownersRead(r.result, ids.length); }));
+      const part = await Promise.all(jobs.slice(i, i + 6).map(async ids => { const r = await rpc('eth', call(MULTICALL, aggCall(ids.map(id => ({ to: S.addr, data: SEL.ownerOf + pad(id.toString(16)) }))))); return aggRead(r.result, ids.length).map(asAddress); }));
       part.forEach((owners, k) => owners.forEach((o, j) => { if (o) (map[o] = map[o] || []).push(jobs[i + k][j]); }));
     }
   }

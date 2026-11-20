@@ -159,6 +159,13 @@ export class Post {
   setSize(w, h) {
     const pr = this.renderer.getPixelRatio();
     this.rt.setSize(w * pr, h * pr);
+    // The depth picture is resized with the target, HERE, and marked as not yet drawn. Three resizes it only when the
+    // target is next drawn into; anything that reads it before then (the beetles do, to find the moss they stand on)
+    // made the card allocate it at the OLD size, and it then stayed that size for good: a target whose parts differ in
+    // size cannot be drawn into, and the whole picture went black the first time the game changed its resolution.
+    const d = this.rt.depthTexture;
+    d.image.width = this.rt.width; d.image.height = this.rt.height; d.dispose();
+    this.stale = true;
     this.mat.uniforms.uRes.value.set(w * pr, h * pr);
   }
 
@@ -191,6 +198,7 @@ export class Post {
 
   // over: { scene, cam }, drawn on top of the world into the same picture (the hands), or nothing
   render(scene, camera, t, over) {
+    this.stale = false;      // (see setSize: the depth picture is this size and about to be drawn)
     const u = this.mat.uniforms;
     u.uTime.value = t; u.uNear.value = camera.near; u.uFar.value = camera.far;
     this.renderer.setRenderTarget(this.rt);

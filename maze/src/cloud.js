@@ -12,7 +12,7 @@
 //   - signed books are added together.
 // Nothing is sent up until the account's copy has been read and folded in. Every step may fail; the game never
 // waits on any of it.
-import { remiliaToken } from './handheld.js?v=ecf6f975';
+import { remiliaToken } from './handheld.js?v=40c16947';
 
 const KEYS = { records: 'moss-maze-records-v1', bugs: 'moss-maze-bugs-v1', finds: 'moss-maze-finds-v1', satchel: 'moss-maze-satchel-v1', book: 'moss-maze-book-v1' };
 const META = 'moss-maze-cloud-v1';

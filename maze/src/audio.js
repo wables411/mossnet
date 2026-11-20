@@ -9,7 +9,7 @@
 
 // The close layer over all this (sound placed in space round the head, the hands, touch, stillness, the one
 // scale of each place) is asmr.js, which adds its methods to the class below.
-import { installAsmr } from './asmr.js?v=ecf6f975';
+import { installAsmr } from './asmr.js?v=40c16947';
 
 // field recordings (CC0 / public domain, see README): beds that loop, and calls
 const CLIPS = {

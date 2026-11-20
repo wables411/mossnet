@@ -2,9 +2,9 @@
 // arrows, a virtual stick and drag-look on touch, grid collision, and the
 // handheld-camera feel (step bob, breathing, low-frequency sway, autofocus).
 import * as THREE from '../lib/three.module.js?v=88cddb5c';
-import { WALL } from './maze.js?v=ecf6f975';
-import { noise3 } from './noise.js?v=ecf6f975';
-import { disp } from './geometry.js?v=ecf6f975';
+import { WALL } from './maze.js?v=40c16947';
+import { noise3 } from './noise.js?v=40c16947';
+import { disp } from './geometry.js?v=40c16947';
 
 export const EYE = 1.62;
 

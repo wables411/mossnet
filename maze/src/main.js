@@ -1,31 +1,31 @@
 // Lost in the Moss (the 3D moss maze): boot, the level flow, the landing page and the HUD.
 import * as THREE from '../lib/three.module.js?v=88cddb5c';
-import { generateMaze, mulberry32, difficulty } from './maze.js?v=ecf6f975';
-import { Player, EYE } from './player.js?v=ecf6f975';
-import { Canopy, Body } from './shadow.js?v=ecf6f975';
-import { World } from './world.js?v=ecf6f975';
-import { makeSky } from './sky.js?v=ecf6f975';
-import { Post } from './post.js?v=ecf6f975';
-import { Particles } from './particles.js?v=ecf6f975';
-import { Ambience } from './audio.js?v=ecf6f975';
-import { records, fmtTime } from './score.js?v=ecf6f975';
-import { Textures, makeStrandTexture } from './materials.js?v=ecf6f975';
-import { locationFor, rollWeather, neededTextures, LOCATIONS } from './locations.js?v=ecf6f975';
-import { wind } from './wind.js?v=ecf6f975';
-import { Shoots } from './shoots.js?v=ecf6f975';
-import { Governor } from './governor.js?v=ecf6f975';
-import { Models } from './models.js?v=ecf6f975';
-import { updateWhimsy } from './whimsy.js?v=ecf6f975';
-import { Book, drawBookIcon } from './book.js?v=ecf6f975';
-import { Finds, FINDS, FIND_ORDER } from './finds.js?v=ecf6f975';
-import { Satchel } from './satchel.js?v=ecf6f975';
-import { Flashlight, TORCH_ANGLE } from './torch.js?v=ecf6f975';
-import { Hands, POSES, HOLD, LIGHT, MOTION } from './hands.js?v=ecf6f975';
-import { Handheld, remiliaToken } from './handheld.js?v=ecf6f975';
+import { generateMaze, mulberry32, difficulty } from './maze.js?v=40c16947';
+import { Player, EYE } from './player.js?v=40c16947';
+import { Canopy, Body } from './shadow.js?v=40c16947';
+import { World } from './world.js?v=40c16947';
+import { makeSky } from './sky.js?v=40c16947';
+import { Post } from './post.js?v=40c16947';
+import { Particles } from './particles.js?v=40c16947';
+import { Ambience } from './audio.js?v=40c16947';
+import { records, fmtTime } from './score.js?v=40c16947';
+import { Textures, makeStrandTexture } from './materials.js?v=40c16947';
+import { locationFor, rollWeather, neededTextures, LOCATIONS } from './locations.js?v=40c16947';
+import { wind } from './wind.js?v=40c16947';
+import { Shoots } from './shoots.js?v=40c16947';
+import { Governor } from './governor.js?v=40c16947';
+import { Models } from './models.js?v=40c16947';
+import { updateWhimsy } from './whimsy.js?v=40c16947';
+import { Book, drawBookIcon } from './book.js?v=40c16947';
+import { Finds, FINDS, FIND_ORDER } from './finds.js?v=40c16947';
+import { Satchel } from './satchel.js?v=40c16947';
+import { Flashlight, TORCH_ANGLE } from './torch.js?v=40c16947';
+import { Hands, POSES, HOLD, LIGHT, MOTION } from './hands.js?v=40c16947';
+import { Handheld, remiliaToken } from './handheld.js?v=40c16947';
 import { mountReport } from '../report.js?v=4934f950';
-import { Beetles, SurfaceGrid, beetleOf, beetlePic, beetleGirl, RARITY } from './beetles.js?v=ecf6f975';
-import { Cloud } from './cloud.js?v=ecf6f975';
-import { Gallery, galleryWallets, galleryList, galleryRoom, seedOf, shortWallet, GALLERY_MAX } from './gallery.js?v=ecf6f975';
+import { Beetles, SurfaceGrid, beetleOf, beetlePic, beetleGirl, RARITY } from './beetles.js?v=40c16947';
+import { Cloud } from './cloud.js?v=40c16947';
+import { Gallery, galleryWallets, galleryList, galleryRoom, seedOf, shortWallet, GALLERY_MAX } from './gallery.js?v=40c16947';
 
 const $ = s => document.querySelector(s);
 const params = new URLSearchParams(location.search);
@@ -444,6 +444,7 @@ const bugProbe = (() => {
   return {
     N,
     read(uv) {
+      if (post.stale) return null;      // resized and not drawn since: there is no depth to read yet (and reading it now is what blacked the picture out)
       const n = Math.min(N, uv.length >> 1);
       for (let i = 0; i < N; i++) uvs[i].set(i < n ? uv[i * 2] : -1, i < n ? uv[i * 2 + 1] : -1);
       mat.uniforms.tDepth.value = post.rt.depthTexture;

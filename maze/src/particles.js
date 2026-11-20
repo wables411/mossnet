@@ -2,9 +2,9 @@
 // and snow where the weather has them, and after dark the fireflies of the
 // places that have them, blinking over the water on their own clocks.
 import * as THREE from '../lib/three.module.js?v=88cddb5c';
-import { streakTexture } from './geometry.js?v=ecf6f975';
-import { wind } from './wind.js?v=ecf6f975';
-import { torchPoints } from './torch.js?v=ecf6f975';
+import { streakTexture } from './geometry.js?v=40c16947';
+import { wind } from './wind.js?v=40c16947';
+import { torchPoints } from './torch.js?v=40c16947';
 
 function softDot(size = 64) {
   const c = document.createElement('canvas'); c.width = c.height = size;

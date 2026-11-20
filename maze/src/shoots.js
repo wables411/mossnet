@@ -14,10 +14,10 @@
 // where they are shrunk to nothing. The rebuild runs a few milliseconds per
 // frame into a second buffer and is swapped in when complete.
 import * as THREE from '../lib/three.module.js?v=88cddb5c';
-import { canvasTexture, dispFast } from './geometry.js?v=ecf6f975';
-import { mulberry32 } from './maze.js?v=ecf6f975';
-import { GLSL_SWAY, wind } from './wind.js?v=ecf6f975';
-import { FACE_MARKS, FACE_GLSL } from './materials.js?v=ecf6f975';
+import { canvasTexture, dispFast } from './geometry.js?v=40c16947';
+import { mulberry32 } from './maze.js?v=40c16947';
+import { GLSL_SWAY, wind } from './wind.js?v=40c16947';
+import { FACE_MARKS, FACE_GLSL } from './materials.js?v=40c16947';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 const REACH_RIM = 1.2;   // metres over which a shoot shrinks to nothing at the lobe's edge

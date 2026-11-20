@@ -5,8 +5,8 @@
 // the sun becomes a small cold moon with a halo, a few stars show where the
 // canopy opens, and at dusk the horizon toward the sun keeps a warm band.
 import * as THREE from '../lib/three.module.js?v=88cddb5c';
-import { GLSL_COMMON } from './materials.js?v=ecf6f975';
-import { leafMask } from './shadow.js?v=ecf6f975';
+import { GLSL_COMMON } from './materials.js?v=40c16947';
+import { leafMask } from './shadow.js?v=40c16947';
 
 const NIGHT_ZENITH = new THREE.Color(0x060a16), DUSK_WARM = new THREE.Color(0xc98a58);
 // the sky itself, behind the leaves: brighter than anything under the trees, so the camera blows it out the way a

@@ -5,11 +5,11 @@
 // stream cut into the floor, a still water level.
 // Each builder takes the build context from World and adds to ctx.group.
 import * as THREE from '../lib/three.module.js?v=88cddb5c';
-import { MeshBuilder, disp, withAO, hangClumpGeometry, grassClumpGeometry, bladeTexture, lumpGeometry, fernGeometry, frondTexture, leafPlantGeometry, leafBladeTexture, leafTexture, mushroomTexture, spanishMossTexture } from './geometry.js?v=ecf6f975';
-import { fbm3, noise3 } from './noise.js?v=ecf6f975';
-import { GLSL_COMMON, makeMossMaterial } from './materials.js?v=ecf6f975';
-import { makeCardMaterial } from './wind.js?v=ecf6f975';
-import { MATERIAL_SPECS } from './world.js?v=ecf6f975';
+import { MeshBuilder, disp, withAO, hangClumpGeometry, grassClumpGeometry, bladeTexture, lumpGeometry, fernGeometry, frondTexture, leafPlantGeometry, leafBladeTexture, leafTexture, mushroomTexture, spanishMossTexture } from './geometry.js?v=40c16947';
+import { fbm3, noise3 } from './noise.js?v=40c16947';
+import { GLSL_COMMON, makeMossMaterial } from './materials.js?v=40c16947';
+import { makeCardMaterial } from './wind.js?v=40c16947';
+import { MATERIAL_SPECS } from './world.js?v=40c16947';
 
 // the material a prop borrows from its place's kit
 const kitSpec = (loc, key, fallback) => MATERIAL_SPECS[(loc.kit && loc.kit[key]) || fallback] || MATERIAL_SPECS[fallback];

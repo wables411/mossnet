@@ -35,7 +35,7 @@
 const SITE_LOCK = 'ad5ff21ea92f7fb7acbb11e9880df8db67f96a480f52549a3e274f602833e773';
 const COOKIE = 'maze_beta';
 const MAX_AGE = 60 * 60 * 24 * 30;
-const POLICY = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; connect-src 'self' blob: data: https://www.remilia.net; img-src 'self' data: blob:; media-src 'self' blob: data:; style-src 'self' 'unsafe-inline'; font-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'";
+const POLICY = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' https://static.cloudflareinsights.com; worker-src 'self' blob:; connect-src 'self' blob: data: https://www.remilia.net https://cloudflareinsights.com; img-src 'self' data: blob:; media-src 'self' blob: data:; style-src 'self' 'unsafe-inline'; font-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'";
 
 // what the site serves for /maze/, under the maze's own content policy
 async function served(next) {

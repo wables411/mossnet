@@ -49,7 +49,7 @@ const BY_ID = Object.fromEntries(BEETLES.map(b => [b.id, b]));
 export const beetleOf = id => BY_ID[id] || null;
 // the beetlegirl each beetle has on the wiki (her portrait, 832x1216), shown beside the beetle on its Bug Book page.
 // Only the ones whose picture is in textures/beetlegirls/ are listed; the rest show the beetle alone.
-export const GIRLS = new Set([]);
+export const GIRLS = new Set(['green', 'ladybug', 'purple', 'cucumber', 'pond', 'monarch', 'bumblebee', 'goliath', 'bombardier', 'stag', 'gold', 'skull', 'christmas', 'candycane_tiger', 'giraffe_weevil', 'sabertooth_longhorn', 'pillbug', 'imperial_tortoise', 'golden_tiger', 'blue_longicorn', 'sunset_moth', 'mars_rhino', 'widow']);
 export const beetleGirl = id => (GIRLS.has(id) ? new URL(`../textures/beetlegirls/${id}.webp`, import.meta.url).href : null);
 export const beetlePic = id => new URL(`../textures/beetles/${id}.png`, import.meta.url).href;
 
@@ -352,7 +352,7 @@ export class Beetles {
       list.push(b);
     }
     if (!list.length) return;
-    const d = P.read(uv);
+    const d = P.read(uv); if (!d) return;
     for (let i = 0; i < list.length; i++) {
       const b = list[i]; let best = null;
       for (let q = 0; q < 5; q++) {

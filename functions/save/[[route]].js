@@ -11,6 +11,7 @@
 //   GET  /save            Bearer token           -> {save, updated} | 404
 //   PUT  /save            Bearer token + body    -> {ok, updated}
 //   DELETE /save          Bearer token           -> {ok}
+//   GET/PUT/POST/DELETE /save/maze   the same, for Lost in the Moss: its own slot, so neither game's save touches the other's
 //
 // The challenge is a one-shot nonce: signing it proves the wallet without ever handing
 // the site a key, and the token it buys is a plain HMAC that this Worker can check on
@@ -126,10 +127,10 @@ export async function onRequest({ request, env, params }) {
     }
 
     // POST is the same write as PUT: it is what sendBeacon can send as a tab closes
-    if (route === '' && (method === 'GET' || method === 'PUT' || method === 'POST' || method === 'DELETE')) {
+    if ((route === '' || route === 'maze') && (method === 'GET' || method === 'PUT' || method === 'POST' || method === 'DELETE')) {
       const address = await readToken(env.SAVE_SECRET, request);
       if (!address) return json({ error: 'sign in again' }, 401);
-      const key = `save:${address}`;
+      const key = `${route === 'maze' ? 'mazesave' : 'save'}:${address}`;
 
       if (method === 'GET') {
         const record = await env.SAVES.get(key, 'json');

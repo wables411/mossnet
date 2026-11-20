@@ -14,9 +14,10 @@
 // where they are shrunk to nothing. The rebuild runs a few milliseconds per
 // frame into a second buffer and is swapped in when complete.
 import * as THREE from '../lib/three.module.js?v=88cddb5c';
-import { canvasTexture, dispFast } from './geometry.js?v=0f72c86e';
-import { mulberry32 } from './maze.js?v=28138280';
-import { GLSL_SWAY, wind } from './wind.js?v=25d38805';
+import { canvasTexture, dispFast } from './geometry.js?v=ecf6f975';
+import { mulberry32 } from './maze.js?v=ecf6f975';
+import { GLSL_SWAY, wind } from './wind.js?v=ecf6f975';
+import { FACE_MARKS, FACE_GLSL } from './materials.js?v=ecf6f975';
 
 const rnd = (a, b) => a + Math.random() * (b - a);
 const REACH_RIM = 1.2;   // metres over which a shoot shrinks to nothing at the lobe's edge
@@ -118,13 +119,13 @@ export class Shoots {
     this.radius = this.fullReach;   // the far limit, for anything that only wants one number
     this.atlas = shootAtlas();
     const mat = this.mat = new THREE.MeshStandardMaterial({ map: this.atlas, alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.85, color: 0xffffff, emissive: 0x1a2810, emissiveIntensity: 0.5 });
-    const u = { uWind: { value: wind.vec }, uWindTime: { value: 0 }, uPlayer: { value: new THREE.Vector3() }, uView: { value: new THREE.Vector2(0, -1) }, uReach: { value: new THREE.Vector2(this.back, this.reach) } };
+    const u = { uWind: { value: wind.vec }, uWindTime: { value: 0 }, uPlayer: { value: new THREE.Vector3() }, uView: { value: new THREE.Vector2(0, -1) }, uReach: { value: new THREE.Vector2(this.back, this.reach) }, uFaceP: FACE_MARKS.uFaceP, uFaceN: FACE_MARKS.uFaceN, uFaceTex: FACE_MARKS.uFaceTex, uFaceShow: FACE_MARKS.uFaceShow, uFaceDeep: FACE_MARKS.uFaceDeep, uFaceBare: FACE_MARKS.uFaceBare };
     mat.userData.windUniforms = u;
     this.uniforms = u;
     mat.onBeforeCompile = shader => {
       Object.assign(shader.uniforms, u);
       shader.vertexShader = shader.vertexShader
-        .replace('#include <common>', `#include <common>\n${GLSL_SWAY}\nattribute float ivar; attribute float iborn; uniform vec3 uPlayer; uniform vec2 uView; uniform vec2 uReach; varying float vTip;`)
+        .replace('#include <common>', `#include <common>\n${GLSL_SWAY}\nattribute float ivar; attribute float iborn; uniform vec3 uPlayer; uniform vec2 uView; uniform vec2 uReach; varying float vTip; varying float vFace;\n${FACE_GLSL}`)
         .replace('#include <uv_vertex>', `#include <uv_vertex>\n vMapUv.x = (vMapUv.x + ivar) * 0.125; vTip = uv.y;`)
         .replace('#include <begin_vertex>', `#include <begin_vertex>
           {
@@ -133,6 +134,10 @@ export class Shoots {
             // and turning move the rim smoothly; the rebuild only adds shoots beyond it, which then grow in).
             // far shoots are a little taller: at eight metres a two-centimetre shoot is a pixel, a clump is moss
             vec3 ip = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+            // a hidden Radbro (materials.js): no shoots on the bare stone of his face, dark ones where his eyes are
+            vec3 fN; vec4 fh = faceHead(ip, fN); vFace = fh.b * fh.a;
+            transformed *= 1.0 - fh.a * max(smoothstep(0.3, 0.6, fh.g) * (1.0 - smoothstep(0.12, 0.4, fh.b)), smoothstep(0.55, 0.85, fh.b));   // none in the hollows either: only on their lips
+            transformed *= 1.0 + 0.5 * fh.a * smoothstep(0.4, 0.7, fh.r);   // and his hair stands thicker than the moss around it
             vec2 dv = ip.xz - uPlayer.xz;
             float dd = length(dv);
             float cs = dd > 0.001 ? dot(dv, uView) / dd : 1.0;
@@ -146,11 +151,11 @@ export class Shoots {
             transformed += inverse(mat3(modelMatrix) * mat3(instanceMatrix)) * d;
           }`);
       shader.fragmentShader = shader.fragmentShader
-        .replace('#include <common>', '#include <common>\nvarying float vTip;')
+        .replace('#include <common>', '#include <common>\nvarying float vTip; varying float vFace;')
         .replace('#include <map_fragment>', `#include <map_fragment>
           // dark at the base, lighter and a little yellowed at the tip; held close to the carpet's own colour, so
           // a patch reads as moss with depth and not as bright specks scattered over it
-          diffuseColor.rgb *= mix(vec3(0.36, 0.42, 0.29), vec3(0.92, 0.96, 0.76), pow(clamp(vTip, 0.0, 1.0), 0.8));   // interpolation dips a hair below 0 at the base: pow of that is NaN, a black blob after the depth of field`);
+          diffuseColor.rgb *= mix(vec3(0.36, 0.42, 0.29), vec3(0.92, 0.96, 0.76), pow(clamp(vTip, 0.0, 1.0), 0.8)) ; diffuseColor.rgb *= 1.0 - 0.45 * smoothstep(0.1, 0.5, vFace);   // interpolation dips a hair below 0 at the base: pow of that is NaN, a black blob after the depth of field`);
     };
     mat.customProgramCacheKey = () => 'moss-shoots';
 

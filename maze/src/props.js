@@ -5,11 +5,11 @@
 // stream cut into the floor, a still water level.
 // Each builder takes the build context from World and adds to ctx.group.
 import * as THREE from '../lib/three.module.js?v=88cddb5c';
-import { MeshBuilder, disp, withAO, hangClumpGeometry, grassClumpGeometry, bladeTexture, lumpGeometry, fernGeometry, frondTexture, leafPlantGeometry, leafBladeTexture, leafTexture, mushroomTexture, spanishMossTexture } from './geometry.js?v=0f72c86e';
-import { fbm3, noise3 } from './noise.js?v=a407dfed';
-import { GLSL_COMMON, makeMossMaterial } from './materials.js?v=2eb1c930';
-import { makeCardMaterial } from './wind.js?v=25d38805';
-import { MATERIAL_SPECS } from './world.js?v=23ce974c';
+import { MeshBuilder, disp, withAO, hangClumpGeometry, grassClumpGeometry, bladeTexture, lumpGeometry, fernGeometry, frondTexture, leafPlantGeometry, leafBladeTexture, leafTexture, mushroomTexture, spanishMossTexture } from './geometry.js?v=ecf6f975';
+import { fbm3, noise3 } from './noise.js?v=ecf6f975';
+import { GLSL_COMMON, makeMossMaterial } from './materials.js?v=ecf6f975';
+import { makeCardMaterial } from './wind.js?v=ecf6f975';
+import { MATERIAL_SPECS } from './world.js?v=ecf6f975';
 
 // the material a prop borrows from its place's kit
 const kitSpec = (loc, key, fallback) => MATERIAL_SPECS[(loc.kit && loc.kit[key]) || fallback] || MATERIAL_SPECS[fallback];
@@ -111,14 +111,20 @@ export function buildTrees(ctx) {
   const mats = world.matPair({ ...kitSpec(loc, 'bark', 'wood'), scale: 0.8, mossScale: 0.9, baseTint: 0x5e4f3c, mossTint: 0xe8f2d8 }, { ...diff, mossCover: 0.32, fuzz: 0.5 }, 1, world.q.high ? 4 : 2, loc.moss, 0, false, true);
   const mesh = instanced(geo, mats.solid, spots.length);
   const trees = [];
-  spots.forEach(([x, y], i) => {
+  spots.forEach(([x, y]) => {
     const s = 0.8 + rng() * 0.9;
     E.set((rng() - 0.5) * 0.08, rng() * Math.PI * 2, (rng() - 0.5) * 0.08); Q.setFromEuler(E);
     const px = (x + 0.5) * c + (rng() - 0.5) * c * 0.3, pz = (y + 0.5) * c + (rng() - 0.5) * c * 0.3;
+    // the trunk is solid: its girth at knee height is its footprint (a tree that would shut the way is not grown)
+    const foot = trunkRadius(0.8) * s * 0.92;
+    if (!ctx.pass.trunk(px, pz, foot)) return;
+    (world.treeFeet = world.treeFeet || []).push([px, pz, foot]);
     P.set(px, 6 - 0.3 + ctx.floorY(px, pz), pz); S.set(s, 1, s);
-    mesh.setMatrixAt(i, M4.compose(P, Q, S));
+    mesh.setMatrixAt(trees.length, M4.compose(P, Q, S));
     trees.push([px, pz, s]);
   });
+  mesh.count = trees.length;
+  if (!trees.length) return;
   group.add(mesh);
 
   // branches: cylinders leaving the trunk between 4 and 10 m, rising outward; their tips get the leaves
@@ -466,72 +472,145 @@ export function buildPlants(ctx) {
 
 // ---------------------------------------------------------------- water
 
-export function waterMaterial(fogColor, sunDir, deep = 0x0f150d) {
+// flow: the water of a stream, which runs along its own length (uv.x metres down it, uv.y metres across, aHw its
+// half width there); otherwise still water, which only stirs. Either way the rain rings it when it rains.
+export function waterMaterial(fogColor, sunDir, deep = 0x0f150d, flow = false) {
   const mat = new THREE.ShaderMaterial({
-    transparent: true, depthWrite: false, fog: true,
+    transparent: true, depthWrite: false, fog: true, defines: flow ? { FLOW: 1 } : {},
     uniforms: Object.assign({
-      uTime: { value: 0 }, uDeep: { value: new THREE.Color(deep) }, uSky: { value: fogColor.clone().multiplyScalar(0.3) },
+      uTime: { value: 0 }, uRain: { value: 0 }, uDeep: { value: new THREE.Color(deep) }, uSky: { value: fogColor.clone().multiplyScalar(0.3) },
       uSunDir: { value: sunDir.clone().normalize() },
     }, THREE.UniformsUtils.clone(THREE.UniformsLib.fog)),
     vertexShader: /* glsl */`
       #include <fog_pars_vertex>
-      varying vec3 vW;
+      varying vec3 vW; varying vec2 vUv2; varying float vHw;
+      #ifdef FLOW
+      attribute float aHw;
+      #endif
       void main(){
+        vUv2 = uv; vHw = 1.0;
+        #ifdef FLOW
+        vHw = aHw;
+        #endif
         vec4 wp = modelMatrix * vec4(position, 1.0); vW = wp.xyz; vec4 mvPosition = viewMatrix * wp; gl_Position = projectionMatrix * mvPosition;
         #include <fog_vertex>
       }`,
     fragmentShader: /* glsl */`
       #include <fog_pars_fragment>
-      uniform float uTime; uniform vec3 uDeep, uSky, uSunDir; varying vec3 vW;
+      uniform float uTime, uRain; uniform vec3 uDeep, uSky, uSunDir; varying vec3 vW; varying vec2 vUv2; varying float vHw;
       ${GLSL_COMMON}
+      // rain on the water: each drop a ring that opens and dies. More rain, more of the squares have a drop in them
+      float rings(vec2 p, float t) {
+        float acc = 0.0;
+        for (int k = 0; k < 2; k++) {
+          vec2 g = p * (2.4 + float(k) * 1.5) + float(k) * 17.3, id = floor(g), f = fract(g) - 0.5;
+          float h = hash12(id), rate = 0.75 + 0.6 * h, life = t * rate + h * 9.0, ph = fract(life);
+          float on = step(hash12(id + floor(life) * 3.7 + 1.3), uRain * 0.85);
+          vec2 at = (vec2(hash12(id + 3.1 + floor(life)), hash12(id + 7.7 + floor(life))) - 0.5) * 0.5;
+          float r = length(f - at);
+          acc += on * (1.0 - smoothstep(0.0, 0.035, abs(r - ph * 0.4))) * (1.0 - ph) * (1.0 - ph);
+        }
+        return acc;
+      }
       void main(){
         vec2 p = vW.xz;
-        float n1 = vnoise(vec3(p * 5.0 + vec2(uTime * 0.7, uTime * 0.25), 0.0));
-        float n2 = vnoise(vec3(p * 11.0 - vec2(uTime * 0.4, uTime * 1.0), 3.0));
-        vec3 N = normalize(vec3((n1 - 0.5) * 0.35 + (n2 - 0.5) * 0.12, 1.0, (n2 - 0.5) * 0.35 + (n1 - 0.5) * 0.12));
+        float edge = 1.0, foam = 0.0;
+        #ifdef FLOW
+          // it runs: the ripples are carried down its length, quickest in the middle, dragging at the banks
+          float across = vUv2.y / max(vHw, 0.04);
+          // (two sheets of ripple, a quick one and a slow one, and each place shows more of the quick one the nearer the
+          // middle it is. One sheet slowed toward the banks would shear without end and comb itself into ruled lines)
+          float mid = 1.0 - min(1.0, across * across);
+          vec2 fa = vec2(vUv2.x - uTime * 0.6, vUv2.y), fb = vec2(vUv2.x - uTime * 0.22, vUv2.y);
+          float n1 = mix(vnoise(vec3(fb * vec2(3.2, 4.5), 0.0)), vnoise(vec3(fa * vec2(3.2, 4.5), 1.0)), mid);
+          float n2 = mix(vnoise(vec3(fb * vec2(7.5, 8.0), 3.0)), vnoise(vec3(fa * vec2(7.5, 8.0) + 4.0, 4.0)), mid);
+          float n3 = vnoise(vec3(fa * vec2(1.6, 5.0), 7.0));                                           // the slower swell of the current
+          edge = 1.0 - smoothstep(0.92, 1.3, abs(across));
+          foam = smoothstep(0.7, 0.92, n2) * smoothstep(0.6, 1.0, abs(across)) * 0.12 + smoothstep(0.66, 0.85, n3) * 0.02;
+        #else
+          float n1 = vnoise(vec3(p * 5.0 + vec2(uTime * 0.7, uTime * 0.25), 0.0));
+          float n2 = vnoise(vec3(p * 11.0 - vec2(uTime * 0.4, uTime * 1.0), 3.0));
+        #endif
+        float rg = uRain > 0.0 ? rings(p, uTime) : 0.0;
+        vec3 N = normalize(vec3((n1 - 0.5) * 0.35 + (n2 - 0.5) * 0.12 + rg * 0.05, 1.0, (n2 - 0.5) * 0.35 + (n1 - 0.5) * 0.12 - rg * 0.05));
         vec3 V = normalize(cameraPosition - vW);
         float fres = pow(1.0 - max(dot(N, V), 0.0), 3.0);
         vec3 R = reflect(-V, N);
         vec3 refl = mix(uDeep * 1.6, uSky, clamp(R.y * 0.9 + 0.35, 0.0, 1.0));
+        #ifdef FLOW
+          refl = mix(uDeep * 1.4, uSky * 0.36, smoothstep(-0.1, 0.9, R.y));   // a stream between banks mirrors the banks and the trees, not the open sky
+        #endif
         float spec = min(0.2, pow(max(dot(R, uSunDir), 0.0), 40.0) * 0.3);
-        vec3 col = mix(uDeep, refl, 0.2 + 0.7 * fres) + spec + 0.03 * smoothstep(0.62, 0.8, n2);
-        gl_FragColor = vec4(col, 0.55 + 0.4 * fres);
+        #ifdef FLOW
+          // the sun on running water: a soft gleam no brighter than the sky round it. (Capped flat at a fixed white, as it
+          // was, it showed as the pale blots: every ripple facing the sun went to the same white at once)
+          spec = (1.0 - exp(-pow(max(dot(R, uSunDir), 0.0), 300.0) * 2.0)) * 0.5 * dot(uSky, vec3(0.333));
+        #endif
+        // the glitter on the ripples: on still water a fixed small white; on a stream in this dim light that same white is
+        // a pale blot the shape of the noise (the patches the owner saw), so there it is only as bright as the sky it catches
+        #ifdef FLOW
+          // A shallow stream is seen three ways at once: straight down you look through it to its bed; across it, it
+          // carries the light of the sky; and its ripples pass soft bands of that light along it. All of it smooth:
+          // nothing here is cut off at a threshold, so nothing reads as a blot.
+          float rip = n1 * 0.6 + n2 * 0.4, band = smoothstep(0.3, 0.85, rip);
+          vec3 sheen = uSky * (0.85 + 0.4 * band);
+          vec3 col = mix(uDeep * 2.2, sheen, clamp(0.1 + 0.9 * fres, 0.0, 1.0)) + sheen * 0.12 * band * (0.35 + 0.65 * mid) + spec + (foam * 0.4 + rg * 0.3) * uSky;   // a ring is a thin line of light, it does not throw the whole surface about
+        #else
+          vec3 col = mix(uDeep, refl, 0.2 + 0.7 * fres) + spec + 0.03 * smoothstep(0.62, 0.8, n2) + rg * uSky * 0.3;
+        #endif   // (in this dim light a fixed white is a white blot: foam and rings are only as bright as the sky they catch)
+        #ifdef FLOW
+          gl_FragColor = vec4(col, clamp(0.3 + 0.22 * mid + 0.4 * fres + 0.18 * band, 0.0, 0.95) * edge);   // thin at the edges and underfoot: the bed shows through
+        #else
+          gl_FragColor = vec4(col, 0.55 + 0.4 * fres);
+        #endif
         #include <fog_fragment>
       }`,
   });
+  // the picture's alpha is spoken for (post.js reads it to know the hands from the world): water is laid over the
+  // colour only and leaves the alpha as it found it, or every pool is taken for something held in the hand
+  mat.blending = THREE.CustomBlending; mat.blendSrc = THREE.SrcAlphaFactor; mat.blendDst = THREE.OneMinusSrcAlphaFactor; mat.blendSrcAlpha = THREE.ZeroFactor; mat.blendDstAlpha = THREE.OneFactor;
   return mat;
 }
 
 export function buildStream(ctx) {
-  const { stream, c, maze, group, world, rng, diff, loc } = ctx;
+  const { stream, group, world, rng, diff, loc } = ctx;
   if (!stream) return;
-  const pad = 4 * c;
-  const L = maze.W * c + 2 * pad;
-  const geo = new THREE.PlaneGeometry(L, stream.w + 1.0, Math.round(L / 0.5), 2); geo.rotateX(-Math.PI / 2);
-  const mat = waterMaterial(world.fogColor, world.sunDir);
+  // the water: a ribbon laid down its course at its own level, a little wider than the channel (the banks cover the rest)
+  const n = stream.n, pos = new Float32Array(n * 6), uv = new Float32Array(n * 4), hw = new Float32Array(n * 2), idx = [];
+  for (let i = 0; i < n; i++) {
+    const e = stream.hw[i] + 0.4;
+    pos.set([stream.x[i] + stream.nx[i] * e, stream.y[i], stream.z[i] + stream.nz[i] * e, stream.x[i] - stream.nx[i] * e, stream.y[i], stream.z[i] - stream.nz[i] * e], i * 6);
+    uv.set([stream.s[i], e, stream.s[i], -e], i * 4); hw[i * 2] = hw[i * 2 + 1] = stream.hw[i];
+    if (i) idx.push(i * 2 - 2, i * 2, i * 2 - 1, i * 2 - 1, i * 2, i * 2 + 1);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); geo.setAttribute('aHw', new THREE.BufferAttribute(hw, 1));
+  geo.setIndex(idx);
+  const mat = waterMaterial(world.fogColor, world.sunDir, 0x0f150d, true);
+  mat.side = THREE.DoubleSide;
   world.materials.push(mat);
   const mesh = new THREE.Mesh(geo, mat);
-  mesh.position.set(maze.W * c / 2, -0.05, stream.z);
-  mesh.renderOrder = 2;
+  mesh.renderOrder = 2; mesh.frustumCulled = false;
   group.add(mesh);
   world.waters.push(mat);
-  // stepping stones in the channel
+  // stones: a jumble at the spring for the water to come out from under, another round the pool where it goes, and
+  // a few down the channel for it to run round
   const geoS = withAO(lumpGeometry(3.3, 0.55, 0.4, 12), () => 0.85);
-  const row = Math.floor(stream.z / c);
-  const cellsInRow = ctx.openCells.filter(([x, y]) => y === row);
-  const n = cellsInRow.length * 3;
-  if (n) {
-    const mats = world.matPair({ ...kitSpec(loc, 'rock', 'stone'), scale: 0.6, mossScale: 0.8 }, { ...diff, mossCover: 0.35 }, 1, 2, loc.moss, 0, true);
-    const mesh = instanced(geoS, mats.solid, n);
-    let k = 0;
-    for (const [x] of cellsInRow) for (let j = 0; j < 3; j++) {
-      const r = 0.12 + rng() * 0.16;
-      P.set((x + 0.15 + rng() * 0.7) * c, -0.1 + r * 0.3, stream.z + (rng() - 0.5) * stream.w * 0.8);
-      E.set((rng() - 0.5) * 0.4, rng() * Math.PI * 2, (rng() - 0.5) * 0.4); Q.setFromEuler(E); S.set(r, r, r);
-      mesh.setMatrixAt(k++, M4.compose(P, Q, S));
-    }
-    group.add(mesh);
+  const items = [];
+  const tan = i => [stream.nz[i], -stream.nx[i]];
+  { const [tx, tz] = tan(0); for (let k = 0; k < 6; k++) { const r = 0.16 + rng() * 0.2, a = (k / 6 - 0.5) * 2.4; items.push([stream.x[0] - tx * (0.18 + rng() * 0.2) + stream.nx[0] * Math.sin(a) * 0.42, stream.y[0] - 0.03 + r * 0.25, stream.z[0] - tz * (0.18 + rng() * 0.2) + stream.nz[0] * Math.sin(a) * 0.42, r]); } }
+  { const e = n - 1, [tx, tz] = tan(e); for (let k = 0; k < 6; k++) { const r = 0.15 + rng() * 0.2, a = (k / 6 - 0.5) * 2.6; items.push([stream.x[e] + tx * (0.35 + rng() * 0.3) * Math.cos(a) + stream.nx[e] * Math.sin(a) * (stream.hw[e] + 0.25), stream.y[e] - 0.04 + r * 0.25, stream.z[e] + tz * (0.35 + rng() * 0.3) * Math.cos(a) + stream.nz[e] * Math.sin(a) * (stream.hw[e] + 0.25), r]); } }
+  for (let k = 0; k < Math.round(stream.len * 0.9); k++) {
+    const i = 8 + Math.floor(rng() * Math.max(1, n - 16)), r = 0.07 + rng() * 0.12, lat = (rng() - 0.5) * 2 * stream.hw[i] * 0.85;
+    items.push([stream.x[i] + stream.nx[i] * lat, stream.y[i] - 0.08 + r * 0.35, stream.z[i] + stream.nz[i] * lat, r]);
   }
+  const mats = world.matPair({ ...kitSpec(loc, 'rock', 'stone'), scale: 0.6, mossScale: 0.8 }, { ...diff, mossCover: 0.35 }, 1, 2, loc.moss, 0, true);
+  const stones = instanced(geoS, mats.solid, items.length);
+  items.forEach(([x, y, z, r], k) => {
+    P.set(x, y, z); E.set((rng() - 0.5) * 0.4, rng() * Math.PI * 2, (rng() - 0.5) * 0.4); Q.setFromEuler(E); S.set(r, r * (0.7 + rng() * 0.4), r);
+    stones.setMatrixAt(k, M4.compose(P, Q, S));
+  });
+  group.add(stones);
 }
 
 
@@ -744,7 +823,8 @@ function logGeometry() {
 // up once it is laid down), both ends broken ragged, and a few branch stubs off the upper half
 function nurseLogGeometry() {
   // the trunk without its flat end discs: the ends are built below, as a break with depth
-  const geo = new THREE.CylinderGeometry(1, 1, 1, 28, 10, true);
+  const RS = 36;
+  const geo = new THREE.CylinderGeometry(1, 1, 1, RS, 16, true);
   const p = geo.attributes.position;
   const sx = 1.06, sz = 0.92;                                                             // the slump
   // where a point of an end sits along the axis: the rim leans in and out a little round the trunk (a break is never
@@ -754,7 +834,9 @@ function nurseLogGeometry() {
     - (1 - rr * rr) * (0.03 + 0.016 * (noise3(Math.cos(ang) * 5 * rr + 2, Math.sin(ang) * 5 * rr, 7 + y) - 0.5)));
   const radial = (ang, t) => {
     let r = 1 + 0.14 * (fbm3(t * 3.2 + 2, ang * 0.5, 0, 2) - 0.5);                       // girth along the length
-    r += 0.05 * (noise3(ang * 2.4 + 4, t * 7, 0.5) - 0.5) + 0.028 * Math.sin(ang * 11 + 2 * Math.sin(t * 6));   // plates and furrows
+    r += 0.06 * (noise3(ang * 2.4 + 4, t * 7, 0.5) - 0.5) + 0.03 * Math.sin(ang * 11 + 2 * Math.sin(t * 6));     // plates and furrows
+    r -= 0.045 * Math.pow(Math.abs(Math.sin(ang * 6 + 1 + 1.6 * Math.sin(t * 5 + ang))), 8);                     // a few deep splits down the length
+    r += 0.035 * (noise3(ang * 7 + 1, t * 16, 4) - 0.5);                                                          // the small unevenness of old wood
     r += 0.5 * Math.max(0, fbm3(ang * 1.1 + t * 4, t * 2.6 + 1, 3, 2) - 0.6);             // a lump where a branch was, a burl
     r -= 0.25 * Math.max(0, fbm3(ang * 0.9 + 7, t * 3.1 + 5, 6, 2) - 0.66);               // a rotten hollow
     return r;
@@ -770,7 +852,7 @@ function nurseLogGeometry() {
   // the two broken ends: rings stepping in from the rim to the heart, following the trunk's own outline
   const ends = [];
   for (const y of [-0.5, 0.5]) {
-    const N = 28, rings = [1, 0.84, 0.62, 0.38, 0.16], pos = [], uv = [], idx = [];
+    const N = RS, rings = [1, 0.84, 0.62, 0.38, 0.16], pos = [], uv = [], idx = [];
     for (const rr of rings) for (let k = 0; k < N; k++) {
       let ang = k / N * Math.PI * 2; if (ang > Math.PI) ang -= Math.PI * 2;   // the same turn the trunk's own ring is measured in
       const r = radial(ang, y + 0.5);
@@ -1012,10 +1094,29 @@ export function buildScans(ctx) {
       for (let i = 0; i < pa.count; i += stride) { const y = pa.getY(i); if (y > 0.05 && y * model.spec.scale[1] < 2.0 && Math.abs(na.getY(i)) < 0.5) lowVerts.push([pa.getX(i), y, pa.getZ(i), na.getX(i), na.getY(i), na.getZ(i)]); }
     }
     const sun = world.sunDir;
+    // the trunk's own middle and girth between shin and shoulder height (the model's, before it is scaled and turned)
+    const girth = (() => {
+      const sm = (model.spec.scale[0] + model.spec.scale[1]) / 2, pts = [];
+      for (const piece of model.pieces) {
+        if (piece.material.alphaTest) continue;
+        const pa = piece.geometry.attributes.position, stride = Math.max(1, Math.floor(pa.count / 4000));
+        for (let i = 0; i < pa.count; i += stride) { const yy = pa.getY(i) * sm; if (yy > 0.6 && yy < 1.7) pts.push([pa.getX(i), pa.getZ(i)]); }
+      }
+      if (pts.length < 8) return null;
+      let mx = 0, mz = 0; for (const p of pts) { mx += p[0]; mz += p[1]; } mx /= pts.length; mz /= pts.length;
+      const d = pts.map(p => Math.hypot(p[0] - mx, p[1] - mz)).sort((a, b) => a - b);
+      return [mx, mz, d[Math.floor(d.length * 0.8)]];
+    })();
     for (const [x, y] of cells) {
       const s = model.spec.scale[0] + rng() * (model.spec.scale[1] - model.spec.scale[0]);
       const px = (x + 0.5) * c + (rng() - 0.5) * c * 0.3, pz = (y + 0.5) * c + (rng() - 0.5) * c * 0.3;
       const yaw = rng() * Math.PI * 2;
+      // the trunk is solid (a tree that would shut the way is not grown)
+      if (girth) {
+        const fx = px + (girth[0] * Math.cos(yaw) + girth[1] * Math.sin(yaw)) * s, fz = pz + (-girth[0] * Math.sin(yaw) + girth[1] * Math.cos(yaw)) * s, fr = Math.min(girth[2] * s * 0.92, c * 0.45);
+        if (!ctx.pass.trunk(fx, fz, fr)) continue;
+        (world.treeFeet = world.treeFeet || []).push([fx, fz, fr]);
+      }
       // the foot sunk below the lowest ground around it, so the root flare rises out of the floor and never hangs over it
       let low = ctx.floorY(px, pz);
       for (let a = 0; a < 8; a++) low = Math.min(low, ctx.floorY(px + Math.cos(a * 0.785) * c * 0.9, pz + Math.sin(a * 0.785) * c * 0.9));
@@ -1102,7 +1203,7 @@ function trunkGeometry(flare, height = 12, rs = 10, hs = 10) {
 export function buildLogWalls(ctx) {
   const { loc, rng, c, H, group, world, diff, cells, open, exposed, wallAt, floorY } = ctx;
   const spec = MATERIAL_SPECS[(loc.wall.logs && loc.wall.logs.material) || 'barkmoss'] || MATERIAL_SPECS.wood;
-  const mats = world.matPair({ ...spec, scale: 0.9, mossScale: 1.0, baseTint: 0xbfae92, drape: 1 }, { ...diff, mossCover: Math.min(0.9, diff.mossCover + 0.15), fuzz: 1 }, 1, world.q.high ? 5 : 3, loc.moss, 0, false, true);
+  const mats = world.matPair({ ...spec, scale: 1.7, mossScale: 1.0, baseTint: 0x9a8468, drape: 1, height: 0.03 }, { ...diff, mossCover: Math.min(0.9, diff.mossCover + 0.15), fuzz: 1 }, world.q.high ? 6 : 1, world.q.high ? 5 : 3, loc.moss, 0, false, true);
   const geo = nurseLogGeometry();
   const items = [];
   for (const [x, y] of cells) {
@@ -1114,8 +1215,18 @@ export function buildLogWalls(ctx) {
     let k = 0;
     while (top < floorY(cx, cz) + H - 0.25 && k < 4) {
       const r = (k === 0 ? 0.47 : 0.3 + rng() * 0.12) * c * (0.92 + rng() * 0.08);
-      const len = c * (1.0 + rng() * 0.4), shift = (rng() - 0.5) * c * 0.35;
-      const off = (rng() - 0.5) * (c - 2 * r) * 0.8;   // where in the tile's width this log lies
+      let len = c * (1.0 + rng() * 0.4), shift = (rng() - 0.5) * c * 0.35;
+      // Only the tile stops the player. So an end that faces the open stops at the tile's edge: a log that ran on past it
+      // lay across the path with nothing solid in it, and you could walk into the hollow of it. (Toward another wall
+      // tile the ends still overlap and stagger as before.)
+      {
+        const openLo = alongX ? open(x - 1, y) : open(x, y - 1), openHi = alongX ? open(x + 1, y) : open(x, y + 1);
+        let a = shift - len / 2, b = shift + len / 2;
+        if (openLo) a = -c / 2 - 0.06;
+        if (openHi) b = c / 2 + 0.06;
+        len = b - a; shift = (a + b) / 2;
+      }
+      const off =(rng() - 0.5) * (c - 2 * r) * 0.8;   // where in the tile's width this log lies
       const px = alongX ? cx + shift : cx + off, pz = alongX ? cz + off : cz + shift;
       // the upper logs lie a little askew, as fallen trunks do; each is rolled a little and half of them end-for-end
       const yaw = (alongX ? Math.PI / 2 : 0) + (rng() - 0.5) * (k ? 0.2 : 0.1) + (rng() < 0.5 ? Math.PI : 0);
@@ -1163,7 +1274,7 @@ export function buildTrunkWalls(ctx) {
   const { loc, rng, c, H, group, world, diff, cells, exposed, open, wallAt, floorY, maze } = ctx;
   const T = loc.wall.trunk;
   const spec = MATERIAL_SPECS[T.material] || MATERIAL_SPECS.wood;
-  const mats = world.matPair({ ...spec, scale: 0.9, mossScale: 1.0, baseTint: T.tint || spec.baseTint }, { ...diff, mossCover: 0.3, fuzz: 0.6 }, 1, world.q.high ? 3 : 2, loc.moss, 0, false, true);
+  const mats = world.matPair({ ...spec, scale: 1.5, mossScale: 1.0, baseTint: T.tint || spec.baseTint, height: 0.028 }, { ...diff, mossCover: 0.3, fuzz: 0.6 }, world.q.high ? 6 : 1, world.q.high ? 3 : 2, loc.moss, 0, false, true);
   const geo = trunkGeometry(T.flare || 0.6, T.height || 12);
   const items = [], circles = [];
   const per = T.per || 3, [r0, r1] = T.radius || [0.25, 0.4];
@@ -1209,6 +1320,7 @@ export function buildTrunkWalls(ctx) {
   });
   group.add(mesh);
   world.shootSources.push({ mesh, kind: 'lump', cover: 0.25 });
+  world.trunkItems = items;   // where each trunk stands and how thick: a hidden Radbro is set on one of them (world.js)
 
   // cypress knees: woody cones in clusters around the trunk feet, some stepping into the open where the way allows
   if (T.knees) {

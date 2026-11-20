@@ -9,20 +9,32 @@
 <link rel="preload" href="fonts/Monocraft.ttf" as="font" type="font/ttf" crossorigin>
 <link rel="preload" href="fonts/FreckleFace-Regular.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/IMFellEnglish-Regular.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="styles.css?v=d47f9b27">
+<link rel="stylesheet" href="styles.css?v=c1f6a949">
 </head>
 <body data-mode="loading">
 <canvas id="view"></canvas>
 
 <div id="landing" class="overlay">
-  <div class="card">
-    <h1>Lost in the Moss</h1>
-    <p class="sub">find a way out or dont</p>
-    <button id="enter" disabled>Enter the Moss Maze</button>
-    <button id="notes-open" class="ghost">dev notes</button>
-    <p id="load" class="small">loading</p>
-    <p id="records" class="small"></p>
-    <p class="small keys"><span>W A S D</span> or arrows to walk · mouse to look · <span>shift</span> to hurry · <span>H</span> hides the display · <span>M</span> mutes<br>on a phone: left thumb walks, right thumb looks</p>
+  <!-- the start screen: an LCD like the MQ-01's on the front page. The picture at its head is a window: the place itself, behind it. -->
+  <div class="lcd">
+    <div class="lcd-bar"><i></i>LOST IN THE MOSS</div>
+    <div class="lcd-screen">
+      <div class="lcd-view"></div>
+      <div class="lcd-body">
+      <h1>lost in the moss</h1>
+      <p class="lcd-sub">eight places &middot; no map &middot; find a way out or dont</p>
+      <p id="who" class="lcd-who"></p>
+      <p id="records" class="lcd-line"></p>
+      <div id="menu">
+        <button id="enter" class="row" disabled>play</button>
+        <button id="gallery-open" class="row" disabled>gallery</button>
+        <button id="gallery-moss" class="row sub">moss nfts in the gallery &middot; off</button>
+        <button id="notes-open" class="row">dev notes &middot; report a bug</button>
+      </div>
+      <p class="lcd-keys"><span>W A S D</span> walk &middot; mouse looks &middot; <span>shift</span> hurry &middot; <span>H</span> hides the display &middot; <span>M</span> mutes &middot; best with headphones<br>on a phone: left thumb walks, right thumb looks</p>
+      </div>
+    </div>
+    <div class="lcd-foot"><span id="load">loading</span><span class="save-line"></span></div>
   </div>
 </div>
 
@@ -32,7 +44,7 @@
     <button id="resume">keep walking</button>
     <button id="settings-open" class="ghost">settings</button>
     <button id="satchel-open-paused" class="ghost">satchel</button>
-    <button id="notes-open-paused" class="ghost">dev notes</button>
+    <button id="notes-open-paused" class="ghost">report a bug / suggest</button>
     <button id="quit" class="ghost">leave the maze</button>
   </div>
 </div>
@@ -40,41 +52,57 @@
 <div id="settings" class="overlay">
   <div class="card">
     <h2>settings</h2>
-    <label class="row"><span>look sensitivity</span><input id="set-sens" type="range" min="0.3" max="3" step="0.1"><output id="set-sens-out"></output></label>
-    <label class="row"><span>show the touch stick on phones</span><input id="set-controls" type="checkbox"></label>
-    <div class="controls-list">
-      <div><span>walk</span>W A S D or arrows</div>
-      <div><span>look</span>mouse</div>
-      <div><span>hurry</span>shift</div>
-      <div><span>focus</span>click or tap on anything</div>
-      <div><span>moss</span>tap a cushion: spores, and its name</div>
-      <div><span>journal</span>J, once you have found the book</div>
-      <div><span>satchel</span>I, what you carry</div>
-      <div><span>torch</span>F after dark, once you have found it</div>
-      <div><span>pause</span>esc</div>
-      <div><span>display</span>H hides it, M mutes</div>
-      <div><span>phone</span>left thumb walks, right thumb looks</div>
+    <label class="row"><span>mouse speed</span><input id="set-sens" type="range" min="0.3" max="3" step="0.1"><output id="set-sens-out"></output></label>
+    <label class="row"><span>camera bob when you walk</span><input id="set-bob" type="range" min="0" max="1.5" step="0.1"><output id="set-bob-out"></output></label>
+    <label class="row"><span>3D sound (wear headphones)</span><input id="set-asmr" type="checkbox"></label>
+    <label class="row"><span>clean screen: hide all text and buttons</span><input id="set-clean" type="checkbox"></label>
+    <label class="row phone-only"><span>show the walking joystick</span><input id="set-controls" type="checkbox"></label>
+    <label class="row phone-only"><span>show the "drag to look" hint</span><input id="set-look" type="checkbox"></label>
+    <div class="controls-list desk-only">
+      <div class="head">keys</div>
+      <div><span>W A S D</span>walk</div>
+      <div><span>mouse</span>look around</div>
+      <div><span>shift</span>hold to hurry</div>
+      <div><span>click</span>touch what you point at: it makes its sound and the camera focuses on it</div>
+      <div><span>J</span>journal (once you find the book)</div>
+      <div><span>I</span>satchel: what you carry</div>
+      <div><span>F</span>torch on / off (after dark, once you find it)</div>
+      <div><span>T</span>handheld: take out / put away</div>
+      <div><span>Q  E</span>handheld: page back / forward (left and right arrows, or tab, do the same)</div>
+      <div><span>wheel</span>handheld: scroll (up and down arrows do the same)</div>
+      <div><span>enter</span>handheld: write a message; enter on an empty line stops</div>
+      <div><span>C</span>smoke / put out (needs a pack and a lighter)</div>
+      <div><span>R</span>razor: draw / put away</div>
+      <div><span>click</span>razor out: a quick cut (click again to cut back the other way)</div>
+      <div><span>right click</span>razor out: the heavy cut</div>
+      <div><span>G</span>razor out: look it over</div>
+      <div><span>P</span>copy a picture of the view</div>
+      <div><span>H</span>clean screen on / off</div>
+      <div><span>M</span>sound on / off</div>
+      <div><span>esc</span>pause</div>
     </div>
-    <label class="row"><span>camera sway and bob</span><input id="set-bob" type="range" min="0" max="1.5" step="0.1"><output id="set-bob-out"></output></label>
-    <p class="small">tap or click anything to pull focus onto it; the camera goes back to autofocus when you move on</p>
+    <div class="controls-list phone-only">
+      <div class="head">on a phone</div>
+      <div><span>left thumb</span>walk</div>
+      <div><span>right thumb</span>look around</div>
+      <div><span>tap</span>touch what you tap: it makes its sound and the camera focuses on it</div>
+      <div><span>buttons</span>under the clock: torch, smoke, handheld, page, write, picture</div>
+      <div><span>II</span>pause</div>
+    </div>
     <button id="settings-done">done</button>
   </div>
 </div>
 
 <div id="notes" class="overlay">
-  <div class="card notes">
-    <h2>dev notes</h2>
-    <p class="small">leave a comment, a suggestion, a request or an idea, with screenshots if you have them. Anyone can read these, here or on <a href="notes.html" target="_blank" rel="noopener">their own page</a>.</p>
-    <div class="notes-body"></div>
-    <button id="notes-done">back</button>
-  </div>
+  <div class="report-box"></div>
 </div>
 
 <div id="touchui">
   <div id="stick"><div id="stick-knob"></div></div>
   <div id="look-hint">drag to look · tap to focus</div>
 </div>
-<div id="reticle"></div>
+<div id="reticle"><i></i></div>
+<div id="shutter"></div>
 
 <div id="book" class="overlay">
   <div id="bq" data-kind="quill">
@@ -122,6 +150,7 @@ to write</div>
   <canvas width="220" height="160"></canvas>
   <div class="find-title"></div>
   <div class="find-sub"></div>
+  <div class="find-note"></div>
 </div>
 
 <div id="found" class="overlay">
@@ -131,6 +160,7 @@ to write</div>
   </div>
 </div>
 
+<input id="chat-in" type="text" maxlength="400" autocomplete="off" autocapitalize="off" spellcheck="false" aria-label="message">
 <div id="toast"></div>
 <div id="hud">
   <div class="rec"><span class="dot"></span>REC <span id="hud-time">00:00</span></div>
@@ -138,13 +168,25 @@ to write</div>
   <div id="hud-place"></div>
   <div id="hud-weather"></div>
   <div id="hud-moss"></div>
-  <div class="hint">find the way out</div>
+  <div class="hint" id="hud-hint">find the way out</div>
   <button id="pause" class="touch-only" aria-label="pause">II</button>
   <button id="book-btn" class="touch-only hasbook-only" aria-label="journal"><canvas id="book-btn-art"></canvas></button>
   <button id="bag-btn" class="touch-only" aria-label="satchel"><canvas id="bag-btn-art"></canvas></button>
+  <!-- on a phone: what the keys do on a desk, in a row under the clock -->
+  <div id="acts">
+    <button id="act-torch" type="button">torch</button>
+    <button id="act-smoke" type="button">smoke</button>
+    <button id="act-device" type="button">handheld</button>
+    <button id="act-page" type="button">page</button>
+    <button id="act-write" type="button">write</button>
+    <button id="act-razor" type="button">razor</button>
+    <button id="act-heavy" type="button">heavy</button>
+    <button id="act-inspect" type="button">inspect</button>
+    <button id="act-snap" type="button">picture</button>
+  </div>
   <button id="mute" class="tiny">sound on</button>
 </div>
 
-<script type="module" src="src/main.js?v=2a46fb24"></script>
+<script type="module" src="src/main.js?v=ecf6f975"></script>
 </body>
 </html>

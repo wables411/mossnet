@@ -2,9 +2,9 @@
 // arrows, a virtual stick and drag-look on touch, grid collision, and the
 // handheld-camera feel (step bob, breathing, low-frequency sway, autofocus).
 import * as THREE from '../lib/three.module.js?v=88cddb5c';
-import { WALL } from './maze.js?v=28138280';
-import { noise3 } from './noise.js?v=a407dfed';
-import { disp } from './geometry.js?v=0f72c86e';
+import { WALL } from './maze.js?v=ecf6f975';
+import { noise3 } from './noise.js?v=ecf6f975';
+import { disp } from './geometry.js?v=ecf6f975';
 
 export const EYE = 1.62;
 
@@ -20,6 +20,7 @@ export class Player {
     this.radius = 0.34;
     this.sens = 1; this.bobAmount = 1;
     this.onTap = null;             // (ndcX, ndcY, screenX, screenY)
+    this.onAlt = null;             // the right mouse button
     this.walk = 1.45; this.brisk = 2.35;
     this.stepPhase = 0; this.stepTrigger = null;
     this.stride = 0;                       // 0..1 how much we are walking
@@ -49,6 +50,7 @@ export class Player {
     const d = this.dom;
     window.addEventListener('keydown', e => {
       if (!this.enabled) return;
+      if (e.target && e.target.tagName === 'INPUT' && !['checkbox', 'range', 'button'].includes(e.target.type)) return;   // typing on the handheld (a ticked box or a slider left in focus is not typing)
       this.keys.add(e.code);
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) e.preventDefault();
     });
@@ -67,7 +69,9 @@ export class Player {
       this.pitch = Math.max(-1.35, Math.min(1.35, this.pitch));
     });
     d.addEventListener('mousedown', e => {
-      if (!this.enabled || !this.locked || e.button !== 0) return;
+      if (!this.enabled || !this.locked) return;
+      if (e.button === 2) { if (this.onAlt) this.onAlt(); return; }      // the right button: the heavy cut, when the razor is out
+      if (e.button !== 0) return;
       if (this.onTap) this.onTap(0, 0, window.innerWidth / 2, window.innerHeight / 2);
     });
     // touch: left half = stick, right half = look; a short still touch on the right is a tap

@@ -5,15 +5,15 @@
 // is overhead, the moss curtains and crest tufts, the props the location
 // calls for, and the exit opening.
 import * as THREE from '../lib/three.module.js?v=88cddb5c';
-import { WALL } from './maze.js?v=28138280';
-import { noise3, fbm3 } from './noise.js?v=a407dfed';
-import { makeMossMaterial } from './materials.js?v=2eb1c930';
-import { hangClumpGeometry, MeshBuilder, disp, setCarve, makeLowField, curtainTexture, beardTexture, drapeTexture, vineTexture, grassClumpGeometry, bladeTexture, TUFT_VARIANTS, shaftTexture, glowTexture } from './geometry.js?v=0f72c86e';
-import { buildCanopy, buildTrees, buildCaveCeiling, buildVaults, buildLogs, buildBoulders, buildMushrooms, buildPlants, buildStream, buildCushions, buildBoughMoss, buildScans, buildLogWalls, buildTrunkWalls, buildWater, wallSpots } from './props.js?v=e96f1827';
-import { buildWhimsy } from './whimsy.js?v=279db07e';
-import { mossTypes } from './locations.js?v=f0992831';
-import { makeCardMaterial, cardDepthMaterial, wind } from './wind.js?v=25d38805';
-import { Passability } from './passable.js?v=42f6f864';
+import { WALL } from './maze.js?v=ecf6f975';
+import { noise3, fbm3 } from './noise.js?v=ecf6f975';
+import { makeMossMaterial, FACE_MARKS } from './materials.js?v=ecf6f975';
+import { hangClumpGeometry, MeshBuilder, disp, setCarve, makeLowField, curtainTexture, beardTexture, drapeTexture, vineTexture, grassClumpGeometry, bladeTexture, TUFT_VARIANTS, shaftTexture, glowTexture } from './geometry.js?v=ecf6f975';
+import { buildCanopy, buildTrees, buildCaveCeiling, buildVaults, buildLogs, buildBoulders, buildMushrooms, buildPlants, buildStream, buildCushions, buildBoughMoss, buildScans, buildLogWalls, buildTrunkWalls, buildWater, wallSpots } from './props.js?v=ecf6f975';
+import { buildWhimsy } from './whimsy.js?v=ecf6f975';
+import { mossTypes } from './locations.js?v=ecf6f975';
+import { makeCardMaterial, cardDepthMaterial, wind } from './wind.js?v=ecf6f975';
+import { Passability } from './passable.js?v=ecf6f975';
 
 // the photo sets: texture repeats per metre, a tint over the photo, a tint over the moss grown on it
 export const MATERIAL_SPECS = {
@@ -60,9 +60,98 @@ export class World {
     this.group = null; this.materials = []; this.obstacles = []; this.stream = null; this.waters = []; this.waterLevel = null; this.shootSources = []; this.shootFaces = []; this.fuzzMeshes = []; this.whimsy = null; this.cushions = null; this.wallGeos = [];
   }
 
+  // The stream's course. A dead end well away from the start is its spring; from there it follows the open cells
+  // (breadth-first, so it never doubles back) for nine to fifteen cells, and the last of them holds its pool. It
+  // keeps to one side of the corridor and wanders a little. Its water lies just under the lower of its two banks
+  // and never rises as it goes: where the ground comes up, the bed is cut down through it (floorY above).
+  // ground: the floor before any stream is cut into it.
+  makeStream(maze, c, rng, ground) {
+    const W = maze.W, H = maze.H;
+    const isO = (x, y) => x >= 0 && y >= 0 && x < W && y < H && maze.grid[y * W + x] !== WALL;
+    const D4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    const near = (x, y, o, r) => o && Math.abs(x - o.x) + Math.abs(y - o.y) <= r;
+    const ok = (x, y) => isO(x, y) && !near(x, y, maze.start, 3) && !near(x, y, maze.exit, 2);
+    const deg = (x, y) => D4.filter(([dx, dy]) => isO(x + dx, y + dy)).length;
+    const ends = [];
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (ok(x, y) && deg(x, y) === 1) ends.push([x, y]);
+    let cells = null;
+    for (let tries = 0; tries < 16 && !cells; tries++) {
+      const src = ends.length ? ends[Math.floor(rng() * ends.length)] : maze.path[Math.floor(maze.path.length * (0.3 + 0.4 * rng()))];
+      if (!src || !ok(src[0], src[1])) continue;
+      const want = 9 + Math.floor(rng() * 7), par = new Int32Array(W * H).fill(-2), dep = new Int32Array(W * H);
+      const q = [src]; par[src[1] * W + src[0]] = -1;
+      let best = null;
+      while (q.length) {
+        const [x, y] = q.shift(), d = dep[y * W + x];
+        if (d >= 6 && (!best || d > best[2] || (d === best[2] && deg(x, y) === 1))) best = [x, y, d];
+        if (d >= want) continue;
+        for (const [dx, dy] of D4) { const u = x + dx, v = y + dy; if (ok(u, v) && par[v * W + u] === -2) { par[v * W + u] = y * W + x; dep[v * W + u] = d + 1; q.push([u, v]); } }
+      }
+      if (!best) continue;
+      cells = [];
+      for (let k = best[1] * W + best[0]; k >= 0; k = par[k]) cells.push([k % W, Math.floor(k / W)]);
+      cells.reverse();
+    }
+    if (!cells) return null;
+    // the line it takes through those cells: off to one side, wandering, drawn smooth through them
+    const side = rng() < 0.5 ? -1 : 1, ph = rng() * 6, ctl = [];
+    cells.forEach(([x, y], k) => {
+      const a = cells[Math.max(0, k - 1)], b = cells[Math.min(cells.length - 1, k + 1)];
+      let tx = b[0] - a[0], tz = b[1] - a[1]; const tl = Math.hypot(tx, tz) || 1; tx /= tl; tz /= tl;
+      const off = side * c * 0.2 + c * 0.1 * Math.sin(k * 1.3 + ph);
+      let px = (x + 0.5) * c - tz * off, pz = (y + 0.5) * c + tx * off;
+      if (k === 0) { px -= tx * c * 0.3; pz -= tz * c * 0.3; }                          // the spring sits back against the dead end's wall
+      if (k === cells.length - 1) { px += tx * c * 0.15; pz += tz * c * 0.15; }
+      ctl.push([px, pz]);
+    });
+    const PX = [], PZ = [], per = Math.max(4, Math.round(c / 0.25));
+    for (let k = 0; k < ctl.length - 1; k++) {
+      const p0 = ctl[Math.max(0, k - 1)], p1 = ctl[k], p2 = ctl[k + 1], p3 = ctl[Math.min(ctl.length - 1, k + 2)];
+      for (let j = 0; j < per; j++) {
+        const t = j / per, t2 = t * t, t3 = t2 * t;
+        const f = i => 0.5 * (2 * p1[i] + (p2[i] - p0[i]) * t + (2 * p0[i] - 5 * p1[i] + 4 * p2[i] - p3[i]) * t2 + (3 * p1[i] - p0[i] - 3 * p2[i] + p3[i]) * t3);
+        PX.push(f(0)); PZ.push(f(1));
+      }
+    }
+    PX.push(ctl[ctl.length - 1][0]); PZ.push(ctl[ctl.length - 1][1]);
+    const n = PX.length, S = new Float32Array(n), NX = new Float32Array(n), NZ = new Float32Array(n);
+    for (let i = 1; i < n; i++) S[i] = S[i - 1] + Math.hypot(PX[i] - PX[i - 1], PZ[i] - PZ[i - 1]);
+    for (let i = 0; i < n; i++) { const a = Math.max(0, i - 1), b = Math.min(n - 1, i + 1); const tx = PX[b] - PX[a], tz = PZ[b] - PZ[a], l = Math.hypot(tx, tz) || 1; NX[i] = -tz / l; NZ[i] = tx / l; }
+    const len = S[n - 1], w = Math.min(0.62, c * 0.34), sm = (a, b, x) => { const t = Math.max(0, Math.min(1, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+    // narrow where it rises, its full width soon after, widening into the pool at the end
+    const HW = new Float32Array(n), POOL = new Float32Array(n);
+    for (let i = 0; i < n; i++) { POOL[i] = sm(len - 1.7, len - 0.5, S[i]); HW[i] = w / 2 * (0.35 + 0.65 * sm(0, 1.3, S[i])) * (1 + 0.9 * POOL[i]) * (0.88 + 0.24 * noise3(S[i] * 0.9, 3, ph)); }
+    // its level: under the lower bank, smoothed, and never rising downstream
+    const raw = new Float32Array(n), Y = new Float32Array(n);
+    for (let i = 0; i < n; i++) { const e = HW[i] + 0.4; raw[i] = Math.min(ground(PX[i] + NX[i] * e, PZ[i] + NZ[i] * e), ground(PX[i] - NX[i] * e, PZ[i] - NZ[i] * e), ground(PX[i], PZ[i])) - 0.045; }
+    const smooth = (src, r) => { const out = new Float32Array(n); for (let i = 0; i < n; i++) { let acc = 0, k = 0; for (let j = Math.max(0, i - r); j <= Math.min(n - 1, i + r); j++) { acc += src[j]; k++; } out[i] = acc / k; } return out; };
+    const s1 = smooth(raw, 10);
+    for (let i = 0; i < n; i++) Y[i] = i ? Math.min(Y[i - 1], s1[i]) : s1[0];
+    const Ys = smooth(Y, 4); for (let i = 1; i < n; i++) Ys[i] = Math.min(Ys[i - 1], Ys[i]);
+    // where is the stream from here: a grid over the maze, each square near it holding its nearest point
+    const res = 0.25, gw = Math.ceil(W * c / res) + 2, gh = Math.ceil(H * c / res) + 2, G = new Int32Array(gw * gh).fill(-1), GD = new Float32Array(gw * gh).fill(1e9), R = 1.9;
+    for (let i = 0; i < n; i++) {
+      const x0 = Math.max(0, Math.floor((PX[i] - R) / res)), x1 = Math.min(gw - 1, Math.ceil((PX[i] + R) / res)), z0 = Math.max(0, Math.floor((PZ[i] - R) / res)), z1 = Math.min(gh - 1, Math.ceil((PZ[i] + R) / res));
+      for (let gz = z0; gz <= z1; gz++) for (let gx = x0; gx <= x1; gx++) { const d = Math.hypot((gx + 0.5) * res - PX[i], (gz + 0.5) * res - PZ[i]); if (d < R && d < GD[gz * gw + gx]) { GD[gz * gw + gx] = d; G[gz * gw + gx] = i; } }
+    }
+    const out = { n, x: PX, z: PZ, s: S, nx: NX, nz: NZ, hw: HW, y: Ys, pool: POOL, len, w, depth: 0.13, cells };
+    // { d: metres from its middle line, i: which point of it, hw: its half width there, y: its water level, pool: 0..1 }, or null when it is nowhere near
+    out.dist = (x, z) => {
+      const gx = Math.floor(x / res), gz = Math.floor(z / res);
+      if (gx < 0 || gz < 0 || gx >= gw || gz >= gh) return null;
+      const g = G[gz * gw + gx]; if (g < 0) return null;
+      let bi = g, bd = 1e9;
+      for (let i = Math.max(0, g - 4); i <= Math.min(n - 1, g + 4); i++) { const d = Math.hypot(x - PX[i], z - PZ[i]); if (d < bd) { bd = d; bi = i; } }
+      return { d: bd, i: bi, hw: HW[bi], y: Ys[bi], pool: POOL[bi] };
+    };
+    // the nearest of it from anywhere, for the ear: { d, x, z }
+    out.near = (x, z) => { let bi = 0, bd = 1e9; for (let i = 0; i < n; i += 3) { const d = Math.hypot(x - PX[i], z - PZ[i]); if (d < bd) { bd = d; bi = i; } } return { d: Math.max(0, bd - HW[bi]), x: PX[bi], z: PZ[bi] }; };
+    return out;
+  }
+
   // is this point under the place's water (a stream channel or the still level)
   inWater(x, z) {
-    if (this.stream && Math.abs(z - this.stream.z) < this.stream.w / 2 + 0.1) return true;
+    if (this.stream) { const q = this.stream.dist(x, z); if (q && q.d < q.hw + 0.1) return true; }
     if (this.waterLevel !== null && this.floorY(x, z) < this.waterLevel - 0.01) return true;
     return false;
   }
@@ -95,22 +184,16 @@ export class World {
     const extraWalls = new Set();
     const [edx, edy] = maze.exit.dir;
     const perp = [edy, edx];
-    for (let k = 0; k <= 3; k++) for (const s of [-1, 1]) extraWalls.add(`${maze.exit.x + edx * k + perp[0] * s},${maze.exit.y + edy * k + perp[1] * s}`);
+    if (!maze.sealed) for (let k = 0; k <= 3; k++) for (const s of [-1, 1]) extraWalls.add(`${maze.exit.x + edx * k + perp[0] * s},${maze.exit.y + edy * k + perp[1] * s}`);
     const exitOpen = new Set();
-    for (let k = 1; k <= 3; k++) exitOpen.add(`${maze.exit.x + edx * k},${maze.exit.y + edy * k}`);
+    if (!maze.sealed) for (let k = 1; k <= 3; k++) exitOpen.add(`${maze.exit.x + edx * k},${maze.exit.y + edy * k}`);
     const open = (x, y) => isOpen(x, y) || exitOpen.has(`${x},${y}`);
     const wallAt = (x, y) => extraWalls.has(`${x},${y}`) || (x >= 0 && y >= 0 && x < W && y < maze.H && grid[y * W + x] === WALL);
     const zoneAt = (x, y) => (x >= 0 && y >= 0 && x < W && y < maze.H) ? zone[y * W + x] % diff.zones : zone[maze.exitRoom.y * W + maze.exitRoom.x] % diff.zones;
 
-    // a stream: one corridor row, cut into the floor, running the full width
+    // a stream (made just below, once the ground it runs over is known)
     let stream = null;
-    if (loc.stream) {
-      const rows = [];
-      for (let y = 1; y < maze.H - 1; y++) if (Math.abs(y - maze.start.y) > 2) rows.push(y);
-      const row = rows[Math.floor(rng() * rows.length)];
-      stream = { z: (row + 0.5) * c, w: Math.min(1.1, c * 0.42), depth: 0.16, row };
-    }
-    this.stream = stream;
+    this.stream = null;
 
     // --- the floor: the place's relief over a fine undulation
     // (floorY is the one height everything standing on the ground is placed with; the walls ride on it too)
@@ -127,11 +210,20 @@ export class World {
         dy -= amp * t * t * (3 - 2 * t);
       }
       if (stream) {
-        const d = Math.abs(z - stream.z) / (stream.w / 2 + 0.3);
-        if (d < 1) dy -= stream.depth * Math.sqrt(1 - d * d) * (0.8 + 0.2 * noise3(x * 2, 1, z * 2));
+        // the stream's bed is cut down to its water, wherever the ground stood; its banks ease back up to the ground
+        const q = stream.dist(x, z);
+        if (q) {
+          const d = q.d / (q.hw + 0.28);
+          if (d < 1) { const bed = q.y - stream.depth * (1 + 0.7 * q.pool) * Math.sqrt(1 - d * d) * (0.8 + 0.2 * noise3(x * 2, 1, z * 2)); if (bed < dy) dy = bed; }
+          else if (d < 1.7 && dy > q.y + 0.02) { const k = (d - 1) / 0.7; dy = q.y + 0.02 + (dy - q.y - 0.02) * k * k * (3 - 2 * k); }
+        }
       }
       return dy;
     };
+    // The stream has somewhere to come from and somewhere to go (it used to be a ruled line across the whole maze,
+    // under the walls, so all that showed of it was a yard of water between two rock faces). Now it rises at a spring
+    // in a dead end, runs down the corridors to one side of the way, and ends in a pool.
+    if (loc.stream) { stream = this.makeStream(maze, c, rng, floorY); this.stream = stream; }
     this.floorY = floorY;
     this.waterLevel = loc.water ? loc.water.level : null;
 
@@ -355,10 +447,44 @@ export class World {
     // --- the build context for the props
     // every prop with a footprint goes through the guard; the maze's obstacles are the ones it accepted
     const pass = this.pass = new Passability(maze, c, H, 0.34);
-    this.obstacles = pass.obstacles;
+    this.obstacles = pass.obstacles; this.treeFeet = [];
     if (kind !== 'carved') { this.faceInfo = () => ({ a0: 0, a1: 1, top: H }); this.round = 0; }
     const ctx = { maze, diff, loc, rng, c, H, W, group: g, world: this, open, wallAt, zoneAt, caveAt, exposed, cells, openCells, wallCells: cells, obstacles: this.obstacles, pass, floorY, stream, logTops: [], branchTips: [], distToWall, cellH, scans, kind, faceInfo: this.faceInfo, round: this.round, ...extras };
     const haveScans = scans.some(m => m.pieces.length);
+    // A hidden Radbro (materials.js FACE_MARKS): one or two to a maze, never more, and each set by design, not
+    // wherever it falls. He goes on the wall the way walks straight up to: where the path comes down a straight
+    // run and has to turn, the wall dead ahead is the one thing the walker looks at the whole length of that run.
+    // The longest such run in the first half of the way takes one, the longest in the second half the other; a
+    // flat stretch of wall (wall on both sides of it) is preferred to a corner. A maze with no such run has none.
+    {
+      let st = (maze.W * 73856093 ^ maze.H * 19349663 ^ maze.path.length * 83492791) >>> 0;
+      const r = () => { st = (st * 1664525 + 1013904223) >>> 0; return st / 4294967296; };
+      const Pth = maze.path, at = [];
+      for (let i = 2; i < Pth.length - 2; i++) {
+        const [x, y] = Pth[i], dx = x - Pth[i - 1][0], dy = y - Pth[i - 1][1];
+        if (Math.abs(dx) + Math.abs(dy) !== 1 || !wallAt(x + dx, y + dy)) continue;
+        let run = 1;
+        while (i - run - 1 >= 0 && Pth[i - run][0] - Pth[i - run - 1][0] === dx && Pth[i - run][1] - Pth[i - run - 1][1] === dy) run++;
+        if (run < 2) continue;
+        const flat = wallAt(x + dx - dy, y + dy + dx) && wallAt(x + dx + dy, y + dy - dx);
+        at.push({ i, x, y, dx, dy, score: run + (flat ? 1.5 : 0) + r() * 0.4 });
+      }
+      // (which of them he takes is settled once the trees and rocks stand: a spot with something in front of it is no spot)
+      this.facePools = [0, 1].map(k => at.filter(a => a.i >= Pth.length * k * 0.5 && a.i < Pth.length * (k + 1) * 0.5).sort((a, b) => b.score - a.score));
+      this.faceRand = r;
+      this.faceMarks = [];
+      this.setFaceMarks = () => {
+        for (let k = 0; k < 2; k++) {
+          const P = FACE_MARKS.uFaceP.value[k], N = FACE_MARKS.uFaceN.value[k], m = this.faceMarks[k];
+          if (!m) { P.set(0, 0, 0, 0); continue; }
+          P.set(m.pos[0], m.pos[1], m.pos[2], m.size); N.set(m.n[0], m.n[1], m.n[2]);
+          FACE_MARKS.uFaceDeep.value.setComponent(k, m.deep);
+        }
+        // what lies bare where his face is: clean stone on a bank, the pale wood under shed bark on logs and trunks
+        if (kind === 'carved') FACE_MARKS.uFaceBare.value.setRGB(0.47, 0.47, 0.43); else FACE_MARKS.uFaceBare.value.setRGB(0.5, 0.42, 0.3);
+      };
+      this.setFaceMarks();
+    }
 
     if (kind === 'logs') buildLogWalls(ctx);
     if (kind === 'trunks') buildTrunkWalls(ctx);
@@ -388,13 +514,67 @@ export class World {
       const bark = this.matPair({ ...barkSpec, scale: 1.2, mossScale: 1.2, baseTint: 0x6a5a46 }, { ...diff, mossCover: 0.3, fuzz: 0.5 }, 1, 2, loc.moss, 0, true).solid;
       // the place's stone, for the rock the book waits on where there is no stump scan
       const stoneSpec = MATERIAL_SPECS[(loc.kit && loc.kit.rock) || 'stone'] || MATERIAL_SPECS.stone;
-      const stone = (extras.wantBook || extras.wantTorch) && !(extras.pedestal && extras.pedestal.pieces.length) ? this.matPair({ ...stoneSpec, mossScale: 0.7 }, { ...diff, mossCover: 0.5, fuzz: 1 }, 1, 2, loc.moss, 0, true).solid : null;
+      const stone = (extras.wantBook || extras.wantTorch || extras.wantCigs) && !(extras.pedestal && extras.pedestal.pieces.length) ? this.matPair({ ...stoneSpec, mossScale: 0.7 }, { ...diff, mossCover: 0.5, fuzz: 1 }, 1, 2, loc.moss, 0, true).solid : null;
       this.whimsy = buildWhimsy({ ...ctx, spots: wallSpots(ctx) }, { bark, stone });
     }
     if (new URLSearchParams(location.search).get('contact') !== '0') this.contactShade(g, floorY);   // ?contact=0: without, to compare
     // the proof, every level: the exit can be walked to past everything placed
-    if (!pass.check()) console.error('Moss Maze: exit unreachable after props; this should be impossible');
+    if (!maze.sealed && !pass.check()) console.error('Moss Maze: exit unreachable after props; this should be impossible');
     this.logTops = ctx.logTops; this.surfaces = ctx.surfaces || []; this.trunkPatches = ctx.trunkPatches || [];
+    // The hidden Radbros are settled now that everything stands: for each half of the way, the best spot whose
+    // approach is clear (no tree, rock or log standing between the walker and the wall for the last two metres).
+    {
+      const r = this.faceRand;
+      // the test is the walker's own eye: from two metres back up the run, at head height, can the whole of him be
+      // seen? Rays to the middle and the four sides of where he will be; anything they strike well short of the
+      // wall (a tree, a root, a bough, a boulder) is in the way
+      g.updateMatrixWorld(true);
+      const solid = [];
+      g.traverse(o => { if (o.isMesh && o.visible && !(o.isInstancedMesh && o.count > 4000) && !(o.material && o.material.transparent)) solid.push(o); });
+      const ray = new THREE.Raycaster(), O = new THREE.Vector3(), D = new THREE.Vector3();
+      const clear = (pos, n, size) => {
+        const tx = n[2], tz = -n[0];                                    // across the wall
+        for (const back of [2.2, 1.2]) {
+          O.set(pos[0] + n[0] * back, pos[1] + 0.45, pos[2] + n[2] * back);
+          for (const [u, v] of [[0, 0], [-0.7, 0], [0.7, 0], [0, 0.7], [0, -0.7]]) {
+            D.set(pos[0] + tx * u * size - O.x, pos[1] + v * size - O.y, pos[2] + tz * u * size - O.z);
+            const len = D.length(); D.divideScalar(len);
+            ray.set(O, D); ray.far = len - 0.4;
+            if (ray.intersectObjects(solid, false).length) return false;
+          }
+        }
+        return true;
+      };
+      this.faceMarks = [];
+      for (const pool of this.facePools || []) {
+        for (const m of pool) {
+          let size = 0.42 + r() * 0.06, deep = 0.8;
+          let pos = [(m.x + 0.5 + m.dx * 0.5) * c, floorY((m.x + 0.5) * c, (m.y + 0.5) * c) + 1.08 + r() * 0.1, (m.y + 0.5 + m.dy * 0.5) * c], n = [-m.dx, 0, -m.dy];
+          if (kind === 'trunks') {
+            // a palisade is not one wall but many trunks with gaps between: he is set whole on a single trunk, the
+            // one that stands nearest the walker in that tile, turned to face the way in, and no wider than the
+            // trunk is. Its neighbours are left alone (deep = that trunk's own radius)
+            const cx = (m.x + 0.5) * c, cz = (m.y + 0.5) * c, tx = m.x + m.dx, tz = m.y + m.dy;
+            let best = null, bd = 1e9;
+            for (const [px, , pz, , d] of this.trunkItems || []) {
+              if (px < tx * c - 0.3 || px > (tx + 1) * c + 0.3 || pz < tz * c - 0.3 || pz > (tz + 1) * c + 0.3) continue;
+              const dist = Math.hypot(px - cx, pz - cz) - d / 2 - d * 0.6;   // near the walker, and the thicker the better
+              if (dist < bd) { bd = dist; best = [px, pz, d / 2]; }
+            }
+            if (!best || best[2] < 0.24) continue;                           // too thin a trunk to carry him
+            const [px, pz, rad] = best, L = Math.hypot(cx - px, cz - pz) || 1, nx = (cx - px) / L, nz = (cz - pz) / L;
+            n = [nx, 0, nz]; pos = [px + nx * rad, pos[1] + 0.12, pz + nz * rad]; size = Math.min(0.44, rad * 1.02); deep = rad * 0.95;
+          }
+          // never two near each other: the second is a different part of the maze altogether, or there is no second
+          const first = this.faceMarks[0];
+          if (first && (Math.hypot(pos[0] - first.pos[0], pos[2] - first.pos[2]) < Math.max(10, 0.42 * Math.max(maze.W, maze.H) * c) || Math.abs(m.i - first.i) < maze.path.length * 0.3)) continue;
+          if (!clear(pos, n, size)) continue;
+          this.faceMarks.push({ cell: [m.x, m.y], dir: [m.dx, m.dy], size, deep, pos, n, i: m.i });
+          break;
+        }
+      }
+      this.setFaceMarks();
+    }
 
     // --- crest tufts: clumps of grass and haircap along the tops of carved walls where there is sky above.
     // Each is a clump of separate blades (four clumps, each instance its own width and height: never crossed cards,
@@ -540,7 +720,7 @@ export class World {
     }
 
     // --- the exit: daylight through the opening
-    {
+    if (!maze.sealed) {
       const ex = (maze.exit.x + edx * 2.5) * c + c / 2, ez = (maze.exit.y + edy * 2.5) * c + c / 2;
       // after dark the opening is the brightest thing there is, and pale: the sky beyond, not sunlight
       const light = new THREE.PointLight(new THREE.Color(0xfff1d6).lerp(new THREE.Color(0xdce6ff), night), (loc.ceiling === 'tunnel' ? 30 : 18) * (1 + 1.4 * night), c * (9 + 3 * night), 1.6);
@@ -569,7 +749,7 @@ export class World {
       base: t.get(spec.base), mossA: t.get(mossSets[0]), mossB: t.get(mossSets[1]), strand: this.strand,
       cover: diff.mossCover, scale: spec.scale, mossScale: spec.mossScale,
       baseTint: spec.baseTint, mossTint: spec.mossTint, sunDir: this.sunDir,
-      heightScale: this.q.high ? 0.014 : 0.008, fuzzHeight: 0.022 * diff.fuzz, mud, lowTex: this.low.tex,
+      heightScale: spec.height ?? (this.q.high ? 0.014 : 0.008), fuzzHeight: 0.022 * diff.fuzz, mud, lowTex: this.low.tex,
       pomSteps, shells, types: this.types, wind: wind.vec, triplanar, meshUv, night: this.night || 0, drape: spec.drape || 0,
       base2: spec2 ? t.get(spec2.base) : t.get(spec.base), base2Tint: spec2 ? spec2.baseTint : spec.baseTint, scale2: spec2 ? spec2.scale : spec.scale,
     };
@@ -675,7 +855,7 @@ export class World {
       if (m.userData.uniforms) { m.userData.uniforms.uTime.value = t; m.userData.uniforms.uSnow.value = this.weather.snow; m.userData.uniforms.uDapple.value = this.dapple ?? 1; }
       if (m.userData.windUniforms) m.userData.windUniforms.uWindTime.value = t;
     }
-    for (const w of this.waters) w.uniforms.uTime.value = t;
+    for (const w of this.waters) { w.uniforms.uTime.value = t; w.uniforms.uRain.value = this.weather.rain || 0; }
   }
 }
 

@@ -7,14 +7,14 @@
 // here is a single instanced mesh or two, placed through the walkability guard,
 // standing on world.floorY, and animated for a few instances a frame at most.
 import * as THREE from '../lib/three.module.js?v=88cddb5c';
-import { canvasTexture, lumpGeometry, withAO, disp } from './geometry.js?v=0f72c86e';
-import { WALL } from './maze.js?v=28138280';
-import { noise3 } from './noise.js?v=a407dfed';
-import { makeCardMaterial } from './wind.js?v=25d38805';
-import { surfaceAt } from './props.js?v=e96f1827';
-import { FINDS } from './finds.js?v=dce826cd';
-import { buildAnimal, updateAnimal } from './animals.js?v=4517b0af';
-import { buildCast, updateCast } from './cast.js?v=f18a2634';
+import { canvasTexture, lumpGeometry, withAO, disp } from './geometry.js?v=ecf6f975';
+import { WALL } from './maze.js?v=ecf6f975';
+import { noise3 } from './noise.js?v=ecf6f975';
+import { makeCardMaterial } from './wind.js?v=ecf6f975';
+import { surfaceAt } from './props.js?v=ecf6f975';
+import { FINDS } from './finds.js?v=ecf6f975';
+import { buildAnimal, updateAnimal } from './animals.js?v=ecf6f975';
+import { buildCast, updateCast } from './cast.js?v=ecf6f975';
 
 const M4 = new THREE.Matrix4(), Q = new THREE.Quaternion(), S = new THREE.Vector3(), P = new THREE.Vector3(), E = new THREE.Euler();
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -441,6 +441,19 @@ function torchModel(world, rng) {
   return lie;
 }
 
+// the pack of cigarettes (Meshy's shape, painted in hands.js), lying on its back, a little askew, and the lighter
+// that goes with it, on its side beside it
+function packModel(src, lighter) {
+  return () => {
+    const lie = new THREE.Group(), p = src.clone(true);
+    p.rotation.set(-Math.PI / 2, 0, 0.5); p.position.y = 0.012;
+    lie.add(p);
+    if (lighter) { const l = lighter.clone(true); l.rotation.set(-Math.PI / 2, 0, -0.7); l.position.set(0.075, 0.008, 0.02); lie.add(l); }
+    lie.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    return lie;
+  };
+}
+
 // a pickup on its pedestal beside the way, leaning with the pedestal's top; a warm light and a soft halo over it
 // after dark so it reads from the corridor as something worth walking to. Returns {group, pos, update, reach} or null
 function buildPickup(ctx, kit, model) {
@@ -554,6 +567,8 @@ export function buildWhimsy(ctx, kit) {
   if (ctx.wantBook) out.book = buildPickup(ctx, kit, bookModel);
   // --- the hand torch, in the second maze until it is found
   if (ctx.wantTorch) out.torch = buildPickup(ctx, kit, torchModel);
+  // --- a pack of cigarettes, from the third maze on, whenever he has none
+  if (ctx.wantCigs && ctx.cigPack) out.cigs = buildPickup(ctx, kit, packModel(ctx.cigPack, ctx.cigLighter));
 
   return out;
 }
@@ -566,6 +581,7 @@ export function updateWhimsy(w, dt, player, now, hooks = {}) {
   if (!w) return;
   if (w.book) w.book.update(now);
   if (w.torch) w.torch.update(now);
+  if (w.cigs) w.cigs.update(now);
   // snails creep; their trails lengthen behind them
   if (w.snails) {
     const { items, mesh, trail, size } = w.snails;

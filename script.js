@@ -812,6 +812,10 @@ function getConnectedAddress() {
 // over WalletConnect, or a session it restored on its own
 function onWalletAccount(next) {
   connectedAddress = next || null;
+  // Lost in the Moss hangs this wallet's pictures in its gallery, and has no wallet connector of its own
+  try { next ? localStorage.setItem('moss-wallets', JSON.stringify([String(next).toLowerCase()])) : localStorage.removeItem('moss-wallets'); } catch (_) { /* private mode */ }
+  // sent here by the maze to connect one (?connect=wallet, at the foot of this file): with a wallet in hand, straight back
+  try { if (next && sessionStorage.getItem('maze-wallet')) { sessionStorage.removeItem('maze-wallet'); if (sessionStorage.getItem('maze-after')) { sessionStorage.removeItem('maze-after'); location.replace('/maze/'); } } } catch (_) { /* private mode */ }
   renderWallet();
   if (activeView === 'gallery') openGallery(galleryMode);
 }
@@ -1236,7 +1240,7 @@ const REMILIA = {
   logout: 'https://www.remilia.net/oidc/realms/remilia/protocol/openid-connect/logout',
   api: 'https://www.remilia.net/api/v1',
   // must be a subset of what the application was granted at registration
-  scopes: 'openid remilia:beetle.read remilia:stats.read',
+  scopes: 'openid remilia:beetle.read remilia:stats.read remilia:chat.read remilia:chat.write remilia:pokes.write',
   redirect: `${location.origin}/`,
   // the public profile endpoint needs no token at all
   handle: 'moss'
@@ -1840,4 +1844,18 @@ setFocus(0, { scroll: false });
 
 // a visitor coming back from RemiliaNET lands on the title with ?code= in the address: finish the
 // sign-in and open their own profile, so there is proof it took (or a reason it did not)
-if (new URL(location.href).searchParams.has('code')) remiliaHandleReturn().then(() => showRemilia());
+// Sent here from the maze's door (functions/maze/_middleware.js, when the maze opens with a RemiliaNET sign-in): it
+// leaves a note, "maze-after", and asks for ?signin=remilia. With a sign-in in hand the visitor goes straight back;
+// without one the sign-in starts, and its return (below) sends them on.
+const mazeAfter = () => { if (!store.get('maze-after')) return false; store.drop('maze-after'); location.replace('/maze/'); return true; };
+if (new URL(location.href).searchParams.has('code')) remiliaHandleReturn().then(ok => { if (!(ok && mazeAfter())) showRemilia(); });
+else if (new URL(location.href).searchParams.get('signin') === 'remilia' && REMILIA.clientId) remiliaAccessToken().then(token => { history.replaceState({}, '', location.pathname); if (token) { if (!mazeAfter()) showRemilia(); } else remiliaSignIn(); });
+// Sent here from the maze's start screen to connect a wallet for its gallery: a wallet already connected goes straight
+// back; otherwise the connector opens, and onWalletAccount sends the visitor back when a wallet arrives.
+if (new URL(location.href).searchParams.get('connect') === 'wallet') {
+  history.replaceState({}, '', location.pathname);
+  loadWallet().then(wallet => {
+    if (wallet?.isConnected?.() && wallet.address()) { onWalletAccount(wallet.address()); if (!mazeAfter()) setNote('wallet connected'); return; }
+    store.set('maze-wallet', '1'); wallet?.open?.();
+  }).catch(() => setNote('the wallet connector could not load'));
+}

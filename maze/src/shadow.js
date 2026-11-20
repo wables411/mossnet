@@ -12,8 +12,9 @@
 // with the camera. Only his shadow is in the picture, the way a hiker filming
 // sees theirs on the moss ahead.
 import * as THREE from '../lib/three.module.js?v=88cddb5c';
-import { wind } from './wind.js?v=25d38805';
+import { wind } from './wind.js?v=ecf6f975';
 import { GLTFLoader } from '../lib/GLTFLoader.js';
+import { Arm, HOLD } from './hands.js?v=ecf6f975';
 
 const TILE = 10;           // metres one mask tile spans on the ground
 const SPAN = 6;            // tiles across a plane: 60 m, wider than the shadow camera's 32 m and its slant
@@ -157,9 +158,38 @@ export class Body {
     this.walk = this.mixer.clipAction(clip('Artist_Run')); this.walk.play(); this.walk.paused = true;
     this.walkLen = this.walk.getClip().duration;
     this.headZ = 0.06;   // how far his eyes sit in front of the middle of his head
+    // his arms, to be put where the hands the player sees are (hands.js), and plain stand-ins for what they hold:
+    // the shadow on the moss shows the raised arm, the torch, the handheld, the cigarette
+    this.root.updateMatrixWorld(true);
+    this.arms = { Right: new Arm(model, 'Right'), Left: new Arm(model, 'Left') };
+    const stand = geo => { const m = new THREE.Mesh(geo, mat); m.castShadow = true; m.frustumCulled = false; m.visible = false; return shadowOnly(m); };
+    const rod = (r, len) => { const g = new THREE.CylinderGeometry(r, r, len, 8); g.rotateZ(Math.PI / 2); return g; };
+    this.held = {};
+    for (const side of ['Right', 'Left']) {
+      const arm = this.arms[side], set = this.held[side] = { torch: stand(new THREE.CylinderGeometry(0.016, 0.016, 0.135, 8)), cig: stand(rod(0.004, 0.084)), device: stand(new THREE.BoxGeometry(0.082, 0.124, 0.016)) };
+      for (const k in set) { const h = HOLD[k], at = h.gap ? [arm.gap.x + h.at[0], arm.gap.y + h.at[1], arm.gap.z * arm.sg + h.at[2]] : h.at; arm.hold(set[k], at, h.x, h.y); }
+    }
+    this._inv = new THREE.Quaternion(); this._p = new THREE.Vector3(); this._zero = new THREE.Vector3();
     this.ready = true;
   }
-  update(player, ground, dt = 0) {
+  // his arms brought to where the hands in the picture are, as far as each hand is up
+  follow(hands, camera) {
+    const r = this.root; r.updateMatrixWorld(true);
+    const inv = this._inv.copy(r.quaternion).invert();
+    for (const side of ['Right', 'Left']) {
+      const arm = this.arms[side], am = hands.amount[side], cur = hands.arms[side].cur, what = side === 'Right' ? hands.right : hands.left;
+      for (const k in this.held[side]) this.held[side][k].visible = k === what && am > 0.5;
+      if (!cur || am < 0.03) continue;
+      const w = am * am * (3 - 2 * am);
+      const aU = arm.upper.quaternion.clone(), aF = arm.fore.quaternion.clone(), aH = arm.hand.quaternion.clone();
+      arm.live(r, inv);
+      const pos = r.worldToLocal(this._p.copy(cur.pos).applyMatrix4(camera.matrixWorld));
+      const quat = inv.clone().multiply(camera.quaternion).multiply(cur.quat);
+      arm.update({ pos, quat, curl: cur.curl, k: cur.k }, 1, this._zero);
+      arm.upper.quaternion.copy(aU.slerp(arm.upper.quaternion, w)); arm.fore.quaternion.copy(aF.slerp(arm.fore.quaternion, w)); arm.hand.quaternion.copy(aH.slerp(arm.hand.quaternion, w));
+    }
+  }
+  update(player, ground, dt = 0, hands = null, camera = null) {
     const r = this.root;
     r.visible = this.ready && player.lie < 0.02;
     if (!r.visible) return;
@@ -170,5 +200,6 @@ export class Body {
     this.walk.time = (((player.stepPhase % 1) + 1) % 1) * this.walkLen;
     this.walk.setEffectiveWeight(k); this.idle.setEffectiveWeight(1 - k);
     this.mixer.update(dt);
+    if (hands && hands.ready && camera) this.follow(hands, camera);
   }
 }

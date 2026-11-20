@@ -8,8 +8,8 @@
 // the exit room or the exit itself. Because every accepted prop preserves local
 // connectivity, the exit stays reachable by construction; `check()` walks the
 // whole maze the same way as a final proof.
-import { WALL } from './maze.js?v=28138280';
-import { disp } from './geometry.js?v=0f72c86e';
+import { WALL } from './maze.js?v=ecf6f975';
+import { disp } from './geometry.js?v=ecf6f975';
 
 const STEP = 0.1;
 // placement is tested with the player grown by this much, so every channel it accepts is at least twice
@@ -114,6 +114,16 @@ export class Passability {
     for (const b of after.values()) if (b === 0) { this.rejected++; return false; }   // a pocket swallowed whole
     this.add(circles);
     return true;
+  }
+
+  // a standing trunk: may it stand here? A tree grows out of a wall tile, and the tile is all that used to stop the
+  // player, so a trunk or root flare reaching past its tile could be walked into. Wholly inside the bank it needs
+  // nothing; where it reaches the open it gets a footprint like any log, and is refused if that would shut the way.
+  trunk(x, z, r) {
+    let open = false;
+    for (const [gx, gz] of this.cellsOf([x, z, r + this.r + 0.45])) if (!this.isWall(gx, gz)) open = true;
+    if (!open) return true;
+    return this.place([[x, z, r]]);
   }
 
   add(circles) {

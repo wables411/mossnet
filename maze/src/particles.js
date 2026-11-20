@@ -2,9 +2,9 @@
 // and snow where the weather has them, and after dark the fireflies of the
 // places that have them, blinking over the water on their own clocks.
 import * as THREE from '../lib/three.module.js?v=88cddb5c';
-import { streakTexture } from './geometry.js?v=0f72c86e';
-import { wind } from './wind.js?v=25d38805';
-import { torchPoints } from './torch.js?v=e09dfa0f';
+import { streakTexture } from './geometry.js?v=ecf6f975';
+import { wind } from './wind.js?v=ecf6f975';
+import { torchPoints } from './torch.js?v=ecf6f975';
 
 function softDot(size = 64) {
   const c = document.createElement('canvas'); c.width = c.height = size;
@@ -53,7 +53,7 @@ export class Particles {
     this.rainGeo = new THREE.BufferGeometry();
     this.rainGeo.setAttribute('position', new THREE.BufferAttribute(rp, 3));
     this.rain = new THREE.Points(this.rainGeo, new THREE.PointsMaterial({
-      map: streakTexture(), size: 0.11, sizeAttenuation: true, transparent: true, opacity: 0.35, depthWrite: false, color: 0xdfe8ea, fog: true,
+      map: streakTexture(), size: 0.09, sizeAttenuation: true, transparent: true, opacity: 0.24, depthWrite: false, color: 0xdfe8ea, fog: true,
     }));
     this.rain.frustumCulled = false; this.rain.visible = false;
     scene.add(this.rain);
@@ -196,6 +196,8 @@ export class Particles {
         if (r[i * 3 + 1] < 0) { r[i * 3] = center.x + (Math.random() - 0.5) * 16; r[i * 3 + 1] = 7 + Math.random() * 3; r[i * 3 + 2] = center.z + (Math.random() - 0.5) * 16; }
         if (Math.abs(r[i * 3] - center.x) > 8) r[i * 3] = center.x + (Math.random() - 0.5) * 16;
         if (Math.abs(r[i * 3 + 2] - center.z) > 8) r[i * 3 + 2] = center.z + (Math.random() - 0.5) * 16;
+        // none falls through the walker's own face: a streak that close is a white bar across the picture
+        { const ddx = r[i * 3] - center.x, ddz = r[i * 3 + 2] - center.z, d2 = ddx * ddx + ddz * ddz; if (d2 < 1.7) { const k = 1.35 / Math.sqrt(d2 + 1e-4); r[i * 3] = center.x + ddx * k; r[i * 3 + 2] = center.z + ddz * k; } }
       }
       this.rainGeo.attributes.position.needsUpdate = true;
     }

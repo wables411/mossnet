@@ -30,8 +30,8 @@ const OWNER_LOCK = '7e3a1d0761397edb85fbf64ab98cb390c4aab2bfce952c3403abdcda31ed
 const OWNER_COOKIE = 'maze_owner';
 const OWNER_AGE = 60 * 60 * 24 * 30;
 
-const KINDS = ['comment', 'suggestion', 'request', 'idea'];
-const MAX_TEXT = 2000;
+const KINDS = ['bug', 'comment', 'suggestion', 'request', 'idea'];
+const MAX_TEXT = 5000;
 const MAX_NAME = 40;
 const MAX_SHOTS = 3;
 const MAX_SHOT_BYTES = 2 * 1024 * 1024;

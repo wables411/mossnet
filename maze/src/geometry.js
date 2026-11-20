@@ -1,7 +1,7 @@
 // Shared geometry helpers: a vertex-merging quad-grid builder, the world-space
 // displacement field for walls, and canvas textures drawn in code.
 import * as THREE from '../lib/three.module.js?v=88cddb5c';
-import { fbm3 } from './noise.js?v=a407dfed';
+import { fbm3 } from './noise.js?v=ecf6f975';
 
 // The carve: a displacement field, continuous in world space so neighbouring
 // faces agree. It is set per place before a build (`setCarve`), and every

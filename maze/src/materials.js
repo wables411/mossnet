@@ -149,6 +149,43 @@ function typeParams(types) {
  * @param {number} o.pomSteps
  * @param {Array} o.types   native species [{color, params:[scale, fuzzHeight, density, gloss]}]
  */
+// Radbro, hidden in the place: at most two to a maze (world.js chooses where). Nothing is drawn on the wall. The
+// wall itself takes the shape of his head, the way each Schizoposter is a whole world that is still his head: the
+// moss grows where his hair is, the stone is left bare where his face is, and the darkest growth sits where his
+// eyes, brows and mouth are. The shape is his own, cut from the character sheet (build/radbro_face_mask.py ->
+// models/radbro_face.png: red hair, green skin, blue line). Every mossy surface shares the two marks.
+const faceTex = new THREE.TextureLoader().load('models/radbro_face.png');
+faceTex.wrapS = faceTex.wrapT = THREE.ClampToEdgeWrapping;
+export const FACE_MARKS = {
+  uFaceP: { value: [new THREE.Vector4(), new THREE.Vector4()] },                           // where (xyz) and how big (w, metres to the edge; 0 is none)
+  uFaceN: { value: [new THREE.Vector3(1, 0, 0), new THREE.Vector3(1, 0, 0)] },             // which way it faces
+  uFaceShow: { value: Number(new URLSearchParams(location.search).get('faces') ?? 1) },      // how far the place gives way to him: 1 as played, ?faces=0 for none
+  uFaceDeep: { value: new THREE.Vector2(0.8, 0.8) },                                        // how far behind and before each mark the place still gives way (a single trunk: its own radius)
+  uFaceBare: { value: new THREE.Color(0.47, 0.47, 0.43) },                                  // what lies bare where his face is: clean stone, or on a trunk the pale wood under shed bark
+  uFaceTex: { value: faceTex },                                                            // his head: what the wall is made of at each point of it
+};
+
+export const FACE_GLSL = /* glsl */`
+        uniform vec4 uFaceP[2]; uniform vec3 uFaceN[2]; uniform sampler2D uFaceTex; uniform float uFaceShow; uniform vec2 uFaceDeep; uniform vec3 uFaceBare;
+        // his head at this point of the world: rgb as the map has it (hair, skin, line), a how surely it is there
+        vec4 faceHead(vec3 wp, out vec3 fN) {
+          vec4 head = vec4(0.0); fN = vec3(0.0, 1.0, 0.0);
+          for (int fi = 0; fi < 2; fi++) {
+            float fsz = uFaceP[fi].w;
+            if (fsz <= 0.0) continue;
+            vec3 fd = wp - uFaceP[fi].xyz;
+            float fdep = dot(fd, uFaceN[fi]);
+            float fdeep = fi == 0 ? uFaceDeep.x : uFaceDeep.y;
+            if (abs(fdep) > fdeep) continue;
+            vec2 fq = vec2(dot(fd, normalize(cross(vec3(0.0, 1.0, 0.0), uFaceN[fi]))), fd.y) / fsz;
+            if (abs(fq.x) > 1.0 || abs(fq.y) > 1.0) continue;
+            vec3 fm = texture2D(uFaceTex, fq * 0.5 + 0.5).rgb;
+            float k = (1.0 - smoothstep(fdeep * 0.55, fdeep, abs(fdep))) * min(1.0, uFaceShow);   // (never smoothstep with its edges the wrong way round: that is undefined)
+            if (k * max(fm.r, max(fm.g, fm.b)) > head.a) { head = vec4(fm, k); fN = uFaceN[fi]; }
+          }
+          return head;
+        }`;
+
 export function makeMossMaterial(o) {
   const mat = new THREE.MeshStandardMaterial({
     color: 0xffffff, roughness: 1, metalness: 0, envMapIntensity: 0.3,
@@ -180,6 +217,7 @@ export function makeMossMaterial(o) {
     tLow: { value: o.lowTex || null },
     uNight: { value: o.night || 0 },
     uDrape: { value: o.drape || 0 },
+    uFaceP: FACE_MARKS.uFaceP, uFaceN: FACE_MARKS.uFaceN, uFaceTex: FACE_MARKS.uFaceTex, uFaceShow: FACE_MARKS.uFaceShow, uFaceDeep: FACE_MARKS.uFaceDeep, uFaceBare: FACE_MARKS.uFaceBare,
     uDapple: { value: 1 },        // 1: the painted sun-through-leaves pattern; 0: real leaf shadows fall instead (shadow.js)
   };
   mat.userData.uniforms = u;
@@ -270,11 +308,56 @@ export function makeMossMaterial(o) {
         varying vec3 vWPos; varying vec3 vWNormal; varying float vShell; varying float vAO; varying vec3 vAxis;
         varying vec4 vLow; varying vec2 vLow2; varying vec4 vTint; varying vec4 vParam; varying vec2 vMeshUv; varying vec2 vSeam;
         uniform float uSnow, uNight, uDrape, uDapple;
+        ${FACE_GLSL}
         uniform sampler2D tBase2Color, tBase2ARH; uniform vec3 uBase2Tint; uniform float uScale2;
         uniform sampler2D tBaseColor, tBaseNormal, tBaseARH, tMossAColor, tMossANormal, tMossAARH, tMossBColor, tMossBARH, tStrand;
         uniform float uCover, uScale, uMossScale, uHeight, uTime, uFuzzHeight, uMud;
         uniform vec3 uMossTint, uBaseTint, uSunDir;
         ${GLSL_COMMON}
+        // the moss cover, given way to him: grown where his hair and eyes are, bare where his face is. The edges
+        // are ragged by noise, as any moss edge is, so the shape is the place's own and not a cut-out
+        // He is grown, not cut: his outline wanders as growth does (the place he is read from is pushed about by
+        // noise), and here and there the wall has had its own way and part of him is overgrown or never came
+        // (wear: 0 where he is lost; his eyes are the last thing to go)
+        vec3 faceWarp(vec3 wp) { return wp + (vec3(vnoise(wp * 2.3), vnoise(wp * 2.3 + 17.0), vnoise(wp * 2.3 + 41.0)) - 0.5) * 0.09; }
+        float faceWear(vec3 wp, float ink) { float e = smoothstep(0.2, 0.42, vnoise(wp * 1.7 + 9.0)); return mix(0.55 + 0.45 * e, 0.93 + 0.07 * e, ink); }   // (lost too far and he is not found at all)
+        float faceCover(float mask, vec3 wp, vec3 n) {
+          vec3 fN; vec4 h = faceHead(faceWarp(wp), fN);
+          float w = h.a * smoothstep(0.0, 0.45, dot(n, fN)) * faceWear(wp, h.b);
+          if (w <= 0.0) return mask;
+          float rag = (vnoise(wp * 11.0) - 0.5) * 0.8 + (vnoise(wp * 37.0) - 0.5) * 0.35;
+          float core = smoothstep(0.55, 0.85, h.b + rag * 0.25);                               // the hollow itself: nothing grows in it
+          float rim = smoothstep(0.12, 0.4, h.b) * (1.0 - core);                               // its lip: moss
+          float grown = max(smoothstep(0.38, 0.62, h.r + rag), rim) * (1.0 - core);
+          float bare = max(smoothstep(0.38, 0.62, h.g + rag * 0.6) * (1.0 - grown), core);
+          bare *= 1.0 - (1.0 - core) * smoothstep(0.6, 0.8, vnoise(wp * 6.0 + 3.7));         // islands of moss left on his face
+          mask = mix(mask, 1.0, w * grown);
+          return mix(mask, mask * 0.06, w * bare);
+        }
+        // the relief of his head (the map's alpha is its height: hair mounded up, the face a slab standing a little
+        // proud, eyes, brows and mouth sunk): xy the slope across and up the wall in metres per metre, z the height
+        // itself (0.5 the wall as it was), w how surely it is there. fT and fU are the wall's own across and up
+        vec4 faceRelief(vec3 wp, vec3 n, out vec3 fT, out vec3 fU) {
+          vec4 rel = vec4(0.0, 0.0, 0.5, 0.0); fT = vec3(1.0, 0.0, 0.0); fU = vec3(0.0, 1.0, 0.0);
+          for (int fi = 0; fi < 2; fi++) {
+            float fsz = uFaceP[fi].w;
+            if (fsz <= 0.0) continue;
+            float fdeep = fi == 0 ? uFaceDeep.x : uFaceDeep.y;
+            vec3 fd = wp - uFaceP[fi].xyz;
+            float fdep = dot(fd, uFaceN[fi]);
+            if (abs(fdep) > fdeep) continue;
+            vec3 T = normalize(cross(vec3(0.0, 1.0, 0.0), uFaceN[fi]));
+            vec2 fq = vec2(dot(fd, T), fd.y) / fsz;
+            if (abs(fq.x) > 0.98 || abs(fq.y) > 0.98) continue;
+            vec2 uvf = fq * 0.5 + 0.5; const float e = 2.5 / 512.0;
+            float h0 = (texture2D(uFaceTex, uvf).a - 0.25) / 0.75;
+            float hx = texture2D(uFaceTex, uvf + vec2(e, 0.0)).a - texture2D(uFaceTex, uvf - vec2(e, 0.0)).a;
+            float hy = texture2D(uFaceTex, uvf + vec2(0.0, e)).a - texture2D(uFaceTex, uvf - vec2(0.0, e)).a;
+            float k = (1.0 - smoothstep(fdeep * 0.55, fdeep, abs(fdep))) * min(1.0, uFaceShow) * smoothstep(0.0, 0.45, dot(n, uFaceN[fi]));
+            if (k > rel.w) { rel = vec4(vec2(hx, hy) / (4.0 * e * fsz * 0.75) * 0.16, h0, k); fT = T; fU = vec3(0.0, 1.0, 0.0); }   // 0.16 m from the deepest hollow to the top of the hair
+          }
+          return rel;
+        }
         vec3 mmAlbedo; float mmRough; float mmAO; vec3 mmNormalW; float mmPud = 0.0;
 
         float heightAt(vec2 uvB, vec2 uvM, float sp, float mask) {
@@ -321,10 +404,12 @@ export function makeMossMaterial(o) {
             uvM += uv0 * mScaleT * ws[i];
           }
           mask = mossMask(vWPos, vLow.x, bARH.b, uCover, gN, uSunDir);
+          mask = faceCover(mask, vWPos, gN);
           baseNormalW = normalize(gN + baseNormalW * 1.2);
           mossNormalW = normalize(gN + mossNormalW * 1.6);
         #else
           vec2 uv0; vec3 T, B;
+          float barkCrack = 0.0, barkBlotch = 0.5;
           #ifdef MESH_UV
             // the broken ends: a flat projection across the cut, not the bark wrapped radially
             float capness = smoothstep(0.6, 0.85, abs(dot(gN, vAxis)));
@@ -379,11 +464,15 @@ export function makeMossMaterial(o) {
             mask = mix(mWrap, mNurse, uDrape);
             mask *= 1.0 - 0.9 * capness;   // a cut end is bare wood
           #endif
-          #if !defined(FUZZ) && !defined(MESH_UV)
+          mask = faceCover(mask, vWPos, gN);
+          #if !defined(FUZZ)
           {
             float layerD = 1.0 / float(POM_STEPS);
             float graze = smoothstep(0.2, 0.65, Vt.z);
             vec2 dUV = -Vt.xy / max(Vt.z, 0.5) * uHeight * layerD * graze;
+            #ifdef MESH_UV
+              dUV *= 1.0 - capness;
+            #endif
             #ifdef FACE_AXIS
               dUV *= clamp(1.0 - 2.0 * w2, 0.0, 1.0);
             #endif
@@ -411,6 +500,23 @@ export function makeMossMaterial(o) {
           #endif
           #ifdef MESH_UV
             baseNormalW = normalize(T * bN.x * 2.2 + B * bN.y * 2.2 + gN * bN.z);
+            // Bark is not a smooth skin with a picture of bark on it. Deep furrows run with the grain, wander, and
+            // split the surface into plates, with finer cracks between; they are cut into the way the light falls
+            // (below) and into the colour, whatever the photograph's own sharpness at this distance.
+            {
+              vec2 g = vMeshUv;
+              float wob = vnoise(vec3(g.x * 1.5, g.y * 0.6, 3.0));
+              float f1 = abs(vnoise(vec3(g.x * 24.0 + 3.0 * wob, g.y * 2.2, 9.0)) - 0.5) * 2.0;     // the long furrows
+              float f2 = abs(vnoise(vec3(g.x * 60.0, g.y * 7.0 + wob, 4.0)) - 0.5) * 2.0;           // fine cracks between
+              float f3 = abs(vnoise(vec3(g.x * 9.0 + wob, g.y * 11.0, 2.0)) - 0.5) * 2.0;            // the breaks across, that make plates of it
+              barkCrack = clamp((1.0 - smoothstep(0.0, 0.24, f1)) * 0.85 + (1.0 - smoothstep(0.0, 0.3, f2)) * 0.3 + (1.0 - smoothstep(0.0, 0.14, f3)) * 0.5, 0.0, 1.0) * (1.0 - capness);
+              barkBlotch = vnoise(vec3(g.x * 1.2, g.y * 0.45, 12.0));
+              vec3 dp1 = dFdx(vWPos), dp2 = dFdy(vWPos);
+              vec3 r1 = cross(dp2, gN), r2 = cross(gN, dp1);
+              float det = dot(dp1, r1);
+              vec3 grad = sign(det) * (dFdx(barkCrack) * r1 + dFdy(barkCrack) * r2);
+              baseNormalW = normalize(abs(det) * baseNormalW + 0.02 * grad);
+            }
           #else
             baseNormalW = normalize(T * bN.x * 1.3 + B * bN.y * 1.3 + gN * bN.z);
           #endif
@@ -442,8 +548,15 @@ export function makeMossMaterial(o) {
         bCol *= uBaseTint;
         #ifdef MESH_UV
           // the cut is darker, wetter wood; a nurse log's broken end is red-brown rotten heartwood, and the bare bark under its moss is damp and brown
-          bCol *= mix(vec3(1.0), mix(vec3(0.5), vec3(0.4, 0.25, 0.15) * (0.7 + 0.6 * vnoise(vWPos * 28.0)), uDrape), capness);
+          // a broken end is not a dark lid: splintered wood, pale and orange where it tore fresh, dark and soft where it has rotted
+          float capRot = vnoise(vWPos * 5.0 + 3.0);
+          float capSpl = vnoise(vec3(dot(vWPos, t1) * 46.0, dot(vWPos, t2) * 7.0, 1.0)) * 0.6 + vnoise(vec3(dot(vWPos, t1) * 9.0, dot(vWPos, t2) * 30.0, 6.0)) * 0.4;
+          vec3 capCol = mix(vec3(1.25, 0.86, 0.5), vec3(0.34, 0.2, 0.11), smoothstep(0.32, 0.68, capRot)) * (0.45 + 1.0 * capSpl);
+          bCol *= mix(vec3(1.0), mix(vec3(0.5), capCol, uDrape), capness);
           bCol *= mix(vec3(1.0), vec3(0.74, 0.62, 0.47), uDrape * (1.0 - drape) * (1.0 - capness));
+          // the furrows are dark and damp; the plates between weather unevenly, paler here, darker there
+          bCol *= (1.0 - 0.7 * barkCrack) * (0.7 + 0.55 * barkBlotch);
+          bCol = mix(bCol, vec3(dot(bCol, vec3(0.33))) * vec3(0.92, 0.9, 0.88), 0.35 * (1.0 - capness));   // old bark is greyer than fresh-cut wood
         #endif
         // the native species' colour: the photo carries the structure, the species its hue
         float mlum = dot(mCol, vec3(0.3, 0.59, 0.11));
@@ -456,7 +569,32 @@ export function makeMossMaterial(o) {
         mCol *= 1.0 - 0.25 * edge;
 
         mmAlbedo = mix(bCol, mCol, mask);
+        {
+          // a hidden Radbro has depth, it is not a sticker: the hollows of his eyes, brows and mouth are dark because
+          // they are deep, the face is clean bare stone (or pale wood), and his fringe throws its shade down on it
+          vec3 fN; vec4 fh = faceHead(faceWarp(vWPos), fN);
+          float fface = fh.a * smoothstep(0.0, 0.45, dot(gN, fN)) * faceWear(vWPos, fh.b);
+          if (fface > 0.0) {
+            float core = smoothstep(0.4, 0.8, fh.b);
+            float fskin = fface * fh.g * (1.0 - mask) * (1.0 - core);
+            vec3 bareCol = min(uFaceBare, mmAlbedo * 2.2 + 0.08);                              // never brighter than the place can carry: no white patch on a dark wall
+            mmAlbedo = mix(mmAlbedo, max(mmAlbedo, bareCol), 0.38 * fskin);                      // only a little cleaner than the rock round it: its own blotches stay
+            mmAlbedo *= 1.0 - 0.74 * fface * core * (0.6 + 0.4 * vnoise(vWPos * 23.0));          // a hollow is dark unevenly, as wet rock is
+          }
+        }
         mmNormalW = normalize(mix(baseNormalW, mossNormalW, mask));
+        {
+          // the relief itself: the surface leans as the head's own form does, so sun and torch model it, and what
+          // lies low is shaded by what stands over it
+          vec3 fT, fU; vec4 rel = faceRelief(faceWarp(vWPos), gN, fT, fU);
+          rel.w *= faceWear(vWPos, 0.5) * (0.55 + 0.6 * vnoise(vWPos * 7.0));                  // worn: sharp in one place, soft in the next
+          if (rel.w > 0.0) {
+            mmNormalW = normalize(mmNormalW - (fT * rel.x + fU * rel.y) * rel.w * 1.25);
+            float low = 1.0 - smoothstep(0.1, 0.5, rel.z);                                     // down in a hollow
+            float over = max(0.0, rel.y) * 2.2;                                                // just under something that stands out above: its shade
+            mmAlbedo *= 1.0 - rel.w * clamp(0.45 * low + 0.4 * over, 0.0, 0.6);
+          }
+        }
         float rough = mix(bARH.g, mARH.g, mask);
         mmAO = mix(bARH.r, mARH.r, mask) * mix(0.5, 1.0, vAO);
 
@@ -466,6 +604,10 @@ export function makeMossMaterial(o) {
         float bareWet = wet * (1.0 - mask);
         mmRough = clamp(mix(rough, rough * 0.45, bareWet) * mix(1.0, 0.95 * vParam.w, mask), 0.12, 1.0);
         mmRough = max(mmRough, mask * 0.62);
+        #ifdef MESH_UV
+          mmRough = max(mmRough, 0.86 - 0.24 * mask);   // bark soaks rain up: it goes dark, not glossy
+          mmAO *= 1.0 - 0.45 * barkCrack;
+        #endif
         // snow settles on what faces up
         if (uSnow > 0.0) {
           float sn = uSnow * smoothstep(0.25, 0.85, up) * (0.55 + 0.45 * vnoise(vWPos * 5.0)) * (0.7 + 0.3 * mask);

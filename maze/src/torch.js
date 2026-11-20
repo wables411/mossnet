@@ -47,7 +47,9 @@ export class Flashlight {
   }
   toggle() { if (!this.usable) return false; this.on = !this.on; return this.on; }
 
-  update(dt, player, stepPhase, stride) {
+  // src: { pos, dir, w } in the world, when a torch is really in his hand (hands.js): the light then leaves that
+  // torch's lens and goes where that torch points, by as much (w) as the hand is up
+  update(dt, player, stepPhase, stride, src = null) {
     if (!this.inScene) return;
     const cam = this.camera;
     const k = 1 - Math.exp(-dt * 6);
@@ -55,12 +57,14 @@ export class Flashlight {
     // the beam follows the view with a lag, like a hand bringing the torch round after the eyes
     this._f.set(0, 0, -1).applyQuaternion(cam.quaternion);
     const lag = 1 - Math.exp(-dt * 9);
+    if (src && src.w > 0.001) this._f.lerp(src.dir, src.w).normalize();
     this.dir.lerp(this._f, lag).normalize();
     // held low and to the right; a faint bob with the step on top of the camera's own
     this._r.set(1, 0, 0).applyQuaternion(cam.quaternion); this._u.set(0, 1, 0).applyQuaternion(cam.quaternion);
     const ph = (stepPhase || 0) * Math.PI * 2, s = stride || 0;
     const bobY = Math.sin(ph * 2 + 0.6) * 0.012 * s, bobX = Math.sin(ph + 0.3) * 0.008 * s;
     this.light.position.copy(cam.position).addScaledVector(this._r, 0.14 + bobX).addScaledVector(this._u, -0.12 + bobY);
+    if (src && src.w > 0.001) this.light.position.lerp(src.pos, src.w);
     this.target.position.copy(this.light.position).addScaledVector(this.dir, 6).addScaledVector(this._u, bobY * 3).addScaledVector(this._r, bobX * 3);
     this.light.intensity = 20 * this.level;
     const u = this.uniforms;

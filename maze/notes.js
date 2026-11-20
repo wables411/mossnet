@@ -7,7 +7,7 @@
 //   capture, if given, returns a picture of what the camera sees (the game passes it; the page has no camera)
 
 const API = new URL('notes-api/', import.meta.url);
-const KINDS = ['comment', 'suggestion', 'request', 'idea'];
+const KINDS = ['bug', 'comment', 'suggestion', 'request', 'idea'];
 const MAX_SHOTS = 3;
 const NAME_KEY = 'moss-maze-notes-name';
 
@@ -49,7 +49,7 @@ const CSS = `
 .nb-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font-size: 14px; color: #8f9a8a; }
 .nb-kind { font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; }
 .nb-kind::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 6px; background: currentColor; }
-.nb-k-comment { color: #aab3a4; } .nb-k-suggestion { color: #b5cf8f; } .nb-k-request { color: #e0c08f; } .nb-k-idea { color: #a9c6d6; }
+.nb-k-bug { color: #e0a48f; } .nb-k-comment { color: #aab3a4; } .nb-k-suggestion { color: #b5cf8f; } .nb-k-request { color: #e0c08f; } .nb-k-idea { color: #a9c6d6; }
 .nb-who { color: #d7dfd0; }
 .nb-body { margin: 6px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .nb-shots { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
@@ -62,7 +62,7 @@ const CSS = `
 .nb-foot input { width: auto; flex: 1; min-width: 150px; }
 `;
 
-function el(tag, props = {}, ...kids) {
+export function el(tag, props = {}, ...kids) {
   const e = document.createElement(tag);
   for (const [k, v] of Object.entries(props)) {
     if (k === 'class') e.className = v;
@@ -76,17 +76,17 @@ function el(tag, props = {}, ...kids) {
 
 const day = at => new Date(at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).toLowerCase();
 
-async function call(route, init) {
+export async function call(route, init) {
   let res, body = {};
   try { res = await fetch(new URL(route, API), { credentials: 'same-origin', ...init }); body = await res.json(); }
   catch { throw new Error('the notes could not be reached'); }
   if (!res.ok) throw new Error(body.error || 'the notes could not be reached');
   return body;
 }
-const send = (route, data) => call(route, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(data || {}) });
+export const send = (route, data) => call(route, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(data || {}) });
 
 // a phone's photo or a full-screen grab is far bigger than a note needs: bring it down to 1600 across, as a JPEG
-async function shrink(blob) {
+export async function shrink(blob) {
   try {
     const bmp = await createImageBitmap(blob);
     const k = Math.min(1, 1600 / Math.max(bmp.width, bmp.height));
@@ -146,7 +146,7 @@ export function mountNotes(root, opts = {}) {
     count = el('span', { class: 'nb-quiet' });
     form = el('form', { class: 'nb-form', onsubmit: post, onpaste: e => { const pics = [...(e.clipboardData ? e.clipboardData.files : [])].filter(f => f.type.startsWith('image/')); if (pics.length) { e.preventDefault(); attach(pics); } } },
       el('div', { class: 'nb-kinds', role: 'radiogroup', 'aria-label': 'what kind of note' }, KINDS.map((k, i) => el('label', {}, el('input', { type: 'radio', name: 'kind', value: k, checked: i === 0 }), el('span', {}, k)))),
-      el('textarea', { name: 'text', maxlength: 2000, placeholder: 'what did you see, want, or think of?', 'aria-label': 'your note' }),
+      el('textarea', { name: 'text', maxlength: 5000, placeholder: 'what did you see, want, or think of?', 'aria-label': 'your note' }),
       el('input', { type: 'text', name: 'name', maxlength: 40, placeholder: 'your name, if you like', 'aria-label': 'your name', value: name, autocomplete: 'nickname' }),
       el('div', { class: 'nb-attach' },
         el('button', { type: 'button', onclick: () => file.click() }, 'add a screenshot'),
@@ -195,7 +195,7 @@ export function mountNotes(root, opts = {}) {
       return el('a', { href: src, target: '_blank', rel: 'noopener' }, el('img', { src, loading: 'lazy', alt: `screenshot ${i + 1} from ${n.name}` }));
     })) : null;
     if (state.owner && state.editing === n.id) {
-      const text = el('textarea', { maxlength: 2000, 'aria-label': 'the note' }); text.value = n.text;
+      const text = el('textarea', { maxlength: 5000, 'aria-label': 'the note' }); text.value = n.text;
       const kinds = el('div', { class: 'nb-kinds' }, KINDS.map(k => el('label', {}, el('input', { type: 'radio', name: 'edit-kind-' + n.id, value: k, checked: k === n.kind }), el('span', {}, k))));
       const msg = el('span', { class: 'nb-status nb-bad' });
       const save = async () => {

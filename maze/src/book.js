@@ -186,7 +186,8 @@ export class Book {
   }
 
   get found() { return !!this.state.found; }
-  save() { this.state.view = this.view; try { localStorage.setItem(KEY, JSON.stringify(this.state)); } catch { /* storage blocked */ } }
+  reload() { const s = load(); s.view = this.state.view; this.state = s; }      // the account's copy was just put on this device (cloud.js)
+  save() { this.state.view = this.view; try { localStorage.setItem(KEY, JSON.stringify(this.state)); } catch { /* storage blocked */ } dispatchEvent(new Event('moss-maze-kept')); }
   // the pickup was walked over: from now on the book is in the journal
   find() { if (this.state.found) return false; this.state.found = true; this.save(); return true; }
 

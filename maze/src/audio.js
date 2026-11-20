@@ -7,6 +7,10 @@
 // animals that live in that place (never the same call twice running), and a
 // gentle limiter on the master so stacked calls and splashes never clip.
 
+// The close layer over all this (sound placed in space round the head, the hands, touch, stillness, the one
+// scale of each place) is asmr.js, which adds its methods to the class below.
+import { installAsmr } from './asmr.js?v=ecf6f975';
+
 // field recordings (CC0 / public domain, see README): beds that loop, and calls
 const CLIPS = {
   stream: 'audio/stream.mp3', trickle: 'audio/trickle.mp3', rain: 'audio/rain.mp3',
@@ -47,7 +51,10 @@ export class Ambience {
     // an owl on top of the stream rounds off instead of clipping
     const lim = this.limiter = ctx.createDynamicsCompressor();
     lim.threshold.value = -12; lim.knee.value = 14; lim.ratio.value = 7; lim.attack.value = 0.004; lim.release.value = 0.28;
-    master.connect(mf).connect(lim).connect(ctx.destination);
+    // and after it a hard ceiling: whatever stacks up, nothing leaves louder than this (comfort on headphones)
+    const ceil = this.ceiling = ctx.createDynamicsCompressor();
+    ceil.threshold.value = -4; ceil.knee.value = 0; ceil.ratio.value = 20; ceil.attack.value = 0.001; ceil.release.value = 0.12;
+    master.connect(mf).connect(lim).connect(ceil).connect(ctx.destination);
 
     // two reverbs: a short one for the open woods, a long one for stone rooms
     const makeIR = (sec, tail) => {
@@ -112,8 +119,11 @@ export class Ambience {
 
     this.t = 0; this.nextGust = 3; this.nextDrip = 2; this.nextAnimal = 8; this.lastAnimal = null; this.lastStep = {}; this.wade = { depth: 0, moving: 0 };
     // the recorded beds: stream and trickle (positional, by distance), rain
-    const streamBus = ctx.createGain(); streamBus.gain.value = 1; streamBus.connect(master); streamBus.connect(this.verbIn);
+    // (the stream is to one side or the other of you: main.js says where, streamAz)
+    const streamBus = ctx.createGain(); streamBus.gain.value = 1;
+    const sside = this.streamSide = ctx.createStereoPanner(); streamBus.connect(sside); sside.connect(master); sside.connect(this.verbIn);
     this.bed('stream', CLIPS.stream, streamBus); this.bed('trickle', CLIPS.trickle, streamBus); this.bed('rain', CLIPS.rain, master);
+    this.asmrStart();
     if (this.profile) this.applyProfile();
   }
 
@@ -123,6 +133,7 @@ export class Ambience {
     const animals = night > 0.8 ? (sound.night || sound.animals) : night > 0 ? [...(sound.animals || []), ...(sound.night || []), ...(sound.night || [])] : sound.animals;
     this.profile = { ...sound, animals, night, rain: weather ? weather.rain : 0, wind: Math.min(1, sound.wind * 0.4 + (weather ? weather.wind : 0.2) * 0.9), snow: weather ? weather.snow : 0 };
     this.ground = ground;
+    this.asmrProfile(sound);
     if (this.started) this.applyProfile();
   }
   applyProfile() {
@@ -149,8 +160,9 @@ export class Ambience {
     const ctx = this.ctx, now = ctx.currentTime, p = this.profile;
     this.t += dt;
     this.wade.depth = wadeDepth; this.wade.moving = moving;
+    this.asmrUpdate(dt);
     const swell = 0.35 + 0.25 * Math.sin(this.t * 0.11) + 0.15 * Math.sin(this.t * 0.37 + 1);
-    this.windGain.gain.setTargetAtTime(swell * p.wind * 0.7 * (1 - 0.4 * fogAmount), now, 0.5);
+    this.windGain.gain.setTargetAtTime(swell * p.wind * 0.7 * (1 - 0.4 * fogAmount) * (1 - 0.35 * this.close), now, 0.5);
     this.windFilter.frequency.setTargetAtTime(180 + 120 * swell, now, 0.5);
     if (p.wind > 0.1 && this.t > this.nextGust) {
       this.nextGust = this.t + 6 + Math.random() * 12 / Math.max(0.3, p.wind);
@@ -170,6 +182,9 @@ export class Ambience {
     const inStream = streamDist < 0.6;
     const level = p.stream ? p.stream / (1 + (streamDist * streamDist) / 6) * (inStream ? 1.25 : 1) : 0;
     this.streamLevel = level;
+    if (this.streamSide) this.streamSide.pan.setTargetAtTime(inStream ? 0 : Math.max(-1, Math.min(1, Math.sin((this.streamAz || 0) + this.lyaw) * Math.min(1, streamDist / 1.2) * 0.85)), now, 0.15);
+    // rain falling on that water is not rain falling on leaves: each drop is a small round note
+    if (p.rain > 0 && level > 0.1) { let k = 16 * p.rain * Math.min(1, level * 1.6) * dt; while (k > 0) { if (Math.random() < k) this.plip(streamDist); k -= 1; } }
     this.streamGain.gain.setTargetAtTime(level * 0.015, now, 0.3);
     // the recording: the full stream close by, the trickle variant further off; still water laps as you wade, by depth and pace
     const wading = Math.min(1, wadeDepth / 0.12) * (0.25 + 0.75 * moving);
@@ -201,8 +216,8 @@ export class Ambience {
     // distant: lowpassed, panned, more reverb
     const ctx = this.ctx;
     const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2800 + Math.random() * 1500;
-    const p = ctx.createStereoPanner(); p.pan.value = pan ?? (Math.random() * 1.6 - 0.8);
-    lp.connect(p); p.connect(this.master); p.connect(this.verbIn);
+    const p = this.spot(-this.lyaw + (pan ?? (Math.random() * 1.6 - 0.8)) * 1.4, 9 + Math.random() * 8, 0.05, { flat: true });
+    lp.connect(p);
     return lp;
   }
 
@@ -228,6 +243,11 @@ export class Ambience {
     s.connect(f).connect(g).connect(p).connect(this.master); s.start(now, Math.random() * 10); s.stop(now + 0.6);
   }
 
+  plip(dist = 1) {
+    const now = this.ctx.currentTime, f = 1300 + Math.random() * 1700;
+    const d = this.spot((this.streamAz || 0) + (Math.random() - 0.5) * 1.3, Math.max(0.6, dist + Math.random() * 1.6), -0.5, { verb: 0.4 });
+    this.tone('sine', f, f * 1.6, now, 0.03 + Math.random() * 0.035, 0.016 + Math.random() * 0.02, d);
+  }
   raindrop() {
     const ctx = this.ctx, now = ctx.currentTime;
     const s = ctx.createBufferSource(); s.buffer = this.noise; s.playbackRate.value = 1.5 + Math.random() * 1.5;
@@ -239,10 +259,10 @@ export class Ambience {
 
   drip(echo = true) {
     const ctx = this.ctx, now = ctx.currentTime;
-    const f = 1400 + Math.random() * 2200;
-    const p = ctx.createStereoPanner(); p.pan.value = Math.random() * 1.6 - 0.8;
-    p.connect(this.verbIn); p.connect(this.master);
-    if (this.dripVerbSend) p.connect(this.dripVerbSend);
+    const f = this.tune(1400 + Math.random() * 2200);
+    const az = Math.random() * Math.PI * 2, far = 1.5 + Math.random() * 5;
+    const p = this.spot(az, far, 0.2 + Math.random() * 0.7);
+    if (this.dripVerbSend) p.out.connect(this.dripVerbSend);
     const g = 0.05 + Math.random() * 0.05;
     this.tone('sine', f * 1.4, f, now, 0.14 + Math.random() * 0.1, g, p);
     // a tiny splash under the note where the floor is wet stone or standing water
@@ -257,7 +277,7 @@ export class Ambience {
       const n = 1 + (Math.random() < 0.4 ? 1 : 0);
       for (let i = 1; i <= n; i++) {
         const t0 = now + i * (0.22 + Math.random() * 0.2);
-        const pe = ctx.createStereoPanner(); pe.pan.value = -p.pan.value * 0.6; pe.connect(this.verbLong); pe.connect(this.master);
+        const pe = this.spot(az + Math.PI, far + 6 * i, 0.1, { verb: 0 }); pe.out.connect(this.verbLong);   // off the far wall: from behind where it fell
         this.tone('sine', f * 1.3, f * 0.98, t0, 0.12, g * 0.22 / i, pe);
       }
     }
@@ -281,8 +301,8 @@ export class Ambience {
     const dist = 0.3 + Math.random() * 0.7;
     const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 6000 - 4200 * dist;
     const g = ctx.createGain(); g.gain.value = 0.35 * (1 - dist * 0.7);
-    const p = ctx.createStereoPanner(); p.pan.value = Math.random() * 1.6 - 0.8;
-    src.connect(lp).connect(g).connect(p); p.connect(this.master); p.connect(this.verbIn);
+    const p = this.spot(Math.random() * Math.PI * 2, 4 + dist * 14, 0.1 + Math.random() * 0.5, { flat: true });   // anywhere round, a little up: it is in the trees
+    src.connect(lp).connect(g).connect(p);
     src.start(now);
   }
 
@@ -437,7 +457,9 @@ export class Ambience {
     if (!this.started) return;
     const ctx = this.ctx, now = ctx.currentTime;
     const lvl = 0.85 + Math.random() * 0.3;   // the whole step a little louder or softer
-    const burst = (rate, type, f0, f1, q, t0, dur, gain, dest = this.master) => {
+    this.foot = -this.foot;
+    const under = this.asmr ? this.by(this.foot * 22, -64, 1.5, { near: false, verb: 0.25 }) : this.master;
+    const burst = (rate, type, f0, f1, q, t0, dur, gain, dest = under) => {
       const s = ctx.createBufferSource(); s.buffer = this.noise; s.playbackRate.value = rate * (0.94 + Math.random() * 0.12);
       const f = ctx.createBiquadFilter(); f.type = type; f.frequency.setValueAtTime(f0, t0); if (f1 !== f0) f.frequency.exponentialRampToValueAtTime(f1, t0 + dur); f.Q.value = q;
       const g = ctx.createGain(); g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(gain * lvl, t0 + 0.008); g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
@@ -486,6 +508,8 @@ export class Ambience {
         else if (v === 1) { burst(1.0 + r() * 0.5, 'bandpass', 700 + r() * 400, 400, 1.2, now + 0.03, 0.14, 0.07); burst(2 + r(), 'highpass', 2800, 2600, 0.6, now + 0.06, 0.04, 0.03); }   // a wet press and a small tick
         else burst(1.3 + r(), 'bandpass', 1300 + r() * 800, 2200, 1.0, now + 0.02, 0.11, 0.06);   // a squeak of wet moss
     }
+    // the toe comes down after the heel, later at a stroll than at a hurry: the second, softer half of a step
+    if (ground !== 'water') burst(0.7 + r() * 0.3, 'lowpass', ground === 'rock' ? 1300 : 800, 280, 0.7, now + 0.07 + 0.05 * (1 - Math.min(1, brisk)), 0.07, 0.15);
   }
 
   // --- the small things: a frog leaving the path (a leaf-litter flick, a plop if it lands in water), spores puffed off a cushion
@@ -495,8 +519,8 @@ export class Ambience {
     const s = ctx.createBufferSource(); s.buffer = this.noise; s.playbackRate.value = 1.6 + Math.random() * 0.6;
     const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = inWater ? 900 + Math.random() * 500 : 2400 + Math.random() * 1500; f.Q.value = 1.5;
     const g = ctx.createGain(); g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(inWater ? 0.12 : 0.05, now + 0.006); g.gain.exponentialRampToValueAtTime(0.0005, now + (inWater ? 0.16 : 0.06));
-    const p = ctx.createStereoPanner(); p.pan.value = Math.random() * 0.8 - 0.4;
-    s.connect(f).connect(g).connect(p); p.connect(this.master); p.connect(this.verbIn); s.start(now, Math.random() * 3); s.stop(now + 0.3);
+    const p = this.spot(-this.lyaw + (Math.random() * 1.6 - 0.8), 2 + Math.random() * 3, -0.4);
+    s.connect(f).connect(g).connect(p); s.start(now, Math.random() * 3); s.stop(now + 0.3);
     if (inWater) this.tone('sine', 900 + Math.random() * 400, 300, now + 0.02, 0.12, 0.03, p);
   }
   puff() {
@@ -510,11 +534,21 @@ export class Ambience {
   call(name) { const fn = this.calls[name]; if (this.started && fn) fn.call(this); }
   // the book: picked up off the floor (two quick rising pops, the way an item is taken), a page turned (a short
   // dry swish of paper), signed (the pops again, lower), opened and closed (the soft thump of the covers)
+  // a lighter struck: the rasp of the wheel, the small thump of the flame taking
+  lighter() {
+    if (!this.started) return;
+    const ctx = this.ctx, now = ctx.currentTime;
+    const s = ctx.createBufferSource(); s.buffer = this.noise; s.playbackRate.value = 1.6;
+    const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 3800; f.Q.value = 0.8;
+    const g = ctx.createGain(); g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(0.07, now + 0.012); g.gain.exponentialRampToValueAtTime(0.0005, now + 0.09);
+    s.connect(f).connect(g).connect(this.master); s.start(now, Math.random() * 3); s.stop(now + 0.12);
+    this.tone('sine', 150, 70, now + 0.07, 0.16, 0.05, this.master);
+  }
   pickup() {
     if (!this.started) return;
     const ctx = this.ctx, now = ctx.currentTime;
-    this.tone('square', 520, 1040, now, 0.07, 0.05, this.master);
-    this.tone('square', 700, 1400, now + 0.08, 0.08, 0.05, this.master);
+    this.tone('square', this.note(5), this.note(10), now, 0.07, 0.045, this.master);
+    this.tone('square', this.note(7), this.note(12), now + 0.08, 0.08, 0.045, this.master);
   }
   pageTurn() {
     if (!this.started) return;
@@ -527,8 +561,8 @@ export class Ambience {
   bookSign() {
     if (!this.started) return;
     const ctx = this.ctx, now = ctx.currentTime;
-    this.tone('square', 440, 660, now, 0.08, 0.045, this.master);
-    this.tone('square', 660, 880, now + 0.1, 0.1, 0.045, this.master);
+    this.tone('square', this.note(5), this.note(7), now, 0.08, 0.045, this.master);
+    this.tone('square', this.note(7), this.note(10), now + 0.1, 0.1, 0.045, this.master);
   }
   bookThump(open = true) {
     if (!this.started) return;
@@ -576,3 +610,5 @@ export class Ambience {
     this.animal(); setTimeout(() => this.animal(), 900);
   }
 }
+
+installAsmr(Ambience);

@@ -1,8 +1,8 @@
 // The finds: one hidden small true thing per place. When the player comes
-// upon it (walks up and looks at it, or taps it) a pencil sketch of it is held
-// up for a few seconds. The sketches are drawn in code with a jittered
-// graphite stroke, loose, the way a field drawing is made standing up in the
-// rain. (The journal the player writes in is src/book.js.)
+// upon it (walks up and looks at it, or taps it) a drawing of it is held up for
+// a few seconds. The drawings are a child's, in wax crayon (owner, 2026-11-18:
+// "as if drawn by child"). A hidden Radbro head, once found and tapped, is kept
+// the same way. (The journal the player writes in is src/book.js.)
 
 export const FINDS = {
   yakushima: { kind: 'seedling', title: 'a cedar seedling on a boulder', note: 'rooted in the moss on top of a granite boulder, two hands high, with nothing under it but rock. the thousand-year cedars all began like this; their roots went down over the stone to find the ground.' },
@@ -14,158 +14,255 @@ export const FINDS = {
   puzzlewood: { kind: 'ironpin', title: 'an iron pin left in the rock', note: 'the scowles were mined for iron ore from before the romans. the miners left pins and rings in the rock for their ropes and lamps, and the moss grew over all but this one.' },
   congaree: { kind: 'kneechair', title: 'a cypress knee shaped like a chair', note: 'the knees come up from the roots all round an old cypress. nobody knows for certain what they are for. this one has a seat and a back, and somebody has sat in it.' },
 };
+// a hidden Radbro (world.js faceMarks): its id is 'radbro:<maze>:<which>', so each one is found once
+export const RADBRO = { kind: 'radbro', title: 'radbro, engraved in stone, date unknown', note: "Radbro is the ultimate example of the individual shaped by the signifier. Radbro is a man seen only in mirror images; lost in a hall of mirrors he is a reflection of a reflection of a reflection. You start with Milady – the wholesome all Japanese online cutie, you reflect her to create Pixelady – the same thing but slightly less. You invert Milady to create Remilio – Milady turned boyish and libertarian – then you reflect the inversion in the reflection: you create a being who can only exist in reference to others. Radbro is the true nowhere man, without the other characters he reflects, inverts and parodies he has no reason to exist. Radbro's identity only comes from what and who he isn't – without a wider frame of reference he is nothing. He is not his own man. In a world where our identities are shaped by our warped relationships to brands and commerce we are all Radbro." };
+const findOf = id => FINDS[id] || (String(id).startsWith('radbro') ? RADBRO : null);
 export const FIND_ORDER = ['yakushima', 'aokigahara', 'hoh', 'williamson', 'wistmans', 'fanal', 'puzzlewood', 'congaree'];
 
-// --- the pencil
+// --- the crayons. The drawings are a child's: a few big shapes, wax crayon pressed hard, coloured in back and
+// forth and over the lines, a sun in the corner, and the name of the thing written underneath in their own letters.
 const rnd = (a, b) => a + Math.random() * (b - a);
-function pencil(ctx, pts, { w = 1.3, a = 0.75, passes = 2, jit = 1.4, close = false } = {}) {
-  for (let p = 0; p < passes; p++) {
-    ctx.strokeStyle = `rgba(44,44,50,${a * (p ? 0.45 : 1)})`; ctx.lineWidth = w * (p ? 0.75 : 1); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-    ctx.beginPath();
-    pts.forEach(([x, y], i) => { const jx = x + rnd(-jit, jit), jy = y + rnd(-jit, jit); if (i) ctx.lineTo(jx, jy); else ctx.moveTo(jx, jy); });
-    if (close) ctx.closePath();
+const C = { black: '#2b2a2e', brown: '#8a4f24', tan: '#b9813f', green: '#3f9a3a', dkgreen: '#2c6e33', grey: '#8d8f95', dkgrey: '#5f6168', yellow: '#f2c31b', orange: '#ee7d1c', red: '#d6412b', blue: '#3b78d8', sky: '#6fb7ea', skin: '#f0c08a', night: '#2d3550' };
+
+// a hand that is not steady: the line is walked in short steps and wanders as it goes
+function wob(pts, amp = 1.7) {
+  const out = [], p1 = rnd(0, 6), p2 = rnd(0, 6), p3 = rnd(0, 6), p4 = rnd(0, 6);
+  let k = 0;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [x0, y0] = pts[i], [x1, y1] = pts[i + 1], n = Math.max(1, Math.round(Math.hypot(x1 - x0, y1 - y0) / 4));
+    for (let j = 0; j < n; j++, k++) {
+      const t = j / n;
+      out.push([x0 + (x1 - x0) * t + amp * (Math.sin(k * 0.41 + p1) + 0.6 * Math.sin(k * 0.13 + p2)), y0 + (y1 - y0) * t + amp * (Math.sin(k * 0.37 + p3) + 0.6 * Math.sin(k * 0.11 + p4))]);
+    }
+  }
+  const l = pts[pts.length - 1]; out.push([l[0] + rnd(-amp, amp), l[1] + rnd(-amp, amp)]);
+  return out;
+}
+// one crayon line: wax, so it is several thin streaks side by side with gaps where the paper shows
+function crayon(ctx, pts, color, w = 4, { close = false, amp = 1.7, a = 0.62 } = {}) {
+  // a closed shape drawn by a child does not meet itself: it overshoots or stops short
+  const path = wob(close ? [...pts, [pts[0][0] + rnd(-4, 4), pts[0][1] + rnd(-4, 4)]] : pts, amp);
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = color;
+  const streaks = Math.max(3, Math.round(w * 1.2));
+  for (let s = 0; s < streaks; s++) {
+    const ox = rnd(-w, w) * 0.38, oy = rnd(-w, w) * 0.38;
+    ctx.globalAlpha = a * rnd(0.6, 1); ctx.lineWidth = w * rnd(0.3, 0.5);
+    ctx.beginPath(); let pen = false;
+    for (const [x, y] of path) {
+      if (Math.random() < 0.035) { pen = false; continue; }      // the wax skips
+      if (pen) ctx.lineTo(x + ox, y + oy); else { ctx.moveTo(x + ox, y + oy); pen = true; }
+    }
     ctx.stroke();
   }
+  ctx.globalAlpha = 1;
 }
-// points along an ellipse arc
-const arc = (cx, cy, rx, ry, a0, a1, n = 24, rot = 0) => { const out = []; for (let i = 0; i <= n; i++) { const a = a0 + (a1 - a0) * i / n; const x = Math.cos(a) * rx, y = Math.sin(a) * ry; out.push([cx + x * Math.cos(rot) - y * Math.sin(rot), cy + x * Math.sin(rot) + y * Math.cos(rot)]); } return out; };
-// points along a quadratic curve
-const curve = (x0, y0, cx, cy, x1, y1, n = 16) => { const out = []; for (let i = 0; i <= n; i++) { const t = i / n, u = 1 - t; out.push([u * u * x0 + 2 * u * t * cx + t * t * x1, u * u * y0 + 2 * u * t * cy + t * t * y1]); } return out; };
-const line = (x0, y0, x1, y1) => [[x0, y0], [x1, y1]];
-// hatching inside a polygon
-function hatch(ctx, poly, angle, spacing = 5, a = 0.35, w = 0.9) {
-  ctx.save(); ctx.beginPath(); poly.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); ctx.clip();
-  const xs = poly.map(p => p[0]), ys = poly.map(p => p[1]);
-  const cx = (Math.min(...xs) + Math.max(...xs)) / 2, cy = (Math.min(...ys) + Math.max(...ys)) / 2;
-  const R = Math.hypot(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) / 2 + 4;
-  const dx = Math.cos(angle), dy = Math.sin(angle), px = -dy, py = dx;
-  for (let s = -R; s <= R; s += spacing * rnd(0.8, 1.2)) {
-    pencil(ctx, [[cx + px * s - dx * R, cy + py * s - dy * R], [cx + px * s + dx * R, cy + py * s + dy * R]], { w, a, passes: 1, jit: 0.8 });
+// coloured in: one long back-and-forth across the shape, not staying inside it
+function colour(ctx, poly, color, { gap = 5, ang = rnd(-0.5, 0.5), w = 3.4, over = 4, a = 0.5 } = {}) {
+  const ca = Math.cos(ang), sa = Math.sin(ang);
+  const R = poly.map(([x, y]) => [x * ca + y * sa, -x * sa + y * ca]);
+  const ys = R.map(p => p[1]), y0 = Math.min(...ys), y1 = Math.max(...ys), zig = [];
+  let flip = false;
+  for (let y = y0 + gap * 0.5; y < y1; y += gap * rnd(0.7, 1.35)) {
+    const xs = [];
+    for (let i = 0; i < R.length; i++) { const [ax, ay] = R[i], [bx, by] = R[(i + 1) % R.length]; if ((ay <= y && by > y) || (by <= y && ay > y)) xs.push(ax + (bx - ax) * (y - ay) / (by - ay)); }
+    if (xs.length < 2) continue;
+    const l = Math.min(...xs) - rnd(-2, over), r = Math.max(...xs) + rnd(-2, over);
+    const ends = flip ? [r, l] : [l, r]; flip = !flip;
+    for (const x of ends) zig.push([x * ca - y * sa, x * sa + y * ca]);
+  }
+  if (zig.length > 1) crayon(ctx, zig, color, w, { amp: 0.9, a });
+}
+const blob = (cx, cy, rx, ry, n = 11, lump = 0.14) => { const out = [], ph = rnd(0, 6); for (let i = 0; i < n; i++) { const t = i / n * Math.PI * 2, k = 1 + lump * Math.sin(t * 3 + ph) + rnd(-lump, lump) * 0.5; out.push([cx + Math.cos(t) * rx * k, cy + Math.sin(t) * ry * k]); } return out; };
+const bow = (x0, y0, cx, cy, x1, y1, n = 9) => { const out = []; for (let i = 0; i <= n; i++) { const t = i / n, u = 1 - t; out.push([u * u * x0 + 2 * u * t * cx + t * t * x1, u * u * y0 + 2 * u * t * cy + t * t * y1]); } return out; };
+const zigzag = (x0, x1, y, h = 8, step = 7) => { const out = []; let up = false; for (let x = x0; x <= x1; x += step * rnd(0.7, 1.3)) { out.push([x, y - (up ? h * rnd(0.6, 1.2) : 0)]); up = !up; } return out; };
+function dot(ctx, x, y, r, color) { colour(ctx, blob(x, y, r, r, 8, 0.1), color, { gap: Math.max(1.6, r * 0.5), w: Math.max(1.6, r * 0.8), over: 1, a: 0.8 }); }
+// the sun every child puts in the corner
+function sun(ctx, x, y, r = 13) {
+  colour(ctx, blob(x, y, r, r, 10, 0.08), C.yellow, { gap: 4, w: 3.5, a: 0.6 });
+  crayon(ctx, blob(x, y, r, r, 10, 0.08), C.orange, 2.6, { close: true, amp: 1 });
+  for (let i = 0; i < 8; i++) { const t = i / 8 * Math.PI * 2 + rnd(-0.15, 0.15), a = r + 4, b = r + rnd(9, 16); crayon(ctx, [[x + Math.cos(t) * a, y + Math.sin(t) * a], [x + Math.cos(t) * b, y + Math.sin(t) * b]], C.yellow, 2.8, { amp: 0.8 }); }
+}
+// the name of it, in their own letters: sizes all over the place, a line that climbs, now and then one written backwards
+function letters(ctx, text, x, y, color = C.black, size = 17) {
+  ctx.save(); ctx.fillStyle = color; ctx.textBaseline = 'alphabetic';
+  let cx = x, cy = y; const climb = rnd(-0.12, 0.05);
+  for (const ch of text) {
+    const s = size * rnd(0.82, 1.22);
+    ctx.font = `bold ${s}px "Comic Sans MS", "Chalkboard SE", "Marker Felt", "Segoe Print", cursive`;
+    const w = ctx.measureText(ch).width;
+    if (ch !== ' ') {
+      ctx.save(); ctx.translate(cx + w / 2, cy + rnd(-2, 2)); ctx.rotate(rnd(-0.2, 0.2));
+      if ('NSRZ'.includes(ch) && Math.random() < 0.3) ctx.scale(-1, 1);
+      for (let p = 0; p < 3; p++) { ctx.globalAlpha = 0.5; ctx.fillText(ch, -w / 2 + rnd(-0.7, 0.7), rnd(-0.7, 0.7)); }
+      ctx.restore();
+    }
+    cx += w * rnd(0.95, 1.2) + (ch === ' ' ? 2 : 0); cy += climb * w;
   }
   ctx.restore();
 }
-// moss: a scribble of tiny arcs along a baseline
-function mossLine(ctx, x0, x1, y, h = 6, a = 0.5) {
-  for (let x = x0; x < x1; x += rnd(3, 6)) pencil(ctx, arc(x, y, rnd(2, 4), rnd(h * 0.6, h), Math.PI, Math.PI * 2, 6), { w: 0.9, a, passes: 1, jit: 0.6 });
-}
+function grass(ctx, x0, x1, y, h = 9) { crayon(ctx, zigzag(x0, x1, y, h, 6), C.green, 3.2, { amp: 0.8 }); }
 
-// --- the eight drawings, each on a 220 x 160 page
+// --- the nine drawings, each on a 220 x 160 page
 const SKETCHES = {
   seedling(ctx) {
-    // the log: two long edges, an end ring, bark lines, moss on top
-    pencil(ctx, curve(14, 92, 110, 80, 206, 96), { w: 1.6 });
-    pencil(ctx, curve(14, 128, 110, 136, 206, 130), { w: 1.6 });
-    pencil(ctx, arc(206, 113, 7, 17, -Math.PI / 2, Math.PI / 2, 12), { w: 1.4 });
-    pencil(ctx, arc(206, 113, 3, 8, 0, Math.PI * 2, 10), { w: 0.9, a: 0.5 });
-    for (let i = 0; i < 9; i++) { const x = 24 + i * 20; pencil(ctx, curve(x, 100 + rnd(-3, 3), x + 10, 112, x + 2, 124 + rnd(-3, 3), 6), { w: 0.9, a: 0.4, passes: 1 }); }
-    hatch(ctx, [[14, 118], [206, 122], [206, 130], [14, 128]], 0.2, 4, 0.3);
-    mossLine(ctx, 18, 200, 92, 6);
-    // the seedling: a stem, needles in whorls, a few roots into the moss
-    pencil(ctx, curve(104, 90, 102, 60, 108, 28), { w: 1.5 });
-    for (let i = 0; i < 14; i++) { const t = i / 14, y = 86 - t * 52, x = 104 + Math.sin(t * 3) * 2; const s = i % 2 ? -1 : 1, l = 8 + (1 - t) * 9; pencil(ctx, line(x, y, x + s * l, y - l * 0.55), { w: 1.1, a: 0.7, passes: 1 }); pencil(ctx, line(x, y, x - s * l * 0.7, y - l * 0.4), { w: 1.0, a: 0.55, passes: 1 }); }
-    for (let i = 0; i < 7; i++) { const a = -1.2 + i * 0.4, l = rnd(8, 13); pencil(ctx, line(108, 28, 108 + Math.sin(a) * l, 28 - Math.cos(a) * l), { w: 1.1, passes: 1 }); }
-    pencil(ctx, curve(104, 90, 96, 96, 90, 100, 5), { w: 1, a: 0.5, passes: 1 }); pencil(ctx, curve(104, 90, 112, 95, 116, 101, 5), { w: 1, a: 0.5, passes: 1 });
+    sun(ctx, 190, 28);
+    const rock = [[38, 150], [30, 116], [56, 94], [102, 86], [150, 92], [182, 114], [180, 150]];
+    colour(ctx, rock, C.grey, { gap: 6, ang: 0.3 }); crayon(ctx, rock, C.dkgrey, 4, { close: true });
+    crayon(ctx, zigzag(54, 152, 92, 9, 7), C.green, 4, { amp: 0.8 });
+    crayon(ctx, [[104, 90], [106, 42]], C.brown, 5);
+    for (const [y, w] of [[72, 24], [56, 19], [41, 14]]) { const tri = [[106 - w, y], [106 + w, y], [106, y - 22]]; colour(ctx, tri, C.green, { gap: 4, ang: 0.1, w: 3 }); crayon(ctx, tri, C.dkgreen, 3, { close: true, amp: 1.2 }); }
+    letters(ctx, 'baby tree', 10, 30, C.dkgreen, 16);
   },
   rootarch(ctx) {
-    // two blocks of lava, the root arching from one to the other
-    const b1 = [[18, 142], [26, 100], [60, 88], [92, 98], [96, 142]], b2 = [[126, 142], [130, 104], [162, 92], [198, 102], [204, 142]];
-    pencil(ctx, b1, { w: 1.5, close: true }); pencil(ctx, b2, { w: 1.5, close: true });
-    hatch(ctx, b1, 0.9, 5, 0.3); hatch(ctx, b2, 1.1, 5, 0.3);
-    pencil(ctx, [[40, 110], [52, 122], [48, 136]], { w: 0.9, a: 0.5, passes: 1 }); pencil(ctx, [[150, 112], [168, 118], [160, 138]], { w: 0.9, a: 0.5, passes: 1 });
-    pencil(ctx, line(8, 142, 212, 142), { w: 1.2, a: 0.5 });
-    pencil(ctx, curve(78, 96, 110, 46, 142, 100, 20), { w: 2.2 });
-    pencil(ctx, curve(86, 100, 110, 58, 136, 104, 20), { w: 1.6, a: 0.6 });
-    for (let i = 1; i < 9; i++) { const t = i / 9; const p = curve(78, 96, 110, 46, 142, 100, 9)[i], q = curve(86, 100, 110, 58, 136, 104, 9)[i]; pencil(ctx, line(p[0], p[1], q[0], q[1]), { w: 0.8, a: 0.4, passes: 1 }); }
-    mossLine(ctx, 28, 90, 92, 5); mossLine(ctx, 134, 196, 96, 5);
+    const r1 = [[14, 146], [20, 104], [58, 92], [92, 104], [94, 146]], r2 = [[128, 146], [130, 106], [164, 94], [200, 106], [206, 146]];
+    for (const r of [r1, r2]) { colour(ctx, r, C.grey, { gap: 6 }); crayon(ctx, r, C.dkgrey, 4, { close: true }); }
+    crayon(ctx, bow(74, 104, 110, 22, 148, 104, 12), C.brown, 7);
+    crayon(ctx, bow(86, 106, 110, 46, 136, 106, 10), C.tan, 4);
+    crayon(ctx, zigzag(24, 88, 98, 8, 7), C.green, 3.6, { amp: 0.8 }); crayon(ctx, zigzag(134, 196, 100, 8, 7), C.green, 3.6, { amp: 0.8 });
+    grass(ctx, 6, 214, 152, 7);
+    letters(ctx, 'root bridge', 54, 28, C.brown, 16);
   },
   slug(ctx) {
-    pencil(ctx, curve(10, 118, 110, 130, 210, 116), { w: 1.6 });
-    hatch(ctx, [[10, 118], [210, 116], [210, 150], [10, 150]], 0.15, 5, 0.25);
-    const body = [...curve(44, 108, 60, 72, 110, 76, 10), ...curve(110, 76, 150, 78, 176, 100, 10), ...curve(176, 100, 150, 112, 110, 112, 8), ...curve(110, 112, 70, 114, 44, 108, 8)];
-    pencil(ctx, body, { w: 1.6, close: true });
-    pencil(ctx, curve(80, 84, 110, 80, 134, 90, 10), { w: 1.0, a: 0.6 });   // the mantle
-    pencil(ctx, curve(96, 80, 104, 92, 112, 84, 6), { w: 0.8, a: 0.5, passes: 1 });   // the breathing hole
-    for (let i = 0; i < 9; i++) { const x = rnd(60, 168), y = rnd(84, 106); pencil(ctx, arc(x, y, rnd(2, 4), rnd(1.5, 3), 0, Math.PI * 2, 8), { w: 0.9, a: 0.7, passes: 1, jit: 0.5 }); hatch(ctx, arc(x, y, rnd(2, 4), rnd(1.5, 3), 0, Math.PI * 2, 8), 0.5, 1.5, 0.5, 0.7); }
-    pencil(ctx, curve(44, 108, 36, 90, 30, 80, 5), { w: 1.0 }); pencil(ctx, curve(46, 106, 44, 92, 42, 84, 5), { w: 1.0 });
-    pencil(ctx, arc(30, 79, 1.5, 1.5, 0, 6.3, 6), { w: 1, passes: 1 }); pencil(ctx, arc(42, 83, 1.5, 1.5, 0, 6.3, 6), { w: 1, passes: 1 });
-    mossLine(ctx, 12, 40, 116, 5); mossLine(ctx, 182, 206, 115, 5);
+    const log = [[8, 120], [212, 116], [212, 152], [8, 152]];
+    colour(ctx, log, C.brown, { gap: 6, ang: 0.05 }); crayon(ctx, log, C.brown, 4, { close: true });
+    const body = [[44, 106], [48, 84], [84, 72], [130, 72], [168, 84], [184, 108], [150, 114], [84, 114]];
+    colour(ctx, body, C.yellow, { gap: 4.5, ang: 0.15, a: 0.62 }); crayon(ctx, body, C.orange, 4, { close: true });
+    for (let i = 0; i < 7; i++) dot(ctx, rnd(80, 168), rnd(82, 106), rnd(2.5, 4.5), C.black);
+    crayon(ctx, [[52, 88], [40, 60]], C.orange, 3.2); crayon(ctx, [[64, 82], [60, 54]], C.orange, 3.2);
+    dot(ctx, 40, 58, 3.2, C.black); dot(ctx, 60, 52, 3.2, C.black);
+    crayon(ctx, bow(50, 100, 58, 108, 68, 100, 5), C.red, 2.6, { amp: 0.6 });
+    letters(ctx, 'SLUG !!', 98, 44, C.orange, 20);
   },
   masonmark(ctx) {
-    // courses of brick, one with the mark
-    for (let r = 0; r < 4; r++) { const y = 22 + r * 32; pencil(ctx, line(6, y, 214, y), { w: 1.2, a: 0.55 }); for (let k = (r % 2 ? 0 : 1); k < 5; k++) pencil(ctx, line(6 + k * 52 + (r % 2 ? 26 : 0), y, 6 + k * 52 + (r % 2 ? 26 : 0), y + 32), { w: 1.1, a: 0.5, passes: 1 }); }
-    pencil(ctx, line(6, 150, 214, 150), { w: 1.2, a: 0.55 });
-    for (let i = 0; i < 40; i++) { const x = rnd(8, 212), y = rnd(24, 148); pencil(ctx, line(x, y, x + rnd(-4, 4), y + rnd(-2, 2)), { w: 0.7, a: 0.25, passes: 1 }); }
-    // the mark on the brick at 58..110 x 86..118: a W with a tail, cut deep
-    const m = [[64, 112], [74, 90], [84, 106], [94, 90], [104, 112]];
-    pencil(ctx, m, { w: 2.6, a: 0.9 }); pencil(ctx, m.map(([x, y]) => [x + 2, y + 2]), { w: 1.2, a: 0.35, passes: 1 });
-    pencil(ctx, line(84, 106, 84, 120), { w: 2.4, a: 0.9 });
-    pencil(ctx, arc(84, 104, 30, 20, 0, Math.PI * 2, 20), { w: 0.8, a: 0.25, passes: 1, jit: 2 });   // the eye's circle round it
+    for (let r = 0; r < 4; r++) {
+      const y = 26 + r * 30;
+      for (let k = 0; k < 4; k++) {
+        const x = 8 + k * 54 + (r % 2 ? 22 : 0), brick = [[x, y], [Math.min(214, x + 50), y + rnd(-2, 2)], [Math.min(214, x + 50), y + 26], [x, y + 26 + rnd(-2, 2)]];
+        if (x > 206) continue;
+        if ((r + k) % 2 === 0) colour(ctx, brick, C.red, { gap: 6, ang: 0.05, a: 0.38 });
+        crayon(ctx, brick, C.red, 3, { close: true, amp: 1.2 });
+      }
+    }
+    crayon(ctx, [[84, 62], [94, 80], [104, 64], [114, 80], [124, 62]], C.black, 5, { amp: 1 });
+    crayon(ctx, [[104, 64], [104, 84]], C.black, 4.5, { amp: 1 });
+    letters(ctx, 'old wall', 68, 152, C.black, 16);
   },
   feather(ctx) {
-    const shaft = curve(30, 134, 110, 90, 196, 36, 24);
-    const left = [], right = [];
-    for (let i = 0; i <= 24; i++) { const t = i / 24, [x, y] = shaft[i]; const wv = Math.sin(t * Math.PI) * 22 * (1 - t * 0.3) + (t > 0.15 ? 4 : 0); left.push([x - wv * 0.5, y - wv * 0.85]); right.push([x + wv * 0.5, y + wv * 0.85]); }
-    const vane = [...left.slice(3), ...right.slice(3).reverse()];
-    pencil(ctx, vane, { w: 1.2, a: 0.6, close: true, jit: 1.8 });
-    hatch(ctx, vane, -0.55, 3.5, 0.45, 0.9);
-    pencil(ctx, shaft, { w: 2.0, a: 0.85 });
-    for (let i = 4; i < 24; i += 1) { const [x, y] = shaft[i]; pencil(ctx, line(x, y, left[i][0], left[i][1]), { w: 0.7, a: 0.3, passes: 1 }); pencil(ctx, line(x, y, right[i][0], right[i][1]), { w: 0.7, a: 0.3, passes: 1 }); }
-    mossLine(ctx, 14, 206, 146, 7, 0.45); mossLine(ctx, 30, 190, 140, 5, 0.35);
+    grass(ctx, 6, 214, 152, 10);
+    const vane = [[52, 128], [70, 92], [112, 58], [160, 36], [192, 30], [176, 56], [140, 92], [96, 122]];
+    colour(ctx, vane, C.night, { gap: 4, ang: -0.9, a: 0.6 }); colour(ctx, vane, C.blue, { gap: 11, ang: -0.9, a: 0.4, w: 3 });
+    crayon(ctx, vane, C.black, 3.6, { close: true });
+    crayon(ctx, [[30, 142], [194, 30]], C.black, 4.4, { amp: 1.2 });
+    letters(ctx, 'ravens fether', 12, 28, C.night, 15);
   },
   cowbell(ctx) {
-    const bell = [[82, 60], [138, 60], [150, 122], ...arc(110, 122, 40, 14, 0, Math.PI, 12), [70, 122]];
-    pencil(ctx, bell, { w: 1.6, close: true });
-    hatch(ctx, [[82, 60], [138, 60], [150, 122], [70, 122]], 1.2, 6, 0.28);
-    pencil(ctx, arc(110, 52, 14, 10, Math.PI, Math.PI * 2, 12), { w: 1.6 });   // the loop
-    pencil(ctx, line(96, 52, 96, 60), { w: 1.4, passes: 1 }); pencil(ctx, line(124, 52, 124, 60), { w: 1.4, passes: 1 });
-    pencil(ctx, line(110, 100, 112, 132), { w: 1.3, a: 0.6 }); pencil(ctx, arc(112, 134, 5, 5, 0, 6.3, 8), { w: 1.2, a: 0.7 });   // the clapper
-    pencil(ctx, curve(96, 48, 70, 30, 40, 24, 8), { w: 1.1, a: 0.5 }); pencil(ctx, curve(124, 48, 120, 28, 90, 20, 8), { w: 1.1, a: 0.5 });   // the rotted strap
-    for (let i = 0; i < 40; i++) { const x = rnd(8, 212), h = rnd(10, 36); pencil(ctx, curve(x, 150, x + rnd(-6, 6), 150 - h * 0.6, x + rnd(-12, 12), 150 - h, 5), { w: 0.9, a: 0.5, passes: 1 }); }
+    grass(ctx, 6, 214, 152, 12);
+    const bell = [[84, 58], [136, 58], [154, 126], [66, 126]];
+    colour(ctx, bell, C.yellow, { gap: 5, ang: 1.3, a: 0.6 }); colour(ctx, bell, C.orange, { gap: 13, ang: 1.3, a: 0.35 });
+    crayon(ctx, bell, C.brown, 4.4, { close: true });
+    crayon(ctx, bow(96, 58, 110, 30, 124, 58, 8), C.brown, 4.4);
+    crayon(ctx, [[110, 100], [112, 134]], C.black, 3.4); dot(ctx, 112, 138, 5, C.black);
+    for (const s of [-1, 1]) for (let i = 0; i < 3; i++) crayon(ctx, [[110 + s * (58 + i * 2), 76 + i * 16], [110 + s * (76 + i * 3), 70 + i * 18]], C.red, 3, { amp: 0.7 });
+    letters(ctx, 'ding ding', 14, 30, C.red, 17);
   },
   ironpin(ctx) {
-    // the rock face with its bedding, the ring and the pin
-    for (let i = 0; i < 6; i++) pencil(ctx, curve(6, 30 + i * 22 + rnd(-3, 3), 110, 34 + i * 22 + rnd(-6, 6), 214, 28 + i * 22 + rnd(-3, 3), 12), { w: 1.0, a: 0.35, passes: 1, jit: 1.8 });
-    pencil(ctx, arc(110, 92, 30, 30, 0, Math.PI * 2, 28), { w: 2.4, a: 0.9 });
-    pencil(ctx, arc(110, 92, 23, 23, 0, Math.PI * 2, 28), { w: 1.6, a: 0.8 });
-    hatch(ctx, [...arc(110, 92, 30, 30, 0, Math.PI * 2, 28)], 0.8, 3, 0.3, 0.8);
-    pencil(ctx, line(110, 62, 110, 44), { w: 3, a: 0.9 }); pencil(ctx, arc(110, 42, 6, 4, 0, Math.PI * 2, 10), { w: 1.4 });
-    for (let i = 0; i < 10; i++) { const a = rnd(0, 6.3); pencil(ctx, line(110 + Math.cos(a) * 33, 92 + Math.sin(a) * 33, 110 + Math.cos(a) * rnd(38, 48), 92 + Math.sin(a) * rnd(38, 48)), { w: 0.8, a: 0.35, passes: 1 }); }   // rust stains
-    mossLine(ctx, 10, 70, 150, 6); mossLine(ctx, 150, 210, 150, 6);
+    const wall = [[6, 22], [214, 22], [214, 142], [6, 142]];
+    colour(ctx, wall, C.grey, { gap: 9, ang: 0.08, a: 0.3, w: 4 });
+    const ring = blob(110, 96, 30, 30, 14, 0.06);
+    crayon(ctx, ring, C.orange, 7, { close: true, amp: 1.2 }); crayon(ctx, ring, C.brown, 3, { close: true, amp: 1.4 });
+    crayon(ctx, [[110, 66], [110, 42]], C.black, 5.5, { amp: 0.8 }); dot(ctx, 110, 38, 6, C.black);
+    for (let i = 0; i < 4; i++) { const x = 92 + i * 12; crayon(ctx, [[x, 128], [x + rnd(-3, 3), rnd(136, 150)]], C.orange, 2.6, { amp: 0.8 }); }
+    crayon(ctx, zigzag(8, 60, 150, 9, 6), C.green, 3.4, { amp: 0.8 }); crayon(ctx, zigzag(160, 212, 150, 9, 6), C.green, 3.4, { amp: 0.8 });
+    letters(ctx, 'iron ring', 122, 60, C.brown, 15);
   },
   kneechair(ctx) {
-    const seat = [...arc(104, 112, 46, 16, Math.PI, Math.PI * 2, 14), ...arc(104, 112, 46, 10, 0, Math.PI, 14)];
-    pencil(ctx, seat, { w: 1.6, close: true });
-    const back = [[62, 100], [58, 50], ...arc(68, 44, 12, 10, Math.PI, Math.PI * 2, 8), [84, 54], [80, 98]];
-    pencil(ctx, back, { w: 1.6, close: true });
-    hatch(ctx, back, 1.5, 4, 0.3); hatch(ctx, seat, 0.1, 5, 0.22);
-    const foot = [[76, 122], [70, 148], [140, 150], [134, 122]];
-    pencil(ctx, foot, { w: 1.4, close: true }); hatch(ctx, foot, 1.5, 4, 0.3);
-    for (let i = 0; i < 8; i++) { const x = 64 + i * 10; pencil(ctx, curve(x, 56 + rnd(-4, 4), x + 2, 80, x - 2, 98, 6), { w: 0.8, a: 0.4, passes: 1 }); }   // the grain
-    pencil(ctx, curve(6, 144, 110, 150, 214, 146, 14), { w: 1.0, a: 0.5 }); pencil(ctx, curve(20, 152, 110, 156, 200, 152, 14), { w: 0.8, a: 0.3, passes: 1 });   // the water
-    pencil(ctx, arc(160, 128, 10, 14, Math.PI, Math.PI * 2, 8), { w: 1.2, a: 0.6 }); pencil(ctx, arc(178, 136, 6, 10, Math.PI, Math.PI * 2, 8), { w: 1.1, a: 0.5 });   // more knees
+    for (const y of [140, 152]) crayon(ctx, zigzag(6, 214, y, 5, 13), C.blue, 3.4, { amp: 1 });
+    const back = [[60, 106], [56, 44], [86, 42], [86, 106]], seat = [[56, 104], [152, 104], [152, 124], [56, 124]], foot = [[74, 124], [70, 148], [140, 148], [136, 124]];
+    for (const p of [back, seat, foot]) { colour(ctx, p, C.tan, { gap: 5, a: 0.55 }); crayon(ctx, p, C.brown, 4, { close: true }); }
+    // somebody sitting in it
+    crayon(ctx, blob(118, 58, 10, 10, 9, 0.08), C.black, 2.8, { close: true, amp: 0.9 });
+    crayon(ctx, [[118, 68], [118, 100]], C.black, 2.8); crayon(ctx, [[118, 100], [144, 102], [146, 124]], C.black, 2.8); crayon(ctx, [[106, 80], [132, 80]], C.black, 2.8);
+    dot(ctx, 114, 56, 1.5, C.black); dot(ctx, 122, 56, 1.5, C.black); crayon(ctx, bow(113, 61, 118, 65, 123, 61, 4), C.red, 2, { amp: 0.4 });
+    crayon(ctx, bow(170, 138, 178, 108, 186, 138, 6), C.brown, 4); crayon(ctx, bow(192, 140, 198, 120, 204, 140, 6), C.brown, 4);
+    letters(ctx, 'tree chair', 96, 30, C.brown, 16);
+  },
+  radbro(ctx) {
+    const face = [[62, 96], [66, 74], [84, 60], [100, 74], [112, 60], [150, 68], [162, 98], [152, 128], [112, 142], [78, 134]];
+    colour(ctx, face, C.skin, { gap: 5, ang: 0.2, a: 0.6 });
+    const hair = [[52, 104], [42, 62], [58, 30], [100, 14], [148, 20], [176, 48], [180, 100], [162, 104], [152, 68], [114, 58], [100, 76], [84, 58], [66, 76], [62, 104]];
+    colour(ctx, hair, C.brown, { gap: 4.5, ang: 0.5, a: 0.62 }); crayon(ctx, hair, C.brown, 4.4, { close: true });
+    crayon(ctx, face, C.black, 3, { close: true, amp: 1.3 });
+    for (const [ex, tilt] of [[88, 1], [136, -1]]) {
+      const eye = [[ex - 16, 98 - tilt * 3], [ex - 8, 84 - tilt * 2], [ex + 10, 84 + tilt * 2], [ex + 16, 98 + tilt * 3], [ex + 8, 114], [ex - 10, 112]];
+      colour(ctx, eye, C.tan, { gap: 4, a: 0.6, w: 3 }); crayon(ctx, eye, C.black, 3.6, { close: true, amp: 1 });
+      dot(ctx, ex + 1, 100, 6, C.black);
+    }
+    crayon(ctx, [[70, 76], [104, 86]], C.black, 5, { amp: 1 }); crayon(ctx, [[156, 72], [122, 84]], C.black, 5, { amp: 1 });
+    crayon(ctx, [[102, 128], [124, 127]], C.black, 3.4, { amp: 0.6 });
+    crayon(ctx, zigzag(6, 56, 150, 12, 6), C.green, 3.6, { amp: 0.8 }); crayon(ctx, zigzag(166, 214, 150, 12, 6), C.green, 3.6, { amp: 0.8 });
+    letters(ctx, 'RADBRO', 8, 26, C.dkgreen, 18);
   },
 };
 
 // the player came upon this place's find: hold the sketch up for a moment (once per visit to a place)
 export class Finds {
-  constructor($) { this.$ = $; this.seen = new Set(); }
+  // seen: this walk through this place (the card is held up once a visit). ever: everything found on any walk, kept on
+  // the device and with the account (cloud.js), which is what the satchel lists.
+  constructor($) { this.$ = $; this.seen = new Set(); this.reload(); }
+  reload() { try { this.ever = JSON.parse(localStorage.getItem('moss-maze-finds-v1') || '{}') || {}; } catch { this.ever = {}; } }
   reset() { this.seen.clear(); }
   isFound(id) { return this.seen.has(id); }
+  wasFound(id) { return !!this.ever[id] || this.seen.has(id); }
   found(id, level, placeName) {
-    if (this.seen.has(id) || !FINDS[id]) return false;
+    const F = findOf(id);
+    if (this.seen.has(id) || !F) return false;
     this.seen.add(id);
+    if (!this.ever[id]) { this.ever[id] = level || 1; try { localStorage.setItem('moss-maze-finds-v1', JSON.stringify(this.ever)); } catch { /* storage blocked */ } }
     const toast = this.$('#find');
-    toast.querySelector('.find-title').textContent = FINDS[id].title;
-    toast.querySelector('.find-sub').textContent = `${placeName.toLowerCase()} · maze ${level}`;
+    toast.querySelector('.find-title').textContent = F.title;
+    toast.querySelector('.find-sub').textContent = `${placeName.toLowerCase()} · maze ${level}`; toast.querySelector('.find-sub').style.color = '';
+    this.note(toast, F);
     this.draw(toast.querySelector('canvas'), id);
     toast.classList.remove('show'); void toast.offsetWidth; toast.classList.add('show');
     return true;
+  }
+  // any card at all: { title, sub, note, latin, color, draw(ctx, w, h) } (the Bug Book's pages)
+  card(o) {
+    const toast = this.$('#find');
+    toast.querySelector('.find-title').textContent = o.title || '';
+    const sub = toast.querySelector('.find-sub'); sub.textContent = o.sub || ''; sub.style.color = o.color || '';
+    this.note(toast, { note: o.note || '' });
+    if (o.latin) { const e = document.createElement('em'); e.textContent = o.latin; const n = toast.querySelector('.find-note'); if (n.textContent) n.appendChild(document.createElement('br')); n.appendChild(e); }
+    const canvas = toast.querySelector('canvas'), w = 220, h = o.h || 160, dpr = Math.min(2, devicePixelRatio || 1);
+    canvas.width = w * dpr; canvas.height = h * dpr; canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+    const ctx = canvas.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h);
+    if (o.draw) o.draw(ctx, w, h);
+    toast.style.animationDuration = '7s';
+    toast.classList.remove('show'); void toast.offsetWidth; toast.classList.add('show');
+  }
+  // hold a found one's drawing up again (the satchel's Finds tab)
+  show(id, sub = '') {
+    const F = findOf(id); if (!F) return;
+    const toast = this.$('#find');
+    toast.querySelector('.find-title').textContent = F.title;
+    toast.querySelector('.find-sub').textContent = sub; toast.querySelector('.find-sub').style.color = '';
+    this.note(toast, F);
+    this.draw(toast.querySelector('canvas'), id);
+    toast.classList.remove('show'); void toast.offsetWidth; toast.classList.add('show');
+  }
+  // what is written under the drawing; a long one gets a wide card and stays up long enough to read
+  note(toast, F) {
+    const text = F.note || '';
+    toast.querySelector('.find-note').textContent = text;
+    toast.classList.toggle('long', text.length > 320);
+    toast.style.animationDuration = Math.min(50, 6 + text.length / 20).toFixed(1) + 's';
   }
   draw(canvas, id) {
     const w = 220, h = 160, dpr = Math.min(2, devicePixelRatio || 1);
     canvas.width = w * dpr; canvas.height = h * dpr; canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
     const ctx = canvas.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
-    if (SKETCHES[FINDS[id].kind]) SKETCHES[FINDS[id].kind](ctx);
+    const F = findOf(id);
+    if (F && SKETCHES[F.kind]) SKETCHES[F.kind](ctx);
   }
 }

@@ -16,11 +16,13 @@
 //
 // Needs the SAVES KV (shared with the saves and the notes board). Cloudflare Pages Function, behind /maze/'s door.
 
-const ETH_RPCS = ['https://ethereum-rpc.publicnode.com', 'https://1rpc.io/eth'];
+// free Ethereum RPCs that answer this site's Functions (asked from the live site, 2026-11-19: GET nft/health). A read
+// that one refuses is tried on the next; big jobs start on a different one each time, so no one of them is leaned on.
+const ETH_RPCS = ['https://ethereum-rpc.publicnode.com', 'https://eth.drpc.org', 'https://eth-mainnet.public.blastapi.io', 'https://rpc.mevblocker.io'];
 const RH_RPC = 'https://rpc.mainnet.chain.robinhood.com';
 const MULTICALL = '0xcA11bde05977b3631167028862bE2a173976CA11';
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
-const IPFS = ['https://gateway.pinata.cloud/ipfs/', 'https://ipfs.io/ipfs/'];      // tried in turn: gateways come and go, and some refuse some content
+const IPFS = ['https://ipfs.filebase.io/ipfs/', 'https://gateway.pinata.cloud/ipfs/', 'https://ipfs.io/ipfs/'];      // tried in turn: gateways come and go, and some refuse some content
 
 // Remilia's own collections and the ones grown around them (each checked on chain: name() and ownerOf answer)
 const SETS = {
@@ -43,8 +45,8 @@ const pad = (h, n = 64) => String(h).replace(/^0x/, '').padStart(n, '0');
 const SEL = { ownerOf: '6352211e', balanceOf: '70a08231', tokenOfOwnerByIndex: '2f745c59', tokenURI: 'c87b56dd', aggregate3: '82ad56cb' };
 
 let RH_KEYED = '';      // env.ROBINHOOD_RPC_URL, set on each request: the same provider the site's /rpc/robinhood uses
-async function rpc(chain, body) {
-  const urls = chain === 'rh' ? [RH_KEYED, RH_RPC].filter(Boolean) : ETH_RPCS;
+async function rpc(chain, body, turn = 0) {
+  const urls = chain === 'rh' ? [RH_KEYED, RH_RPC].filter(Boolean) : ETH_RPCS.map((_, i) => ETH_RPCS[(i + turn) % ETH_RPCS.length]);
   let last = 'no answer';
   for (const url of urls) {
     try {
@@ -121,9 +123,9 @@ async function ownersOf(env, key, allowBuild) {
   } else {
     const CH = 400, jobs = [];
     for (let s = lo; s <= hi; s += CH) { const ids = []; for (let id = s; id <= Math.min(hi, s + CH - 1); id++) ids.push(id); jobs.push(ids); }
-    // six at a time: quick, and gentle on a free RPC
-    for (let i = 0; i < jobs.length; i += 6) {
-      const part = await Promise.all(jobs.slice(i, i + 6).map(async ids => { const r = await rpc('eth', call(MULTICALL, aggCall(ids.map(id => ({ to: S.addr, data: SEL.ownerOf + pad(id.toString(16)) }))))); return aggRead(r.result, ids.length).map(asAddress); }));
+    // four at a time, each starting on a different RPC: quick, and gentle on any one of them
+    for (let i = 0; i < jobs.length; i += 4) {
+      const part = await Promise.all(jobs.slice(i, i + 4).map(async (ids, k) => { const r = await rpc('eth', call(MULTICALL, aggCall(ids.map(id => ({ to: S.addr, data: SEL.ownerOf + pad(id.toString(16)) })))), i + k); return aggRead(r.result, ids.length).map(asAddress); }));
       part.forEach((owners, k) => owners.forEach((o, j) => { if (o) (map[o] = map[o] || []).push(jobs[i + k][j]); }));
     }
   }

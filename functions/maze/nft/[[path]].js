@@ -42,8 +42,9 @@ const json = (body, status = 200, cache = 'no-store') => new Response(JSON.strin
 const pad = (h, n = 64) => String(h).replace(/^0x/, '').padStart(n, '0');
 const SEL = { ownerOf: '6352211e', balanceOf: '70a08231', tokenOfOwnerByIndex: '2f745c59', tokenURI: 'c87b56dd', aggregate3: '82ad56cb' };
 
+let RH_KEYED = '';      // env.ROBINHOOD_RPC_URL, set on each request: the same provider the site's /rpc/robinhood uses
 async function rpc(chain, body) {
-  const urls = chain === 'rh' ? [RH_RPC] : ETH_RPCS;
+  const urls = chain === 'rh' ? [RH_KEYED, RH_RPC].filter(Boolean) : ETH_RPCS;
   let last = 'no answer';
   for (const url of urls) {
     try {
@@ -220,12 +221,42 @@ async function picture(env, url, request, ctx) {
   return out;
 }
 
+// Which of the services this leans on answer from HERE (they treat a server's address differently from a desk's):
+// each Ethereum RPC asked for ownerOf of 100 and of 400 tokens in one call, each IPFS gateway for one small file.
+async function health(url) {
+  const out = { rpc: {}, ipfs: {}, rh: {} };
+  const S = SETS.remilio, tryRpc = async (at, n) => {
+    const ids = Array.from({ length: n }, (_, i) => i + 1), t = Date.now();
+    try {
+      const res = await fetch(at, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json', 'user-agent': 'Mozilla/5.0 (compatible; mossquest/1.0)' }, body: JSON.stringify(call(MULTICALL, aggCall(ids.map(id => ({ to: S.addr, data: SEL.ownerOf + pad(id.toString(16)) }))))), signal: AbortSignal.timeout(9000) });
+      const text = await res.text(); let ok = 0;
+      try { const j = JSON.parse(text); if (j.result) ok = aggRead(j.result, n).filter(Boolean).length; else return `${res.status} ${JSON.stringify(j.error || j).slice(0, 90)} ${Date.now() - t}ms`; } catch { return `${res.status} not json: ${text.slice(0, 60)} ${Date.now() - t}ms`; }
+      return `ok ${ok}/${n} ${Date.now() - t}ms`;
+    } catch (e) { return `threw ${String(e && e.message || e).slice(0, 60)} ${Date.now() - t}ms`; }
+  };
+  const rpcs = (url.searchParams.get('set') === '2' ? ['https://eth-mainnet.public.blastapi.io', 'https://rpc.flashbots.net', 'https://eth.merkle.io', 'https://rpc.mevblocker.io', 'https://ethereum.publicnode.com'] : ['https://ethereum-rpc.publicnode.com', 'https://1rpc.io/eth', 'https://eth.llamarpc.com', 'https://eth.drpc.org', 'https://cloudflare-eth.com']);
+  if (url.searchParams.get('what') !== 'ipfs') await Promise.all(rpcs.map(async at => { out.rpc[at] = [await tryRpc(at, 100), await tryRpc(at, 400)]; }));
+  if (url.searchParams.get('what') === 'ipfs') await Promise.all(['https://gateway.pinata.cloud/ipfs/', 'https://ipfs.io/ipfs/', 'https://dweb.link/ipfs/', 'https://ipfs.filebase.io/ipfs/', 'https://4everland.io/ipfs/', 'https://w3s.link/ipfs/', 'https://lime-given-booby-462.mypinata.cloud/ipfs/', 'https://trustless-gateway.link/ipfs/'].map(async g => {
+    const t = Date.now();
+    try { const res = await fetch(g + 'bafybeigd7557iwardhnwg5kbmg2s7tmuxqkstjeoixu7wunooiywbb3jqq/1675', { headers: { accept: 'application/json', 'user-agent': 'Mozilla/5.0 (compatible; mossquest/1.0)' }, signal: AbortSignal.timeout(9000) }); const text = await res.text(); out.ipfs[g] = `${res.status} ${text.includes('Pixelady') ? 'ok' : text.slice(0, 40).replace(/\s+/g, ' ')} ${Date.now() - t}ms`; }
+    catch (e) { out.ipfs[g] = `threw ${String(e && e.message || e).slice(0, 50)}`; }
+  }));
+  if (url.searchParams.get('what') === 'rh') for (const at of [RH_KEYED, RH_RPC].filter(Boolean)) {
+    const t = Date.now(), name = at === RH_RPC ? 'public' : 'keyed';
+    try { const res = await fetch(at, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json', 'user-agent': 'Mozilla/5.0 (compatible; mossquest/1.0)' }, body: JSON.stringify([1, 2, 3].map((id, i) => call(SETS.mossnet.addr, SEL.ownerOf + pad(id.toString(16)), i))), signal: AbortSignal.timeout(9000) }); const text = await res.text(); out.rh[name] = `${res.status} ${text.slice(0, 70)} ${Date.now() - t}ms`; }
+    catch (e) { out.rh[name] = `threw ${String(e && e.message || e).slice(0, 60)}`; }
+  }
+  return json(out);
+}
+
 export async function onRequestGet(ctx) {
   const { request, env, params } = ctx;
   if (!env.SAVES) return json({ error: 'the gallery is not set up on this deployment (no KV binding)' }, 503);
   const route = Array.isArray(params.path) ? params.path.join('/') : (params.path || '');
   const url = new URL(request.url);
+  RH_KEYED = env.ROBINHOOD_RPC_URL || '';
   try {
+    if (route === 'health') return await health(url);
     if (route === 'list') return await list(env, url);
     if (route === 'img') return await picture(env, url, request, ctx);
     return json({ error: 'no such route' }, 404);

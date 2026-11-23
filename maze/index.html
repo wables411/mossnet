@@ -9,7 +9,7 @@
 <link rel="preload" href="fonts/Monocraft.ttf" as="font" type="font/ttf" crossorigin>
 <link rel="preload" href="fonts/FreckleFace-Regular.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/IMFellEnglish-Regular.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="styles.css?v=c1f6a949">
+<link rel="stylesheet" href="styles.css?v=a23a545d">
 </head>
 <body data-mode="loading">
 <canvas id="view"></canvas>
@@ -25,7 +25,7 @@
       <p class="lcd-sub">eight places &middot; no map &middot; find a way out or dont</p>
       <p id="who" class="lcd-who"></p>
       <p id="records" class="lcd-line"></p>
-      <div id="menu">
+      <div id="menu" class="menu">
         <button id="enter" class="row" disabled>play</button>
         <button id="gallery-open" class="row" disabled>gallery</button>
         <button id="gallery-moss" class="row sub">moss nfts in the gallery &middot; off</button>
@@ -39,26 +39,41 @@
 </div>
 
 <div id="paused" class="overlay">
-  <div class="card">
-    <h2>paused</h2>
-    <button id="resume">keep walking</button>
-    <button id="settings-open" class="ghost">settings</button>
-    <button id="satchel-open-paused" class="ghost">satchel</button>
-    <button id="notes-open-paused" class="ghost">report a bug / suggest</button>
-    <button id="quit" class="ghost">leave the maze</button>
+  <div class="lcd">
+    <div class="lcd-bar"><i></i>LOST IN THE MOSS</div>
+    <div class="lcd-screen">
+      <div class="lcd-body">
+      <h1>paused</h1>
+      <p id="paused-where" class="lcd-sub"></p>
+      <div class="menu">
+        <button id="resume" class="row">keep walking</button>
+        <button id="satchel-open-paused" class="row">satchel</button>
+        <button id="settings-open" class="row">settings</button>
+        <button id="notes-open-paused" class="row">dev notes &middot; report a bug</button>
+        <button id="quit" class="row">leave the maze</button>
+      </div>
+      </div>
+    </div>
+    <div class="lcd-foot"><span class="save-line"></span></div>
   </div>
 </div>
 
 <div id="settings" class="overlay">
-  <div class="card">
-    <h2>settings</h2>
-    <label class="row"><span>mouse speed</span><input id="set-sens" type="range" min="0.3" max="3" step="0.1"><output id="set-sens-out"></output></label>
-    <label class="row"><span>camera bob when you walk</span><input id="set-bob" type="range" min="0" max="1.5" step="0.1"><output id="set-bob-out"></output></label>
-    <label class="row"><span>3D sound (wear headphones)</span><input id="set-asmr" type="checkbox"></label>
-    <label class="row"><span>clean screen: hide all text and buttons</span><input id="set-clean" type="checkbox"></label>
-    <label class="row phone-only"><span>show the walking joystick</span><input id="set-controls" type="checkbox"></label>
-    <label class="row phone-only"><span>show the "drag to look" hint</span><input id="set-look" type="checkbox"></label>
-    <div class="controls-list desk-only">
+  <div class="lcd">
+    <div class="lcd-bar"><i></i>SETTINGS</div>
+    <div class="lcd-screen">
+      <div class="lcd-body">
+      <h1>settings</h1>
+      <div class="menu">
+        <label class="row set"><span>mouse speed</span><input id="set-sens" type="range" min="0.3" max="3" step="0.1"><output id="set-sens-out"></output></label>
+        <label class="row set"><span>camera bob</span><input id="set-bob" type="range" min="0" max="1.5" step="0.1"><output id="set-bob-out"></output></label>
+        <label class="row set"><span>3D sound (headphones)</span><input id="set-asmr" type="checkbox"></label>
+        <label class="row set"><span>clean screen: no text or buttons</span><input id="set-clean" type="checkbox"></label>
+        <label class="row set phone-only"><span>walking joystick</span><input id="set-controls" type="checkbox"></label>
+        <label class="row set phone-only"><span>"drag to look" hint</span><input id="set-look" type="checkbox"></label>
+        <button id="settings-done" class="row">done</button>
+      </div>
+      <div class="controls-list desk-only">
       <div class="head">keys</div>
       <div><span>W A S D</span>walk</div>
       <div><span>mouse</span>look around</div>
@@ -81,7 +96,7 @@
       <div><span>M</span>sound on / off</div>
       <div><span>esc</span>pause</div>
     </div>
-    <div class="controls-list phone-only">
+      <div class="controls-list phone-only">
       <div class="head">on a phone</div>
       <div><span>left thumb</span>walk</div>
       <div><span>right thumb</span>look around</div>
@@ -89,7 +104,9 @@
       <div><span>buttons</span>under the clock: torch, smoke, handheld, page, write, picture</div>
       <div><span>II</span>pause</div>
     </div>
-    <button id="settings-done">done</button>
+      </div>
+    </div>
+    <div class="lcd-foot"><span class="desk-only">up / down choose &middot; left / right change &middot; esc back</span><span class="phone-only">tap a row to change it</span></div>
   </div>
 </div>
 
@@ -187,6 +204,6 @@ to write</div>
   <button id="mute" class="tiny">sound on</button>
 </div>
 
-<script type="module" src="src/main.js?v=40c16947"></script>
+<script type="module" src="src/main.js?v=5d2fdc80"></script>
 </body>
 </html>

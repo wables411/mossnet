@@ -12,9 +12,9 @@
 // with the camera. Only his shadow is in the picture, the way a hiker filming
 // sees theirs on the moss ahead.
 import * as THREE from '../lib/three.module.js?v=88cddb5c';
-import { wind } from './wind.js?v=40c16947';
+import { wind } from './wind.js?v=5d2fdc80';
 import { GLTFLoader } from '../lib/GLTFLoader.js';
-import { Arm, HOLD } from './hands.js?v=40c16947';
+import { Arm, HOLD } from './hands.js?v=5d2fdc80';
 
 const TILE = 10;           // metres one mask tile spans on the ground
 const SPAN = 6;            // tiles across a plane: 60 m, wider than the shadow camera's 32 m and its slant

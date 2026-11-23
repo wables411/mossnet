@@ -27,7 +27,25 @@ body.notes #landing, body.notes #paused { display: none !important; }
 /* --- the start screen: an LCD, after the MQ-01 on the site's front page (pale green glass, dark green type, a cursor
    that inverts its row, the status line at the foot). Jersey 10, the same face as the handheld in the game. */
 @font-face { font-family: "Jersey 10"; src: url("fonts/Jersey10-Regular.woff2") format("woff2"); font-display: block; }
-#landing { padding: 10px; }
+#landing, #paused, #settings { padding: 10px; }
+#paused .lcd-body, #settings .lcd-body { padding-top: 10px; }
+/* the settings: each row is a name and its control, in the screen's own ink (and the glass's, under the cursor) */
+:is(#settings) .row.set { display: flex; align-items: center; gap: 10px; font-size: 22px; padding-right: 12px; }
+#settings .row.set span { flex: 1; }
+#settings .row output { width: 30px; text-align: right; font-variant-numeric: tabular-nums; color: inherit; }
+#settings .row input { color: inherit; accent-color: currentColor; }
+#settings .row input[type=range] { -webkit-appearance: none; appearance: none; width: 120px; height: 18px; margin: 0; background: transparent; color: inherit; cursor: pointer; }
+#settings .row input[type=range]::-webkit-slider-runnable-track { height: 3px; background: currentColor; }
+#settings .row input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 10px; height: 16px; margin-top: -6.5px; background: currentColor; border: 0; border-radius: 0; }
+#settings .row input[type=range]::-moz-range-track { height: 3px; background: currentColor; }
+#settings .row input[type=range]::-moz-range-thumb { width: 10px; height: 16px; background: currentColor; border: 0; border-radius: 0; }
+#settings .row input[type=checkbox] { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; margin: 0 2px 0 0; border: 2px solid currentColor; border-radius: 0; padding: 2px; background: transparent; background-clip: content-box; cursor: pointer; }
+#settings .row input[type=checkbox]:checked { background-color: currentColor; }
+#settings .controls-list { margin: 10px 18px 0; padding-top: 8px; border-top: 2px solid var(--ink); color: var(--ink); font-size: 17px; line-height: 1.2; }
+#settings .controls-list > div { margin: 3px 0; }
+#settings .controls-list .head { color: var(--ink2); font-size: 15px; letter-spacing: 0.16em; }
+#settings .controls-list span { color: var(--ink2); font-size: 14px; flex-basis: 96px; }
+.lcd-foot .desk-only, .lcd-foot .phone-only { font-size: 16px; color: var(--ink2); }
 .lcd { --ink: #1c3320; --ink2: #3d5a36; --glass: #c9d3a2; --glass2: #bcc893; width: min(94vw, 560px); max-height: 100%; display: flex; flex-direction: column; background: transparent; border: 12px solid #101410; border-top-width: 0; outline: 1px solid #2a332a; border-radius: 10px; padding: 0; box-shadow: 0 14px 50px rgba(0, 0, 0, 0.55); font-family: "Jersey 10", "Monocraft", monospace; text-shadow: none; text-align: left; }
 .lcd-bar { color: #c9d3a2; background: #101410; font-size: 15px; letter-spacing: 0.22em; padding: 10px 4px 8px; }
 .lcd-bar i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #5ee06a; box-shadow: 0 0 6px #5ee06a; margin-right: 9px; vertical-align: 1px; }
@@ -40,18 +58,18 @@ body.notes #landing, body.notes #paused { display: none !important; }
 .lcd-who { margin: 0 18px; font-size: 24px; }
 .lcd-who:empty { display: none; }
 .lcd-line { margin: 0 18px 2px; color: var(--ink2); font-size: 17px; letter-spacing: 0.03em; }
-#menu { margin: 8px 12px 6px; display: flex; flex-direction: column; }
-#landing .row { all: unset; box-sizing: border-box; display: block; font: inherit; font-size: 26px; line-height: 1.15; letter-spacing: 0.03em; color: var(--ink); padding: 2px 8px 3px 34px; cursor: pointer; position: relative; }
-#landing .row.sub { font-size: 20px; padding-left: 52px; color: var(--ink2); }
-#landing .row.on { background: var(--ink); color: var(--glass); }
-#landing .row.on::before { content: ''; position: absolute; left: 12px; top: 50%; margin-top: -7px; border: 7px solid transparent; border-left: 11px solid currentColor; border-right: 0; }
-#landing .row:disabled { opacity: 0.45; cursor: default; }
+.lcd .menu { margin: 8px 12px 6px; display: flex; flex-direction: column; }
+:is(#landing, #paused, #settings) .row { all: unset; box-sizing: border-box; display: block; font: inherit; font-size: 26px; line-height: 1.15; letter-spacing: 0.03em; color: var(--ink); padding: 2px 8px 3px 34px; cursor: pointer; position: relative; }
+:is(#landing, #paused, #settings) .row.sub { font-size: 20px; padding-left: 52px; color: var(--ink2); }
+:is(#landing, #paused, #settings) .row.on { background: var(--ink); color: var(--glass); }
+:is(#landing, #paused, #settings) .row.on::before { content: ''; position: absolute; left: 12px; top: 50%; margin-top: -7px; border: 7px solid transparent; border-left: 11px solid currentColor; border-right: 0; }
+:is(#landing, #paused, #settings) .row:disabled { opacity: 0.45; cursor: default; }
 .lcd-keys { margin: 6px 18px 0; color: var(--ink2); font-size: 15px; line-height: 1.25; letter-spacing: 0.03em; }
 .lcd-keys span { border: 1px solid var(--ink2); padding: 0 4px; border-radius: 2px; }
 .lcd-foot { border-top: 2px solid var(--ink); background: var(--glass2); color: var(--ink); font-size: 18px; letter-spacing: 0.03em; padding: 4px 12px 5px; min-height: 30px; }
 .lcd-foot #load:not(:empty) + .save-line { display: none; }
 .lcd-foot .save-line:empty::before { content: 'ready'; }
-@media (max-height: 520px) { .lcd-view, .lcd-keys { display: none; } #landing .row { font-size: 22px; } .lcd-who { font-size: 20px; } }
+@media (max-height: 520px) { .lcd-view, .lcd-keys { display: none; } :is(#landing, #paused, #settings) .row { font-size: 22px; } .lcd-who { font-size: 20px; } }
 
 #touchui { position: fixed; inset: 0; pointer-events: none; display: none; }
 body[data-mode="playing"] #touchui { display: block; }

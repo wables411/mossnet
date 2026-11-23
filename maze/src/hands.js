@@ -9,9 +9,9 @@
 // themselves in the picture's alpha, which is how the camera pass knows to keep them sharp (post.js).
 import * as THREE from '../lib/three.module.js?v=88cddb5c';
 import { GLTFLoader } from '../lib/GLTFLoader.js';
-import { buildMQ01 } from './mq01.js?v=40c16947';
-import { wind } from './wind.js?v=40c16947';
-import { Razor } from './razor.js?v=40c16947';
+import { buildMQ01 } from './mq01.js?v=5d2fdc80';
+import { wind } from './wind.js?v=5d2fdc80';
+import { Razor } from './razor.js?v=5d2fdc80';
 
 const v3 = (a) => new THREE.Vector3(a[0], a[1], a[2]);
 const ease = x => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };

@@ -7,14 +7,14 @@
 // here is a single instanced mesh or two, placed through the walkability guard,
 // standing on world.floorY, and animated for a few instances a frame at most.
 import * as THREE from '../lib/three.module.js?v=88cddb5c';
-import { canvasTexture, lumpGeometry, withAO, disp } from './geometry.js?v=40c16947';
-import { WALL } from './maze.js?v=40c16947';
-import { noise3 } from './noise.js?v=40c16947';
-import { makeCardMaterial } from './wind.js?v=40c16947';
-import { surfaceAt } from './props.js?v=40c16947';
-import { FINDS } from './finds.js?v=40c16947';
-import { buildAnimal, updateAnimal } from './animals.js?v=40c16947';
-import { buildCast, updateCast } from './cast.js?v=40c16947';
+import { canvasTexture, lumpGeometry, withAO, disp } from './geometry.js?v=5d2fdc80';
+import { WALL } from './maze.js?v=5d2fdc80';
+import { noise3 } from './noise.js?v=5d2fdc80';
+import { makeCardMaterial } from './wind.js?v=5d2fdc80';
+import { surfaceAt } from './props.js?v=5d2fdc80';
+import { FINDS } from './finds.js?v=5d2fdc80';
+import { buildAnimal, updateAnimal } from './animals.js?v=5d2fdc80';
+import { buildCast, updateCast } from './cast.js?v=5d2fdc80';
 
 const M4 = new THREE.Matrix4(), Q = new THREE.Quaternion(), S = new THREE.Vector3(), P = new THREE.Vector3(), E = new THREE.Euler();
 const rnd = (a, b) => a + Math.random() * (b - a);

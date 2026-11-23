@@ -8,8 +8,8 @@
 // the exit room or the exit itself. Because every accepted prop preserves local
 // connectivity, the exit stays reachable by construction; `check()` walks the
 // whole maze the same way as a final proof.
-import { WALL } from './maze.js?v=40c16947';
-import { disp } from './geometry.js?v=40c16947';
+import { WALL } from './maze.js?v=5d2fdc80';
+import { disp } from './geometry.js?v=5d2fdc80';
 
 const STEP = 0.1;
 // placement is tested with the player grown by this much, so every channel it accepts is at least twice

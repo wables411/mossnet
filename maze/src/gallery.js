@@ -4,7 +4,7 @@
 // the site (functions/maze/nft), which reads the chains. The place, the weather and the hour are drawn from the
 // wallet's address, so each wallet has a gallery of its own and finds it the same on every visit.
 import * as THREE from '../lib/three.module.js?v=88cddb5c';
-import { OPEN, WALL } from './maze.js?v=40c16947';
+import { OPEN, WALL } from './maze.js?v=5d2fdc80';
 
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 // pictures to a wall tile: two where the tiles are wide, one where they are narrow, so a picture is never small

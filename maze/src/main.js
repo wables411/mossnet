@@ -1,31 +1,31 @@
 // Lost in the Moss (the 3D moss maze): boot, the level flow, the landing page and the HUD.
 import * as THREE from '../lib/three.module.js?v=88cddb5c';
-import { generateMaze, mulberry32, difficulty } from './maze.js?v=40c16947';
-import { Player, EYE } from './player.js?v=40c16947';
-import { Canopy, Body } from './shadow.js?v=40c16947';
-import { World } from './world.js?v=40c16947';
-import { makeSky } from './sky.js?v=40c16947';
-import { Post } from './post.js?v=40c16947';
-import { Particles } from './particles.js?v=40c16947';
-import { Ambience } from './audio.js?v=40c16947';
-import { records, fmtTime } from './score.js?v=40c16947';
-import { Textures, makeStrandTexture } from './materials.js?v=40c16947';
-import { locationFor, rollWeather, neededTextures, LOCATIONS } from './locations.js?v=40c16947';
-import { wind } from './wind.js?v=40c16947';
-import { Shoots } from './shoots.js?v=40c16947';
-import { Governor } from './governor.js?v=40c16947';
-import { Models } from './models.js?v=40c16947';
-import { updateWhimsy } from './whimsy.js?v=40c16947';
-import { Book, drawBookIcon } from './book.js?v=40c16947';
-import { Finds, FINDS, FIND_ORDER } from './finds.js?v=40c16947';
-import { Satchel } from './satchel.js?v=40c16947';
-import { Flashlight, TORCH_ANGLE } from './torch.js?v=40c16947';
-import { Hands, POSES, HOLD, LIGHT, MOTION } from './hands.js?v=40c16947';
-import { Handheld, remiliaToken } from './handheld.js?v=40c16947';
+import { generateMaze, mulberry32, difficulty } from './maze.js?v=5d2fdc80';
+import { Player, EYE } from './player.js?v=5d2fdc80';
+import { Canopy, Body } from './shadow.js?v=5d2fdc80';
+import { World } from './world.js?v=5d2fdc80';
+import { makeSky } from './sky.js?v=5d2fdc80';
+import { Post } from './post.js?v=5d2fdc80';
+import { Particles } from './particles.js?v=5d2fdc80';
+import { Ambience } from './audio.js?v=5d2fdc80';
+import { records, fmtTime } from './score.js?v=5d2fdc80';
+import { Textures, makeStrandTexture } from './materials.js?v=5d2fdc80';
+import { locationFor, rollWeather, neededTextures, LOCATIONS } from './locations.js?v=5d2fdc80';
+import { wind } from './wind.js?v=5d2fdc80';
+import { Shoots } from './shoots.js?v=5d2fdc80';
+import { Governor } from './governor.js?v=5d2fdc80';
+import { Models } from './models.js?v=5d2fdc80';
+import { updateWhimsy } from './whimsy.js?v=5d2fdc80';
+import { Book, drawBookIcon } from './book.js?v=5d2fdc80';
+import { Finds, FINDS, FIND_ORDER } from './finds.js?v=5d2fdc80';
+import { Satchel } from './satchel.js?v=5d2fdc80';
+import { Flashlight, TORCH_ANGLE } from './torch.js?v=5d2fdc80';
+import { Hands, POSES, HOLD, LIGHT, MOTION } from './hands.js?v=5d2fdc80';
+import { Handheld, remiliaToken } from './handheld.js?v=5d2fdc80';
 import { mountReport } from '../report.js?v=4934f950';
-import { Beetles, SurfaceGrid, beetleOf, beetlePic, beetleGirl, RARITY } from './beetles.js?v=40c16947';
-import { Cloud } from './cloud.js?v=40c16947';
-import { Gallery, galleryWallets, galleryList, galleryRoom, seedOf, shortWallet, GALLERY_MAX } from './gallery.js?v=40c16947';
+import { Beetles, SurfaceGrid, beetleOf, beetlePic, beetleGirl, RARITY } from './beetles.js?v=5d2fdc80';
+import { Cloud } from './cloud.js?v=5d2fdc80';
+import { Gallery, galleryWallets, galleryList, galleryRoom, seedOf, shortWallet, GALLERY_MAX } from './gallery.js?v=5d2fdc80';
 
 const $ = s => document.querySelector(s);
 const params = new URLSearchParams(location.search);
@@ -198,6 +198,7 @@ function focusTarget(now) {
   return player.focusDistance();
 }
 
+const menus = {};      // the start, pause and settings screens' cursors (lcdMenu, below)
 const state = { mode: 'loading', level: 1, mazeTime: 0, runTime: 0, maze: null, diff: null, loc: null, flash: 0, hud: true, lastT: performance.now() / 1000 };
 governor.apply(1);
 
@@ -630,9 +631,17 @@ async function newLevel(level) {
 }
 
 function setMode(m) {
+  const was = state.mode;
   state.mode = m;
   document.body.dataset.mode = m;
   player.enabled = m === 'playing';
+  if (m === 'paused') {
+    // where you are, at the head of the pause screen
+    const G = state.gallery;
+    $('#paused-where').textContent = G ? `the gallery \u00b7 ${G.hung ? G.hung.hung : G.items.length} pictures \u00b7 ${state.loc.name.toLowerCase()}` : `maze ${state.level} \u00b7 ${state.loc ? state.loc.name.toLowerCase() : ''} \u00b7 ${fmtTime(state.mazeTime)} in this maze`;
+    if (was !== 'settings' && menus.paused) menus.paused.reset();      // (back from the settings, the cursor stays on "settings")
+  }
+  if (m === 'settings' && menus.settings) menus.settings.reset();
 }
 
 // --- landing / pause UI
@@ -711,30 +720,51 @@ $('#gallery-open').addEventListener('click', enterGallery);
 function showMossSwitch() { $('#gallery-moss').textContent = `moss nfts in the gallery \u00b7 ${settings.galleryMoss ? 'on' : 'off'}`; }
 $('#gallery-moss').addEventListener('click', () => { settings.galleryMoss = !settings.galleryMoss; applySettings(); showMossSwitch(); });
 showMossSwitch(); showDoors();
-// the menu is worked like the handheld's: up and down move the cursor, enter presses the row (a mouse or a thumb can too)
-{
-  const rows = [...document.querySelectorAll('#menu .row')];
-  let cur = 0, ac = null;
-  // a soft note from one five-note scale for each move, as RemiliaNET's own screens do
-  const blip = n => {
-    if (ambience.muted) return;
-    try {
-      ac = ac || new (window.AudioContext || window.webkitAudioContext)();
-      const o = ac.createOscillator(), g = ac.createGain(), f = 392 * Math.pow(2, [0, 2, 4, 7, 9, 12][n % 6] / 12);
-      o.type = 'triangle'; o.frequency.value = f; g.gain.setValueAtTime(0.0001, ac.currentTime); g.gain.exponentialRampToValueAtTime(0.05, ac.currentTime + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + 0.16);
-      o.connect(g).connect(ac.destination); o.start(); o.stop(ac.currentTime + 0.18);
-    } catch { /* no sound here */ }
-  };
-  const put = (i, quiet) => { cur = (i + rows.length) % rows.length; rows.forEach((r, k) => r.classList.toggle('on', k === cur)); if (!quiet) blip(cur); };
-  rows.forEach((r, i) => { r.addEventListener('pointerenter', () => { if (i !== cur) put(i); }); r.addEventListener('click', () => blip(5)); });
-  put(0, true);
+// The three screens (start, pause, settings) are worked like the handheld's: up and down move the cursor, enter presses
+// the row; on a setting left and right change it. A mouse or a thumb can do all of it too.
+let menuAc = null;
+// a soft note from one five-note scale for each move, as RemiliaNET's own screens do
+function menuBlip(n) {
+  if (ambience.muted) return;
+  try {
+    menuAc = menuAc || new (window.AudioContext || window.webkitAudioContext)();
+    const ac = menuAc, o = ac.createOscillator(), g = ac.createGain(), f = 392 * Math.pow(2, [0, 2, 4, 7, 9, 12][n % 6] / 12);
+    o.type = 'triangle'; o.frequency.value = f; g.gain.setValueAtTime(0.0001, ac.currentTime); g.gain.exponentialRampToValueAtTime(0.05, ac.currentTime + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + 0.16);
+    o.connect(g).connect(ac.destination); o.start(); o.stop(ac.currentTime + 0.18);
+  } catch { /* no sound here */ }
+}
+function lcdMenu(mode, root) {
+  const all = [...root.querySelectorAll('.menu .row')];
+  const rows = () => all.filter(r => r.getClientRects().length);      // (a phone-only row is not there on a desk)
+  let cur = null;
+  const put = (r, quiet) => { cur = r; all.forEach(x => x.classList.toggle('on', x === r)); if (!quiet) menuBlip(rows().indexOf(r)); };
+  const step = d => { const l = rows(); if (!l.length) return; put(l[(Math.max(0, l.indexOf(cur)) + d + l.length) % l.length]); };
+  all.forEach(r => { r.addEventListener('pointerenter', () => { if (r !== cur) put(r); }); r.addEventListener('click', () => menuBlip(5)); });
+  menus[mode] = { reset: () => put(rows()[0], true) };
+  menus[mode].reset();
   addEventListener('keydown', e => {
-    if (state.mode !== 'landing' || document.body.classList.contains('notes') || (e.target && e.target.closest && e.target.closest('input, textarea'))) return;
-    if (e.code === 'ArrowDown' || e.code === 'KeyS') { put(cur + 1); e.preventDefault(); }
-    else if (e.code === 'ArrowUp' || e.code === 'KeyW') { put(cur - 1); e.preventDefault(); }
-    else if (e.code === 'Enter' || e.code === 'Space') { if (!rows[cur].disabled) rows[cur].click(); e.preventDefault(); }
+    if (state.mode !== mode || document.body.classList.contains('notes') || (e.target && e.target.closest && e.target.closest('textarea, input[type=text]'))) return;
+    const input = cur && cur.querySelector('input');
+    if (e.code === 'ArrowDown' || e.code === 'KeyS') { step(1); e.preventDefault(); }
+    else if (e.code === 'ArrowUp' || e.code === 'KeyW') { step(-1); e.preventDefault(); }
+    else if ((e.code === 'ArrowLeft' || e.code === 'ArrowRight' || e.code === 'KeyA' || e.code === 'KeyD') && input) {
+      e.preventDefault();
+      const d = e.code === 'ArrowRight' || e.code === 'KeyD' ? 1 : -1;
+      if (input.type === 'range') { const st = +input.step || 1; input.value = Math.min(+input.max, Math.max(+input.min, +input.value + d * st)).toFixed(2); input.dispatchEvent(new Event('input', { bubbles: true })); menuBlip(d > 0 ? 3 : 1); }
+      else { input.click(); menuBlip(2); }
+    }
+    else if (e.code === 'Enter' || e.code === 'Space') {
+      e.preventDefault();
+      if (!cur || cur.disabled) return;
+      if (input && input.type === 'range') return;
+      cur.click();      // (a row holding a checkbox is its label: the click ticks it)
+    }
+    else if (e.code === 'Escape' && mode === 'settings') { e.preventDefault(); setMode('paused'); }
   });
 }
+lcdMenu('landing', $('#landing'));
+lcdMenu('paused', $('#paused'));
+lcdMenu('settings', $('#settings'));
 $('#enter').addEventListener('click', () => {
   if (state.busy) return;
   if (!doors.rn) { menuSay('to RemiliaNET to sign in'); toFrontPage('signin=remilia'); return; }

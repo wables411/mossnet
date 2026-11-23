@@ -5,15 +5,15 @@
 // is overhead, the moss curtains and crest tufts, the props the location
 // calls for, and the exit opening.
 import * as THREE from '../lib/three.module.js?v=88cddb5c';
-import { WALL } from './maze.js?v=40c16947';
-import { noise3, fbm3 } from './noise.js?v=40c16947';
-import { makeMossMaterial, FACE_MARKS } from './materials.js?v=40c16947';
-import { hangClumpGeometry, MeshBuilder, disp, setCarve, makeLowField, curtainTexture, beardTexture, drapeTexture, vineTexture, grassClumpGeometry, bladeTexture, TUFT_VARIANTS, shaftTexture, glowTexture } from './geometry.js?v=40c16947';
-import { buildCanopy, buildTrees, buildCaveCeiling, buildVaults, buildLogs, buildBoulders, buildMushrooms, buildPlants, buildStream, buildCushions, buildBoughMoss, buildScans, buildLogWalls, buildTrunkWalls, buildWater, wallSpots } from './props.js?v=40c16947';
-import { buildWhimsy } from './whimsy.js?v=40c16947';
-import { mossTypes } from './locations.js?v=40c16947';
-import { makeCardMaterial, cardDepthMaterial, wind } from './wind.js?v=40c16947';
-import { Passability } from './passable.js?v=40c16947';
+import { WALL } from './maze.js?v=5d2fdc80';
+import { noise3, fbm3 } from './noise.js?v=5d2fdc80';
+import { makeMossMaterial, FACE_MARKS } from './materials.js?v=5d2fdc80';
+import { hangClumpGeometry, MeshBuilder, disp, setCarve, makeLowField, curtainTexture, beardTexture, drapeTexture, vineTexture, grassClumpGeometry, bladeTexture, TUFT_VARIANTS, shaftTexture, glowTexture } from './geometry.js?v=5d2fdc80';
+import { buildCanopy, buildTrees, buildCaveCeiling, buildVaults, buildLogs, buildBoulders, buildMushrooms, buildPlants, buildStream, buildCushions, buildBoughMoss, buildScans, buildLogWalls, buildTrunkWalls, buildWater, wallSpots } from './props.js?v=5d2fdc80';
+import { buildWhimsy } from './whimsy.js?v=5d2fdc80';
+import { mossTypes } from './locations.js?v=5d2fdc80';
+import { makeCardMaterial, cardDepthMaterial, wind } from './wind.js?v=5d2fdc80';
+import { Passability } from './passable.js?v=5d2fdc80';
 
 // the photo sets: texture repeats per metre, a tint over the photo, a tint over the moss grown on it
 export const MATERIAL_SPECS = {
